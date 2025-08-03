@@ -1,0 +1,31 @@
+# SoloX 依赖文件
+# 使用经过测试的兼容版本组合
+
+# Web 框架 (兼容版本组合)
+Flask==2.0.3
+Werkzeug==2.0.3
+Jinja2==3.0.1
+
+# WebSocket 支持 (兼容版本组合)
+Flask-SocketIO==4.3.1
+python-socketio==4.6.0
+python-engineio==3.13.2
+
+# 核心依赖
+fire
+logzero
+pyfiglet
+psutil
+
+# 设备通信
+tidevice==0.9.7
+
+# 图像处理
+opencv-python
+
+# HTTP 客户端
+requests>=2.28.2
+
+# 数据处理
+tqdm
+xlwt

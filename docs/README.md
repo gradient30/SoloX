@@ -18,7 +18,8 @@ docs/
 
 scripts/
 ├── install_dependencies.sh     # Linux/macOS 依赖安装脚本
-└── install_dependencies.ps1    # Windows 依赖安装脚本
+├── install_dependencies.ps1    # Windows 依赖安装脚本
+└── verify_setup.py             # setup.py 依赖版本验证脚本
 ```
 
 ## 🚀 快速开始
@@ -82,6 +83,27 @@ pip install --user fire pyfiglet psutil opencv-python tidevice==0.9.7
 - [项目主页](https://github.com/smart-test-ti/SoloX)
 - [PyPI 包](https://pypi.org/project/solox/)
 - [使用文档](https://mp.weixin.qq.com/s?__biz=MzkxMzYyNDM2NA==&mid=2247484506&idx=1&sn=b7eb6de68f84bed03001375d08e08ce9&chksm=c17b9819f60c110fd14e652c104237821b95a13da04618e98d2cf27afa798cb45e53cf50f5bd&token=1402046775&lang=zh_CN&poc_token=HKmRi2WjP7gf9CVwvLWQ2cRhrUR3wmbB9-fNZdD4)
+- [贡献指南](../CONTRIBUTING.md)
+- [更新日志](../CHANGELOG.md)
+
+## 📦 项目文件
+
+### 配置文件
+- `setup.py` - Python 包配置 (已同步兼容版本)
+- `pyproject.toml` - 现代化项目配置
+- `requirements.txt` - 依赖管理
+- `Makefile` - 开发工具集
+- `Dockerfile` - 容器化配置
+- `docker-compose.yml` - 多服务部署
+
+### 自动化脚本
+- `scripts/install_dependencies.sh` - Linux/macOS 依赖安装
+- `scripts/install_dependencies.ps1` - Windows 依赖安装
+- `scripts/verify_setup.py` - 安装验证脚本
+
+### CI/CD
+- `.github/workflows/ci.yml` - GitHub Actions 流水线
+- `nginx/nginx.conf` - Nginx 反向代理配置
 
 ---
 
