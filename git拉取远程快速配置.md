@@ -24,28 +24,41 @@ git push --all origin
 git config --global user.email "gradi@example.com"
 git config --global user.name "Gradi"
 
-#### 7. 设置Git编码配置（解决中文乱码问题）
-
-git config --global core.quotepath off
-git config --global i18n.commitcharset utf-8
-git config --global i18n.logoutputencoding utf-8
-
----
-
-- 永久解决 PowerShell 中文输入问题，建议在 PowerShell 配置文件中添加编码设置
-- echo $PROFILE
-- 如果文件不存在，创建该文件，并添加以下内容
-- $OutputEncoding = New-Object -typename System.Text.UTF8Encoding
----
-
-#### 8. 验证是否生效了
+#### 7. 验证是否生效了
 git config user.email
 git config user.name
 
-#### 9. 提交代码到远程仓库
+#### 8. 提交代码到远程仓库
 git add .
 git commit -m "fix: 修复中文乱码的问题"
 
-#### 10. 同步效果啊
+#### 9. 同步效果
 远程仓库会完全镜像你推送的本地分支结构
 其他协作者可以通过 git fetch --all 获取这些新分支。
+
+
+### 1. Git编码配置
+为解决Git中的乱码问题，需要进行以下配置：
+1. Git 配置（全局设置
+`
+git config --global core.quotepath off
+git config --global i18n.commitencoding utf-8
+git config --global i18n.logoutputencoding utf-8
+git config --global i18n.commitcharset utf-8
+
+`
+2. PowerShell 编码设置
+chcp 65001
+$env:LC_ALL="zh_CN.UTF-8"
+
+3.打开 PowerShell 配置文件（如果没有则创建）
+notepad $PROFILE
+添加如下内容：
+chcp 65001
+$env:LC_ALL="zh_CN.UTF-8"
+
+4.Windows 系统设置
+确保 Windows 系统支持 UTF-8：
+打开"控制面板" -> "区域" -> "管理" -> "更改系统区域设置"
+勾选"Beta版：使用 Unicode UTF-8 提供全球语言支持"
+重启计算机
