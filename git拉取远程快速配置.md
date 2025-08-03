@@ -16,17 +16,36 @@ git pull gradient30 master
 #### 4. 创建并切换到新分支
 git checkout -b solox-gemini
 
-#### 5. 推送到远程（可选 若身份验证失败继续）
+#### 5. 推送到远程（单个/或推送所有）
 git push -u gradient30 solox-gemini
+git push --all origin
 
 #### 6.设置全局提交身份
 git config --global user.email "gradi@example.com"
 git config --global user.name "Gradi"
 
-#### 7. 验证是否生效
+#### 7. 设置Git编码配置（解决中文乱码问题）
+
+git config --global core.quotepath off
+git config --global i18n.commitcharset utf-8
+git config --global i18n.logoutputencoding utf-8
+
+---
+
+- 永久解决 PowerShell 中文输入问题，建议在 PowerShell 配置文件中添加编码设置
+- echo $PROFILE
+- 如果文件不存在，创建该文件，并添加以下内容
+- $OutputEncoding = New-Object -typename System.Text.UTF8Encoding
+---
+
+#### 8. 验证是否生效
 git config user.email
 git config user.name
 
-#### 8. 提交代码到远程仓库
+#### 9. 提交代码到远程仓库
 git add .
-git commit -m "msg:添加git使用说明文档"
+git commit -m "fix: 修复中文乱码问题"
+
+#### 10. 同步效果
+远程仓库会完全镜像你推送的本地分支结构。
+其他协作者可以通过 git fetch --all 获取这些新分支。
