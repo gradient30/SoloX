@@ -1,4 +1,6 @@
-#### 0. 拉取远程仓库
+## 默认已配置"文件"-"设置"-"版本控制"-"github"-"添加对应github授权"
+
+#### 0. 快速拉取远程仓库
 git pull https://github.com/gradient30/SoloX.git
 
 #### 1. 检查当前仓库/远程配置
@@ -14,7 +16,7 @@ git pull gradient30 master
 #### 4. 创建并切换到新分支
 git checkout -b solox-gemini
 
-#### 5. 推送到远程（可选）
+#### 5. 推送到远程（可选 若身份验证失败继续）
 git push -u gradient30 solox-gemini
 
 #### 6.设置全局提交身份
@@ -25,6 +27,6 @@ git config --global user.name "Gradi"
 git config user.email
 git config user.name
 
-#### 8. 提交代码
+#### 8. 提交代码到远程仓库
 git add .
 git commit -m "msg:添加git使用说明文档"
