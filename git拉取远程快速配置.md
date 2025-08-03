@@ -38,7 +38,7 @@ git config --global i18n.logoutputencoding utf-8
 - $OutputEncoding = New-Object -typename System.Text.UTF8Encoding
 ---
 
-#### 8. 验证是否生效
+#### 8. 验证是否生效了
 git config user.email
 git config user.name
 
