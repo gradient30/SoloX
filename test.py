@@ -1,0 +1,1 @@
+test_objc_encode_decode()
