@@ -155,41 +155,7 @@ docker-compose --profile cache up -d
 docker-compose --profile production --profile cache up -d
 ```
 
-### 4. Docker Compose 配置
-
-项目提供了完整的 Docker Compose 配置：
-
-```yaml
-# docker-compose.yml
-version: '3.8'
-
-services:
-  solox:
-    build: .
-    ports:
-      - "50003:50003"
-    volumes:
-      - ./data:/app/data
-      - ./logs:/app/logs
-      - /dev/bus/usb:/dev/bus/usb:rw
-    privileged: true
-    restart: unless-stopped
-
-  nginx:  # 可选的反向代理
-    image: nginx:alpine
-    ports:
-      - "80:80"
-      - "443:443"
-    profiles:
-      - production
-
-  redis:  # 可选的缓存服务
-    image: redis:7-alpine
-    profiles:
-      - cache
-```
-
-### 5. 容器管理
+### 4. 容器管理
 
 ```bash
 # 查看服务状态
@@ -446,22 +412,6 @@ file_handler.setFormatter(logging.Formatter(
 app.logger.addHandler(file_handler)
 ```
 
-### 3. 外部监控集成
-
-```yaml
-# Prometheus 监控配置
-# prometheus.yml
-global:
-  scrape_interval: 15s
-
-scrape_configs:
-  - job_name: 'solox'
-    static_configs:
-      - targets: ['localhost:50003']
-    metrics_path: '/metrics'
-    scrape_interval: 30s
-```
-
 ## 🔧 性能优化
 
 ### 1. 应用优化
@@ -486,26 +436,7 @@ app.run(
 )
 ```
 
-### 2. 数据库优化
-
-```python
-# 使用 Redis 缓存
-import redis
-
-redis_client = redis.Redis(host='localhost', port=6379, db=0)
-
-def cache_performance_data(device_id, data):
-    key = f"perf:{device_id}:{int(time.time())}"
-    redis_client.setex(key, 3600, json.dumps(data))  # 1小时过期
-
-def get_cached_data(device_id, start_time, end_time):
-    pattern = f"perf:{device_id}:*"
-    keys = redis_client.keys(pattern)
-    # 过滤时间范围内的数据
-    return [json.loads(redis_client.get(key)) for key in keys]
-```
-
-### 3. 负载均衡
+### 2. 负载均衡
 
 ```nginx
 # nginx 负载均衡配置
@@ -587,61 +518,6 @@ sudo systemctl start solox
 echo "恢复完成"
 ```
 
-## 📈 扩展部署
-
-### 1. 集群部署
-
-```yaml
-# kubernetes 部署
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: solox
-spec:
-  replicas: 3
-  selector:
-    matchLabels:
-      app: solox
-  template:
-    metadata:
-      labels:
-        app: solox
-    spec:
-      containers:
-      - name: solox
-        image: solox:latest
-        ports:
-        - containerPort: 50003
-        env:
-        - name: SOLOX_HOST
-          value: "0.0.0.0"
-        - name: SOLOX_PORT
-          value: "50003"
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: solox-service
-spec:
-  selector:
-    app: solox
-  ports:
-  - port: 80
-    targetPort: 50003
-  type: LoadBalancer
-```
-
-### 2. 微服务架构
-
-```python
-# 拆分为多个微服务
-# 1. API 网关服务
-# 2. 设备管理服务
-# 3. 数据收集服务
-# 4. 数据分析服务
-# 5. 报告生成服务
-```
-
 ---
 
-*下一步: [故障排除](./08-故障排除.md)*
+*相关文档: [Docker配置](./docker-guide.md) • [运维监控](./monitoring-guide.md) • [故障排除](../05-issues/troubleshooting.md)*

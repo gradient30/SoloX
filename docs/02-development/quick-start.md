@@ -95,7 +95,7 @@ pip install --user pyfiglet psutil opencv-python
 python -c "import solox; print('SoloX 安装成功')"
 ```
 
-### 方法三: 开发环境安装
+### 方法四: 开发环境安装
 
 ```bash
 # 克隆项目
@@ -342,119 +342,6 @@ tidevice list
 curl "http://localhost:50003/apm/collect?platform=Android&deviceid=ca6bd5a5&pkgname=com.example.app&target=cpu"
 ```
 
-## ❗ 常见问题
-
-### 1. 端口被占用
-
-```bash
-# 查看端口占用
-netstat -ano | findstr :50003
-
-# 杀死占用进程 (Windows)
-taskkill /PID <PID> /F
-
-# 或使用其他端口
-python -m solox --port=50004
-```
-
-### 2. 设备连接失败
-
-```bash
-# 重启 ADB 服务
-adb kill-server
-adb start-server
-
-# 检查设备授权
-adb devices
-```
-
-### 3. 依赖安装失败
-
-```bash
-# 升级 pip
-pip install --upgrade pip
-
-# 使用国内镜像
-pip install -i https://mirrors.aliyun.com/pypi/simple/ solox
-
-# 如果遇到权限问题，使用用户级安装
-pip install --user solox
-
-# 如果遇到版本冲突，手动安装兼容版本
-pip install --user Flask==2.0.3 Werkzeug==2.0.3 Flask-SocketIO==4.3.1
-```
-
-### 4. 版本兼容性问题
-
-**常见错误**: `ImportError: cannot import name 'url_quote' from 'werkzeug.urls'`
-
-**解决方案**:
-```bash
-# 安装兼容的 Flask 和 Werkzeug 版本
-pip install --user Flask==2.0.3 Werkzeug==2.0.3
-
-# 安装兼容的 Flask-SocketIO 版本
-pip install --user Flask-SocketIO==4.3.1 python-socketio==4.6.0 python-engineio==3.13.2
-```
-
-**常见错误**: `ModuleNotFoundError: No module named 'fire'`
-
-**解决方案**:
-```bash
-# 安装缺失的依赖
-pip install --user fire pyfiglet psutil opencv-python tidevice==0.9.7
-```
-
-### 5. 完整依赖安装脚本
-
-如果遇到多个依赖问题，可以使用以下完整脚本：
-
-```bash
-#!/bin/bash
-# install_solox_deps.sh - SoloX 依赖安装脚本
-
-echo "开始安装 SoloX 依赖..."
-
-# 核心依赖
-pip install --user fire logzero
-
-# Web 框架依赖 (指定兼容版本)
-pip install --user Flask==2.0.3 Werkzeug==2.0.3
-pip install --user Flask-SocketIO==4.3.1 python-socketio==4.6.0 python-engineio==3.13.2
-
-# 设备通信依赖
-pip install --user tidevice==0.9.7
-
-# 其他依赖
-pip install --user pyfiglet psutil opencv-python
-
-echo "依赖安装完成！"
-echo "验证安装..."
-python -c "import solox; print('✅ SoloX 安装成功')" || echo "❌ 安装验证失败"
-```
-
-**Windows 用户使用 PowerShell 脚本**:
-```powershell
-# install_solox_deps.ps1
-Write-Host "开始安装 SoloX 依赖..." -ForegroundColor Green
-
-# 核心依赖
-pip install --user fire logzero
-
-# Web 框架依赖
-pip install --user Flask==2.0.3 Werkzeug==2.0.3
-pip install --user Flask-SocketIO==4.3.1 python-socketio==4.6.0 python-engineio==3.13.2
-
-# 设备通信依赖
-pip install --user tidevice==0.9.7
-
-# 其他依赖
-pip install --user pyfiglet psutil opencv-python
-
-Write-Host "依赖安装完成！" -ForegroundColor Green
-python -c "import solox; print('✅ SoloX 安装成功')"
-```
-
 ---
 
-*下一步: [开发指南](./04-开发指南.md)*
+*相关文档: [开发指南](./development-guide.md) • [API文档](../04-user-guides/api-documentation.md)*

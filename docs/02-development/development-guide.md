@@ -392,60 +392,7 @@ if __name__ == '__main__':
     unittest.main()
 ```
 
-### 2. 集成测试
-
-```python
-# tests/test_integration.py
-import unittest
-import requests
-import time
-from solox.web import main
-import multiprocessing
-
-class TestIntegration(unittest.TestCase):
-    
-    @classmethod
-    def setUpClass(cls):
-        # 启动测试服务器
-        cls.server_process = multiprocessing.Process(
-            target=main, 
-            args=('127.0.0.1', 50004)
-        )
-        cls.server_process.start()
-        time.sleep(2)  # 等待服务器启动
-        
-        cls.base_url = 'http://127.0.0.1:50004'
-    
-    @classmethod
-    def tearDownClass(cls):
-        cls.server_process.terminate()
-        cls.server_process.join()
-    
-    def test_health_check(self):
-        response = requests.get(f'{self.base_url}/health')
-        self.assertEqual(response.status_code, 200)
-    
-    def test_api_collect(self):
-        url = f'{self.base_url}/apm/collect'
-        params = {
-            'platform': 'Android',
-            'deviceid': 'test_device',
-            'pkgname': 'com.test.app',
-            'target': 'cpu'
-        }
-        
-        response = requests.get(url, params=params)
-        self.assertEqual(response.status_code, 200)
-        
-        data = response.json()
-        self.assertIn('code', data)
-        self.assertIn('data', data)
-
-if __name__ == '__main__':
-    unittest.main()
-```
-
-### 3. 运行测试
+### 2. 运行测试
 
 ```bash
 # 运行所有测试
@@ -545,4 +492,4 @@ stats.print_stats()
 
 ---
 
-*下一步: [API文档](./05-API文档.md)*
+*相关文档: [快速启动](./quick-start.md) • [环境配置](./environment-setup.md) • [贡献指南](../05-issues/contribution-guide.md)*

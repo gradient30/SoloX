@@ -518,4 +518,4 @@ print(f"批量任务: {batch_result}")
 
 ---
 
-*下一步: [性能监控](./06-性能监控.md)*
+*相关文档: [性能监控详解](./performance-monitoring.md) • [快速启动](../02-development/quick-start.md)*

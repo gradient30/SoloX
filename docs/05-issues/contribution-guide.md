@@ -319,16 +319,24 @@ open htmlcov/index.html
 
 ```
 docs/
-├── README.md                # 文档总览
-├── 01-项目概述.md           # 项目介绍
-├── 02-技术架构.md           # 技术架构
-├── 03-快速启动.md           # 快速开始
-├── 04-开发指南.md           # 开发指南
-├── 05-API文档.md            # API 文档
-├── 06-性能监控.md           # 性能监控
-├── 07-部署指南.md           # 部署指南
-├── 08-故障排除.md           # 故障排除
-└── 09-贡献指南.md           # 贡献指南
+├── 01-architecture/          # 架构设计
+│   ├── project-overview.md   # 项目概述
+│   ├── technical-architecture.md  # 技术架构
+│   └── system-design.md      # 系统设计
+├── 02-development/           # 开发指南
+│   ├── quick-start.md        # 快速启动
+│   ├── development-guide.md  # 开发指南
+│   └── environment-setup.md  # 环境配置
+├── 03-deployment/            # 部署指南
+│   ├── deployment-guide.md   # 部署指南
+│   └── docker-guide.md       # Docker 指南
+├── 04-user-guides/           # 用户指南
+│   ├── api-documentation.md  # API 文档
+│   └── performance-monitoring.md  # 性能监控
+└── 05-issues/                # 问题解决
+    ├── troubleshooting.md    # 故障排除
+    ├── contribution-guide.md # 贡献指南
+    └── faq.md                # 常见问题
 ```
 
 ### 2. 文档规范
@@ -513,7 +521,7 @@ curl "http://localhost:50003/apm/collect?platform=Android&deviceid=ca6bd5a5&pkgn
 
 ## 📄 许可证
 
-通过贡献代码，您同意您的贡献将在 [MIT 许可证](../LICENSE) 下发布。
+通过贡献代码，您同意您的贡献将在 [MIT 许可证](../../LICENSE) 下发布。
 
 ---
 

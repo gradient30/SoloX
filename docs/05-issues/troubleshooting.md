@@ -630,4 +630,4 @@ tail -50 /var/log/solox/solox.log
 
 ---
 
-*下一步: [贡献指南](./09-贡献指南.md)*
+*相关文档: [贡献指南](./contribution-guide.md) • [FAQ](./faq.md) • [部署指南](../03-deployment/deployment-guide.md)*

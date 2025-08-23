@@ -106,4 +106,4 @@
 
 ---
 
-*下一步: [技术架构](./02-技术架构.md)*
+*相关文档: [技术架构](./technical-architecture.md) • [系统设计](./system-design.md)*
