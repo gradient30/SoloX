@@ -1,5 +1,5 @@
 <p align="center">
-  <a>中文</a> | <a href="./README.md">English</a> | <a href="./FAQ.md">FAQ</a> | <a href="https://mp.weixin.qq.com/s?__biz=MzkxMzYyNDM2NA==&mid=2247484506&idx=1&sn=b7eb6de68f84bed03001375d08e08ce9&chksm=c17b9819f60c110fd14e652c104237821b95a13da04618e98d2cf27afa798cb45e53cf50f5bd&token=1402046775&lang=zh_CN&poc_token=HKmRi2WjP7gf9CVwvLWQ2cRhrUR3wmbB9-fNZdD4" target="__blank">使用文档</a>
+  <a>中文</a> | <a href="./README.md">English</a> | <a href="./docs/05-issues/faq.md">FAQ</a> | <a href="./docs/README.md">📖 完整文档</a>
 </p>
 
 <p align="center">
@@ -8,149 +8,177 @@
 </a>
 <br>
 </p>
+
 <p align="center">
 <a href="https://pypi.org/project/solox/" target="__blank"><img src="https://img.shields.io/pypi/v/solox" alt="solox preview"></a>
 <a href="https://pepy.tech/project/solox" target="__blank"><img src="https://static.pepy.tech/personalized-badge/solox?period=total&units=international_system&left_color=grey&right_color=orange&left_text=downloads"></a>
 <br>
 </p>
 
-## 🔎简介
+## 🔎 简介
 
-SoloX是一个可以实时收集Android/iOS性能数据的web工具。
+SoloX 是一个专业的移动应用性能监控工具，可以实时收集 Android/iOS 性能数据。
 
-快速定位分析性能问题，提升应用的性能和品质。无需ROOT/越狱，即插即用。
+快速定位分析性能问题，提升应用的性能和品质。无需 ROOT/越狱，即插即用。
 
-![10 161 9 178_50003__platform=Android lan=en (1)](https://github.com/smart-test-ti/SoloX/assets/24454096/603895cd-730f-434c-807f-22333d10e633)
+![SoloX 界面](https://github.com/smart-test-ti/SoloX/assets/24454096/603895cd-730f-434c-807f-22333d10e633)
 
-## 📦环境
+## 📦 环境要求
 
-- 安装 Python 3.10 + [**Download**](https://www.python.org/downloads/)
-- 安装 adb和配置好环境变量 (SoloX自带的adb不一定适配你的电脑，建议自己安装) [**Download**](https://developer.android.com/studio/releases/platform-tools)
+- 安装 Python 3.10+ [**下载**](https://www.python.org/downloads/)
+- 安装 adb 和配置环境变量 [**下载**](https://developer.android.com/studio/releases/platform-tools)
 
-💡 如果Windows用户需要测试iOS，请先安装Itunes. [**参考**](https://github.com/alibaba/taobao-iphone-device)  （不支持iOS17）
+💡 Windows 用户测试 iOS 需要先安装 iTunes [**参考**](https://github.com/alibaba/taobao-iphone-device) （不支持 iOS 17）
 
-## 📥安装
+## 📥 安装
 
-### 默认
-
-```shell
-pip install -U solox (指定版本：pip install solox==版本)
-```
-
-### 镜像
+### 默认安装
 
 ```shell
-pip install -i  https://mirrors.ustc.edu.cn/pypi/web/simple -U solox
+pip install -U solox
 ```
 
-💡 如果你的网络无法通过 [pip install -U solox] 下载, 可以尝试使用镜像下载，但是可能不是最新版本.
+### 使用镜像
 
-## 🚀启动
+```shell
+pip install -i https://mirrors.ustc.edu.cn/pypi/web/simple -U solox
+```
 
-### 默认
+💡 如果网络无法通过 `pip install -U solox` 下载，可以尝试使用镜像下载，但可能不是最新版本。
+
+## 🚀 快速启动
+
+### 默认启动
 
 ```shell
 python -m solox
 ```
 
-### 自定义
+### 自定义启动
 
 ```shell
 python -m solox --host={ip} --port={port}
 ```
 
-## 🏴󠁣󠁩󠁣󠁭󠁿使用python收集
+## 🐍 Python API 使用
 
 ```python
-# solox version : >= 2.9.0
 from solox.public.apm import AppPerformanceMonitor
 from solox.public.common import Devices
 
+# 获取设备列表
 d = Devices()
-processList = d.getPid(deviceId='ca6bd5a5', pkgName='com.bilibili.app.in') # for android
-print(processList) # ['{pid}:{packagename}',...]，一个app可能会有多个进程，如果需要指定pid，可以从这里获取
+devices = d.getDeviceIds()
+print(f"连接的设备: {devices}")
 
-apm = AppPerformanceMonitor(pkgName='com.bilibili.app.in',platform='Android', deviceId='ca6bd5a5', surfaceview=True, 
-                            noLog=False, pid=None, record=False, collect_all=False)
-# apm = AppPerformanceMonitor(pkgName='com.bilibili.app.in', platform='iOS')
-# surfaceview： 为False时是使用gfxinfo方式，需要在手机上设置：(手机开发者 - GPU渲染模式 - adb shell dumpsys gfxinfo) 不推荐使用这种方式
-# noLog : False (保存测试数据到log文件中)
+# 获取应用进程
+processes = d.getPid(deviceId='ca6bd5a5', pkgName='com.example.app')
+print(f"应用进程: {processes}")
 
-# ************* 收集单个性能参数 ************* #
-cpu = apm.collectCpu() # %
-memory = apm.collectMemory() # MB
-memory_detail = apm.collectMemoryDetail() # MB
-network = apm.collectNetwork(wifi=True) # KB , wifi=False时是收集移动数据流量，手机会自动关闭wifi切换到移动网络
-fps = apm.collectFps() # HZ
-battery = apm.collectBattery() # level:% temperature:°C current:mA voltage:mV power:w
-gpu = apm.collectGpu() # % 安卓只支持高通芯片的手机
-disk = apm.collectDisk() # KB
-thermal = apm.collectThermal() #温度传感器，收集各个部件的温度（一些手机可能没有权限）
+# 创建性能监控实例
+apm = AppPerformanceMonitor(
+    pkgName='com.example.app',
+    platform='Android',
+    deviceId='ca6bd5a5',
+    surfaceview=True,
+    noLog=False
+)
 
-# ************* 收集所有性能参数 ************* #
- 
-if __name__ == '__main__':  #必须要在__name__ == '__main__'里面执行
-  apm = AppPerformanceMonitor(pkgName='com.bilibili.app.in',platform='Android', deviceId='ca6bd5a5', surfaceview=True, 
-                              noLog=False, pid=None, record=False, collect_all=True, duration=0)
-  # apm = AppPerformanceMonitor(pkgName='com.bilibili.app.in', platform='iOS',  deviceId='xxxx', noLog=False, record=False, collect_all=True, duration=0)
-  #duration: 执行时长（秒），只有>0的时候才生效，=0时会持续执行
-  #record: 是否录制
-  apm.collectAll(report_path=None) # report_path='/test/report.html', None则保存在默认路径
-
-# 在另外的python脚本中可以主动终止solox服务，无需等待设置的执行时长结束
-from solox.public.apm import initPerformanceService  
-
-initPerformanceService.stop()
+# 收集性能数据
+cpu = apm.collectCpu()          # CPU 使用率 %
+memory = apm.collectMemory()    # 内存使用 MB
+network = apm.collectNetwork()  # 网络流量 KB
+fps = apm.collectFps()          # FPS 帧率
+battery = apm.collectBattery()  # 电池信息
 ```
 
-## 🏴󠁣󠁩󠁣󠁭󠁿使用API收集
+## 🔥 核心功能
+
+* **无需 ROOT/越狱**: Android 设备无需 ROOT，iOS 设备无需越狱
+* **全面监控**: 支持 CPU、内存、网络、FPS、电池、GPU 等多维度监控
+* **实时分析**: 美观的实时数据可视化和性能分析
+* **跨平台支持**: 同时支持 Android 和 iOS 平台
+* **易于集成**: 提供 Python API 和 RESTful 接口，便于 CI/CD 集成
+* **美观报告**: 详细的性能分析报告和数据可视化
+
+## 📚 文档中心
+
+### 📖 [完整文档](./docs/README.md)
+
+- 📐 [**架构设计**](./docs/01-architecture/) - 技术架构和系统设计
+- 🛠️ [**开发指南**](./docs/02-development/) - 开发环境和编码规范  
+- 🚀 [**部署运维**](./docs/03-deployment/) - 生产部署和 Docker 配置
+- 📖 [**用户指南**](./docs/04-user-guides/) - API 文档和监控指南
+- ❓ [**问题解决**](./docs/05-issues/) - 故障排除和常见问题
+
+### 快速链接
+
+- 🚀 [快速启动指南](./docs/02-development/quick-start.md)
+- 📊 [API 接口文档](./docs/04-user-guides/api-documentation.md)
+- 🔧 [故障排除指南](./docs/05-issues/troubleshooting.md)
+- ❓ [常见问题 FAQ](./docs/05-issues/faq.md)
+
+## 🔧 API 服务
 
 ### 后台启动服务
 
-```
-# solox version >= 2.8.7
+```shell
+# macOS/Linux
+nohup python3 -m solox &
 
-macOS/Linux: nohup python3 -m solox &
-Windows: start /min python3 -m solox &
+# Windows
+start /min python3 -m solox &
 ```
 
-### 通过api请求数据
+### 通过 API 请求数据
 
 ```shell
-Android: http://{ip}:{port}/apm/collect?platform=Android&deviceid=ca6bd5a5&pkgname=com.bilibili.app.in&target=cpu
-iOS: http://{ip}:{port}/apm/collect?platform=iOS&pkgname=com.bilibili.app.in&target=cpu
+# Android
+http://localhost:50003/apm/collect?platform=Android&deviceid=ca6bd5a5&pkgname=com.example.app&target=cpu
 
-target in ['cpu','memory','memory_detail','network','fps','battery','gpu']
+# iOS
+http://localhost:50003/apm/collect?platform=iOS&pkgname=com.example.app&target=cpu
+
+# 支持的监控目标: cpu, memory, network, fps, battery, gpu
 ```
 
-## 🔥功能
+## 🎯 应用场景
 
-* **无需ROOT/越狱:** Android设备无需ROOT，iOS设备无需越狱。高效解决Android & iOS性能测试分析难题。
-* **数据完整性:** 可提供FPS、Jank、CPU、GPU、Memory、Battery 、Network、Disk等性能参数，这些您都可以轻松获得。
-* **美观的报告看板:** 报告看板，您可以随时随地存储、可视化、编辑、管理和下载使用任何版本的SoloX收集的所有测试数据。
-* **好用的监控设置:** 支持在监控过程中设置告警值、收集时长、访问其他PC机器的移动设备。
-* **比对模式:** 支持两台移动设备同时对比测试。
+- **移动应用性能测试**: 启动性能分析、内存泄漏检测、CPU 监控
+- **自动化测试集成**: CI/CD 流水线集成、性能回归测试
+- **开发调试辅助**: 实时性能监控、问题定位分析
+- **竞品性能分析**: 不同应用间的性能对比测试
 
-  - 🌱2-devices: 使用两台不同的设备测试同一个app。
-  - 🌱2-apps: 使用两台配置相同的设备测试两个不同的app。
-* **API收集性能数据:** 支持python、API收集性能数据，帮助用户轻松集成在CI/CD流程。
+## 🌟 支持的监控指标
 
-## 浏览器
+| 监控指标 | Android | iOS | 说明 |
+|---------|---------|-----|------|
+| 🔥 CPU 使用率 | ✅ | ✅ | 应用和系统 CPU 占用 |
+| 🧠 内存使用 | ✅ | ✅ | 内存占用和详细分析 |
+| 🌐 网络流量 | ✅ | ✅ | 上行/下行流量统计 |
+| 🎮 FPS 帧率 | ✅ | ✅ | 界面渲染帧率和卡顿检测 |
+| 🔋 电池信息 | ✅ | ✅ | 电量、温度、功耗等 |
+| 🎨 GPU 使用率 | ✅ | ❌ | GPU 占用率（仅 Android） |
 
-<img src="https://cdn.nlark.com/yuque/0/2023/png/153412/1677553244198-96ce5709-f33f-4038-888f-f330d1f74450.png" alt="Chrome" width="50px" height="50px" />
+## 🤝 参与贡献
 
-## 终端
+我们欢迎各种形式的贡献！请查看 [贡献指南](./docs/05-issues/contribution-guide.md) 了解详情。
 
-- windows: PowerShell
-- macOS：iTerm2 (https://iterm2.com/)
+## 📄 开源许可
 
-## 💕感谢
+本项目基于 MIT 许可证开源 - 查看 [LICENSE](LICENSE) 文件了解详情。
 
-- https://github.com/alibaba/taobao-iphone-device
-- https://github.com/Genymobile/scrcpy
+## 💕 致谢
 
-## 联系
+- [taobao-iphone-device](https://github.com/alibaba/taobao-iphone-device)
+- [scrcpy](https://github.com/Genymobile/scrcpy)
 
-关注公众号，直接发私信，作者看到就回复
+## 📞 联系我们
+
+关注公众号，直接发私信，作者看到就回复：
 
 <img src="https://github.com/smart-test-ti/.github/assets/24454096/fadb328d-c136-460a-b30d-a98d9036d882" alt="SmartTest" width="300">
+
+---
+
+⭐ **如果这个项目对你有帮助，请给我们一个 Star！**
