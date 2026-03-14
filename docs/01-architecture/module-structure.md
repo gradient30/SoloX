@@ -12,6 +12,7 @@ solox/
 │   ├── __init__.py
 │   ├── apm.py              # 性能监控核心模块
 │   ├── apm_pk.py           # 对比测试模块
+│   ├── android_fps.py      # Android FPS 采集引擎 (含游戏引擎支持)
 │   ├── common.py           # 公共工具类
 │   ├── adb/                # Android ADB 工具
 │   ├── scrcpy/             # 屏幕录制工具
@@ -106,6 +107,41 @@ class AppPerformanceMonitor:
 - 双设备性能对比测试
 - 性能基准建立
 - 对比报告生成
+
+#### `public/android_fps.py` - Android FPS 采集引擎
+```python
+# 游戏引擎 Activity 模式匹配
+GAME_ENGINE_PATTERNS = {
+    'unity': ['com.unity3d.player.UnityPlayerActivity', ...],
+    'unreal': ['com.epicgames.ue4.GameActivity', ...],
+    'cocos': ['org.cocos2dx.lib.Cocos2dxActivity', ...],
+    'laya': ['com.layabox.game', ...],
+}
+
+class GameSurfaceDetector:
+    """游戏引擎渲染 Surface 检测器
+    - 解析 dumpsys SurfaceFlinger --list
+    - 识别游戏引擎 Surface 命名模式
+    - 支持 Android 8.x-16.x 全版本格式
+    - 返回优先级排序的候选 Surface 列表
+    """
+
+class SurfaceStatsCollector:
+    """FPS 帧率采集器
+    - SurfaceFlinger --latency 模式 (SurfaceView)
+    - gfxinfo framestats 模式 (标准应用)
+    - 游戏引擎自动检测和模式切换
+    - 多 Surface 回退机制
+    - Page flip count 兜底方案
+    """
+```
+
+**功能**:
+- Android FPS 和 Jank 采集
+- 游戏引擎 (Unity/UE4/UE5/Cocos/Laya) 自动识别
+- 多 Surface 回退策略
+- Android 8.x-16.x 全版本兼容
+- Page flip count 兜底 FPS 采集
 
 ### 3. 设备管理模块
 
@@ -220,6 +256,7 @@ web.py
 ├── view/pages.py
 └── public/
     ├── apm.py
+    │   └── android_fps.py (GameSurfaceDetector, SurfaceStatsCollector)
     ├── common.py
     ├── adb/
     └── iosperf/
@@ -266,4 +303,4 @@ web.py
 - [系统设计](./system-design.md) - 系统架构设计
 - [技术栈](./technology-stack.md) - 技术选型详情
 
-*最后更新: 2025-08-23*
+*最后更新: 2026-03-14*

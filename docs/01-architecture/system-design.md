@@ -142,6 +142,7 @@ graph TD
 
 ### 服务层 (Service Layer)
 - **APM核心**: 性能监控核心逻辑
+- **FPS采集引擎**: GameSurfaceDetector + SurfaceStatsCollector，支持游戏引擎自动检测
 - **设备管理**: 设备发现、连接和状态管理
 - **任务调度**: 监控任务的调度和管理
 - **缓存服务**: 数据缓存和临时存储

@@ -78,6 +78,7 @@ solox/
 │   ├── __init__.py
 │   ├── apm.py              # 性能监控核心模块
 │   ├── apm_pk.py           # 对比测试模块
+│   ├── android_fps.py      # Android FPS 采集引擎 (含游戏引擎支持)
 │   ├── common.py           # 公共工具类
 │   └── scrcpy/             # 屏幕录制工具
 ├── view/                    # Web 视图层
@@ -123,15 +124,51 @@ class AppPerformanceMonitor:
 ```python
 class Devices:
     """设备管理类"""
-    
+
     def getDeviceIds(self):
         """获取连接的设备列表"""
-        
+
     def getPid(self, deviceId, pkgName):
         """获取应用进程 ID"""
-        
+
     def devicesCheck(self, platform, deviceid, pkgname):
         """设备环境检查"""
+```
+
+### 3. Android FPS 采集模块 (android_fps.py)
+
+```python
+class GameSurfaceDetector:
+    """游戏引擎渲染 Surface 检测器
+
+    支持的游戏引擎: Unity, UE4/5, Cocos2d-x/Creator, Laya
+    支持的 Android 版本: 8.x-16.x (API 26+)
+
+    Surface 名称格式:
+    - Android 8-11:  SurfaceView - pkg/Activity#N
+    - Android 12+:   SurfaceView[pkg](BLAST)#N
+    - Android 14+:   pkg/Activity#N (可能省略 SurfaceView 前缀)
+    """
+
+    def get_candidate_surfaces(self):
+        """获取优先级排序的候选 Surface 列表"""
+
+    def is_game_surface(self, surface_name):
+        """检测 Surface 是否属于游戏引擎"""
+
+    def detect_game_engine(self, surface_name):
+        """检测游戏引擎类型 (unity/unreal/cocos/laya)"""
+
+class SurfaceStatsCollector:
+    """FPS 采集器 - 支持三种采集策略:
+
+    1. SurfaceFlinger --latency (SurfaceView 模式，游戏优先)
+    2. gfxinfo framestats (标准应用模式)
+    3. Page flip count 回退 (兜底方案)
+
+    游戏引擎自动检测: 当 surfaceview=False 时，自动检测
+    游戏引擎并切换到 SurfaceView 模式，确保 FPS 采集可靠性
+    """
 ```
 
 ### 3. Web 服务模块 (web.py)

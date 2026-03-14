@@ -41,7 +41,10 @@
 * **监控模式**: 支持SurfaceView和gfxinfo两种方式，可以切换尝试是否收集到数据
 * **设置要求**: 如果使用gfxinfo方式需要到手机设置：开发者 → GPU渲染模式 → adb shell dumpsys gfxinfo
 * **界面状态**: 界面相对静止的fps预期就是0，请检查页面是否滑动和动态
-* **游戏兼容**: 游戏类的APP大部分机器不支持，多使用华为的机器
+* **游戏兼容**: 已支持主流游戏引擎 (Unity, UE4/5, Cocos2d-x/Creator, Laya)。游戏应用会自动检测引擎类型并切换到 SurfaceView 模式采集 FPS，无论用户选择哪种模式。如果游戏 FPS 仍为 0，请确认：
+  - 游戏已在前台运行且画面有动态更新
+  - 设备通过 `adb devices` 可正常识别
+  - 尝试手动选择 SurfaceView 模式
 
 ## 6️⃣ 为什么"python -m solox"会运行失败？
 

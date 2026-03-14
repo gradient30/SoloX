@@ -326,8 +326,11 @@ adb shell am start -n com.example.app/.MainActivity
 - SurfaceView 模式不支持
 - 应用未在前台
 - 权限不足
+- 游戏引擎应用未被正确检测
 
 **解决方案**:
+
+**标准应用 (非游戏)**:
 ```python
 # 1. 切换到 GfxInfo 模式
 apm = AppPerformanceMonitor(
@@ -342,6 +345,35 @@ apm = AppPerformanceMonitor(
 
 # 3. 检查开发者选项
 # 开发者选项 → GPU 呈现模式分析 → 在 adb shell dumpsys gfxinfo 中
+```
+
+**游戏应用 (Unity/UE4/Cocos/Laya)**:
+```python
+# 游戏应用推荐使用 SurfaceView 模式
+apm = AppPerformanceMonitor(
+    pkgName='com.example.game',
+    platform='Android',
+    deviceId='your_device',
+    surfaceview=True  # 游戏应用推荐 SurfaceView 模式
+)
+
+# 即使设置 surfaceview=False，SoloX 也会自动检测游戏引擎
+# 并切换到 SurfaceView 模式
+```
+
+**如果游戏 FPS 仍然为 0**:
+```bash
+# 1. 确认设备上的 SurfaceFlinger 可以列出 Surface
+adb shell dumpsys SurfaceFlinger --list | grep <包名>
+
+# 2. 检查 SurfaceFlinger latency 是否返回有效数据
+adb shell dumpsys SurfaceFlinger --latency "SurfaceView - <包名>/<Activity>#0"
+
+# 3. 如果上述命令返回全 0，检查 page flip count
+adb shell service call SurfaceFlinger 1013
+# 正常返回: Result: Parcel(XXXXXXXX '...') — 其中 XXXXXXXX 为十六进制计数
+
+# 4. 确认游戏画面确实在更新 (静止画面 FPS 预期为 0)
 ```
 
 ### 4. Web 界面问题

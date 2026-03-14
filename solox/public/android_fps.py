@@ -158,55 +158,157 @@ class SurfaceStatsCollector(object):
         self._game_detector = None
         self._use_page_flip = False
 
-    def start(self, start_time):
+    def _init_surface(self):
+        """Initialize game detector and resolve the target surface.
+
+        Shared setup for both threaded (start) and synchronous (collect_oneshot)
+        FPS collection modes.
+        """
         self._game_detector = GameSurfaceDetector(self.device, self.package_name)
 
-        if not self.use_legacy_method:
-            try:
-                # Check if we should prefer page flip (Android 8.x + game app)
-                if self._game_detector.should_prefer_page_flip():
-                    candidates = self._game_detector.get_candidate_surfaces()
-                    has_game_surface = any(self._game_detector.is_game_surface(s) for s in candidates)
-                    if has_game_surface:
-                        logger.info('Android 8.x detected with game engine app, using page flip count method')
-                        self._use_page_flip = True
-
-                if not self._use_page_flip:
-                    # Auto-detect game engines and force surfaceview mode.
-                    # Game engines (Unity/UE/Cocos/Laya) render via OpenGL/Vulkan,
-                    # bypassing Android's View system. gfxinfo framestats returns
-                    # no useful data for them, so SurfaceView latency is the only
-                    # reliable method.
-                    if not self.surfaceview:
-                        candidates = self._game_detector.get_candidate_surfaces()
-                        is_game = any(self._game_detector.is_game_surface(s) for s in candidates)
-                        if is_game:
-                            logger.info('Game engine detected with surfaceview=False, '
-                                        'auto-switching to SurfaceView mode for reliable FPS')
-                            self.surfaceview = True
-
-                    if self.surfaceview:
-                        self.focus_window = self.get_surfaceview()
-                    else:
-                        self.focus_window = self.get_focus_activity()
-
-                    if self.focus_window and '$' in self.focus_window:
-                        self.focus_window = self.focus_window.replace('$', '\\$')
-
-                    if not self.focus_window:
-                        logger.warning('Could not find focus window, will try multi-surface detection')
-            except Exception:
-                logger.warning('Unable to get activity/surface, trying page flip fallback')
-                traceback.print_exc()
-                self._use_page_flip = True
-        else:
-            self.use_legacy_method = True
+        if self.use_legacy_method:
             self.surface_before = self._get_surface_stats_legacy()
+            return
+
+        try:
+            # Check if we should prefer page flip (Android 8.x + game app)
+            if self._game_detector.should_prefer_page_flip():
+                candidates = self._game_detector.get_candidate_surfaces()
+                has_game_surface = any(self._game_detector.is_game_surface(s) for s in candidates)
+                if has_game_surface:
+                    logger.info('Android 8.x detected with game engine app, using page flip count method')
+                    self._use_page_flip = True
+
+            if not self._use_page_flip:
+                # Auto-detect game engines and force surfaceview mode.
+                # Game engines (Unity/UE/Cocos/Laya) render via OpenGL/Vulkan,
+                # bypassing Android's View system. gfxinfo framestats returns
+                # no useful data for them, so SurfaceView latency is the only
+                # reliable method.
+                if not self.surfaceview:
+                    candidates = self._game_detector.get_candidate_surfaces()
+                    is_game = any(self._game_detector.is_game_surface(s) for s in candidates)
+                    if is_game:
+                        logger.info('Game engine detected with surfaceview=False, '
+                                    'auto-switching to SurfaceView mode for reliable FPS')
+                        self.surfaceview = True
+
+                if self.surfaceview:
+                    self.focus_window = self.get_surfaceview()
+                else:
+                    self.focus_window = self.get_focus_activity()
+
+                if self.focus_window and '$' in self.focus_window:
+                    self.focus_window = self.focus_window.replace('$', '\\$')
+
+                if not self.focus_window:
+                    logger.warning('Could not find focus window, will try multi-surface detection')
+        except Exception:
+            logger.warning('Unable to get activity/surface, trying page flip fallback')
+            traceback.print_exc()
+            self._use_page_flip = True
+
+    def start(self, start_time):
+        self._init_surface()
+
+        if self.use_legacy_method:
+            pass  # surface_before already set in _init_surface
 
         self.collector_thread = threading.Thread(target=self._collector_thread)
         self.collector_thread.start()
         self.calculator_thread = threading.Thread(target=self._calculator_thread, args=(start_time,))
         self.calculator_thread.start()
+
+    def collect_oneshot(self):
+        """Synchronous one-shot FPS measurement — no threads, no race conditions.
+
+        Strategy:
+        1. Read SurfaceFlinger buffer → establish baseline (last timestamp)
+        2. Sleep exactly 1 second to let new frames accumulate
+        3. Read buffer again → count only frames newer than baseline
+        4. FPS = (new_frame_count - 1) / time_span_of_new_frames
+
+        This measures the *actual* rendering rate over a precise 1-second
+        window, unaffected by ADB overhead or thread scheduling.
+        """
+        self._init_surface()
+
+        # --- Page flip or legacy path: simple delta over 1s ---
+        if self._use_page_flip:
+            return self._get_fps_by_page_flip()
+
+        if self.use_legacy_method:
+            before = self._get_surface_stats_legacy()
+            if not before:
+                return 0, 0
+            time.sleep(1.0)
+            after = self._get_surface_stats_legacy()
+            if not after:
+                return 0, 0
+            td = after['timestamp'] - before['timestamp']
+            seconds = td.seconds + td.microseconds / 1e6
+            frame_count = after['page_flip_count'] - before['page_flip_count']
+            fps = int(round(frame_count / seconds)) if seconds > 0 else 0
+            return min(fps, 60), 0
+
+        # --- SurfaceFlinger latency path ---
+        nanoseconds_per_second = 1e9
+        pending_fence_timestamp = (1 << 63) - 1
+
+        # Step 1: Read buffer to get baseline timestamp
+        if self.surfaceview is not True:
+            refresh_period, baseline_ts = self._get_frame_data_from_gfxinfo(
+                nanoseconds_per_second, pending_fence_timestamp)
+        else:
+            refresh_period, baseline_ts = self._get_frame_data_from_surfaceflinger(
+                nanoseconds_per_second, pending_fence_timestamp)
+
+        if not baseline_ts:
+            # No baseline data; try page flip as last resort
+            return self._get_fps_by_page_flip()
+
+        baseline_last = baseline_ts[-1][1]
+
+        # Step 2: Wait exactly 1 second for fresh frames
+        time.sleep(1.0)
+
+        # Step 3: Read buffer again
+        if self.surfaceview is not True:
+            refresh_period2, new_ts = self._get_frame_data_from_gfxinfo(
+                nanoseconds_per_second, pending_fence_timestamp)
+        else:
+            refresh_period2, new_ts = self._get_frame_data_from_surfaceflinger(
+                nanoseconds_per_second, pending_fence_timestamp)
+
+        if not new_ts:
+            return self._get_fps_by_page_flip()
+
+        # Step 4: Keep only frames newer than the baseline
+        fresh_frames = [t for t in new_ts if t[1] > baseline_last]
+
+        if len(fresh_frames) == 0:
+            return 0, 0
+        if len(fresh_frames) == 1:
+            return 1, 0
+
+        # Step 5: Calculate FPS from the fresh frame window
+        rp = refresh_period2 if refresh_period2 else refresh_period
+        seconds = fresh_frames[-1][1] - fresh_frames[0][1]
+        if seconds <= 0:
+            return 1, 0
+
+        fps = int(round((len(fresh_frames) - 1) / seconds))
+
+        # Cap at display refresh rate
+        if rp and rp > 0:
+            max_fps = int(round(1.0 / rp)) + 1
+            fps = min(fps, max_fps)
+
+        # Jank from fresh frames
+        jank = self._calculate_jankey_new(fresh_frames) if len(fresh_frames) > 4 \
+            else self._calculate_janky(fresh_frames)
+
+        return fps, jank
 
     def stop(self):
         if self.collector_thread:
@@ -372,6 +474,12 @@ class SurfaceStatsCollector(object):
         return fps, jank
 
     def _calculate_results_new(self, refresh_period, timestamps):
+        """Calculate FPS and jank from frame timestamps.
+
+        FPS = (frame_count - 1) / time_span, where time_span is measured
+        only across real frame timestamps (no artificial bridging).
+        Result is capped at the display refresh rate to prevent spikes.
+        """
         frame_count = len(timestamps)
         if frame_count == 0:
             fps = 0
@@ -379,7 +487,7 @@ class SurfaceStatsCollector(object):
         elif frame_count == 1:
             fps = 1
             jank = 0
-        elif frame_count == 2 or frame_count == 3 or frame_count == 4:
+        elif frame_count <= 4:
             seconds = timestamps[-1][1] - timestamps[0][1]
             if seconds > 0:
                 fps = int(round((frame_count - 1) / seconds))
@@ -395,6 +503,10 @@ class SurfaceStatsCollector(object):
             else:
                 fps = 1
                 jank = 0
+        # Cap at display refresh rate + 1 to prevent spurious spikes
+        if refresh_period and refresh_period > 0:
+            max_fps = int(round(1.0 / refresh_period)) + 1
+            fps = min(fps, max_fps)
         return fps, jank
 
     def _calculate_jankey_new(self, timestamps):
@@ -480,7 +592,6 @@ class SurfaceStatsCollector(object):
                     self.fps_queue.task_done()
 
     def _collector_thread(self):
-        is_first = True
         consecutive_failures = 0
         max_failures_before_fallback = 3
 
@@ -521,16 +632,16 @@ class SurfaceStatsCollector(object):
                     # Got valid data - reset failure counter
                     consecutive_failures = 0
 
+                    # Filter to only new frames since last collection.
+                    # Do NOT prepend a bridge timestamp — the gap between
+                    # collection windows (ADB latency + sleep) contains no
+                    # real frames, so including it in the time denominator
+                    # would systematically underreport FPS.
                     timestamps += [timestamp for timestamp in new_timestamps
                                    if timestamp[1] > self.last_timestamp]
                     if len(timestamps):
-                        first_timestamp = [[0, self.last_timestamp, 0]]
-                        if not is_first:
-                            timestamps = first_timestamp + timestamps
                         self.last_timestamp = timestamps[-1][1]
-                        is_first = False
                     else:
-                        is_first = True
                         if not self.surfaceview:
                             cur_focus_window = self.get_focus_activity()
                             if self.focus_window != cur_focus_window:

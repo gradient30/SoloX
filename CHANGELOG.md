@@ -8,6 +8,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- 游戏引擎 FPS 采集支持 (Unity, Unreal Engine 4/5, Cocos2d-x/Creator, Laya)
+- `GameSurfaceDetector` 类：自动识别游戏引擎渲染 Surface
+- 游戏引擎自动检测：当 `surfaceview=False` 时，自动检测游戏引擎并切换到 SurfaceView 模式
+- 多 Surface 回退机制：依次尝试所有候选 Surface 直到获取有效帧数据
+- Page flip count 回退 (`service call SurfaceFlinger 1013`)：兜底 FPS 采集方案
+- Android 12+ BLAST Surface 格式支持 (`SurfaceView[pkg](BLAST)#N`)
+- Android 14+ activity-level Surface 格式支持 (`pkg/Activity#N`)
+- Android 8.x (API 26-27) 自动识别不可靠的 SurfaceFlinger 数据并切换策略
+- `get_focus_activity()` 增强：支持 `dumpsys window windows` 和 `dumpsys window` 双命令回退
+- CLAUDE.md 项目指导文件
 - 完整的技术文档体系 (docs/ 目录)
 - 依赖问题解决方案文档 (DEPENDENCIES.md)
 - 自动化依赖安装脚本 (Linux/macOS/Windows)
@@ -21,16 +31,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - 代码质量检查工具配置
 
 ### Changed
+- 增强 `get_surfaceview()` 方法：支持游戏引擎 Surface 和 Android 12+ 格式
+- 重构 `_get_surfaceflinger_frame_data()` 为策略分发器，分离 gfxinfo 和 SurfaceFlinger 路径
+- `_collector_thread()` 支持 page flip 回退数据
+- `_calculator_thread()` 支持处理 page flip 数据元组
 - 更新 setup.py 为兼容的依赖版本组合
 - 创建 requirements.txt 文件
 - 优化项目结构和配置
 
 ### Fixed
+- 修复游戏类 APP (Unity/UE4/Cocos/Laya) FPS 始终返回 0 的问题
+- 修复 `surfaceview=False` 时游戏应用无法采集 FPS 的问题 (gfxinfo framestats 对游戏引擎返回陈旧数据)
+- 修复 `_get_page_flip_count()` 正则表达式匹配错误
+- 修复 `_get_surface_stats_legacy()` page flip 解析错误处理
 - 解决 Flask/Werkzeug 版本兼容性问题
 - 修复 Flask-SocketIO 4.3.1 与新版本 Flask 的冲突
 - 统一依赖版本管理
 
 ### Technical Details
+- 支持 Android 8.x-16.x (API 26+) 全版本 FPS 采集
+- 游戏引擎模式识别: Unity, UE4/5, Cocos2d-x/Creator, Laya
+- Surface 名称格式: `SurfaceView - pkg/Activity#N` (8-11), `SurfaceView[pkg](BLAST)#N` (12+), `pkg/Activity#N` (14+)
 - Flask 2.0.3 + Werkzeug 2.0.3 + Flask-SocketIO 4.3.1 兼容组合
 - 支持 Python 3.10+ 版本
 - 完整的开发环境配置
@@ -87,4 +108,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-*最后更新: 2025-08-03*
+*最后更新: 2026-03-14*

@@ -261,23 +261,23 @@ print(f"上传速度: {upload_speed}KB/s, 下载速度: {download_speed}KB/s")
 
 #### Android 平台实现
 
-Android提供两种FPS监控方式：
+Android FPS 监控支持三种采集策略，并具备游戏引擎自动检测和多 Surface 回退能力：
 
-**SurfaceView 模式**:
+**策略 1: SurfaceView 模式 (SurfaceFlinger --latency)**
 
 通过 `dumpsys SurfaceFlinger --latency SurfaceView` 获取帧率：
 
 ```bash
-adb shell dumpsys SurfaceFlinger --latency SurfaceView com.example.app/com.example.activity
+adb shell dumpsys SurfaceFlinger --latency "SurfaceView - com.example.app/com.example.activity#0"
 ```
 
 - SurfaceFlinger 接受来自多个数据源的数据缓冲区，通过GPU合成并发送给显示设备
 - 这是用户真实可视可体验到的帧数数据
 - 游戏、视频类应用都是通过SurfaceView来进行绘制，优先获取SurfaceView的FPS
 
-**GfxInfo 模式**:
+**策略 2: GfxInfo 模式**
 
-通过 `dumpsys gfxinfo packageName` 获取渲染信息：
+通过 `dumpsys gfxinfo packageName framestats` 获取渲染信息：
 
 ```
 Applications Graphics Acceleration Info:
@@ -291,6 +291,61 @@ Janky frames: 7 (6.36%)
 Number Missed Vsync: 2
 Number High input latency: 0
 Number Slow UI thread: 6
+```
+
+> **注意**: gfxinfo 模式仅适用于使用 Android 标准 View 系统的应用。游戏引擎 (Unity/UE4/Cocos/Laya) 通过 OpenGL/Vulkan 直接渲染，gfxinfo 无法采集到游戏帧数据。
+
+**策略 3: Page Flip Count 回退**
+
+通过 `service call SurfaceFlinger 1013` 获取全局页面翻转计数，作为兜底方案：
+
+- 两次采样间隔计算 FPS = (count2 - count1) / time_delta
+- 适用于所有 Android 版本 (8.x-16.x)
+- 不支持 Jank 检测，但确保屏幕更新时 FPS 不为 0
+- 部分设备可能因权限限制不可用
+
+#### 游戏引擎 FPS 采集
+
+SoloX 支持主流游戏引擎的 FPS 自动采集：
+
+| 引擎 | 识别的 Activity 模式 |
+|------|---------------------|
+| **Unity** | `UnityPlayerActivity`, `UnityPlayerNativeActivity`, `UnityPlayerGameActivity` |
+| **Unreal Engine 4/5** | `com.epicgames.ue4.GameActivity`, `com.epicgames.unreal.GameActivity` |
+| **Cocos2d-x/Creator** | `org.cocos2dx.lib.Cocos2dxActivity`, `com.cocos.game.AppActivity`, `org.cocos2dx.cpp.AppActivity` |
+| **Laya** | `com.layabox.game`, `com.layabox.conch` |
+
+**自动检测机制**:
+
+当用户选择 `surfaceview=False` (gfxinfo 模式) 时，SoloX 会在 `start()` 阶段自动检测游戏引擎：
+1. 通过 `GameSurfaceDetector` 扫描 SurfaceFlinger Surface 列表
+2. 如果发现游戏引擎 Surface，自动切换到 SurfaceView 模式
+3. 确保游戏应用无论用户选择哪种模式，FPS 都能正确采集
+
+**Android 版本兼容**:
+
+| Android 版本 | API Level | Surface 命名格式 |
+|-------------|-----------|------------------|
+| 8.x-11 | 26-30 | `SurfaceView - pkg/Activity#N` |
+| 12-13 | 31-33 | `SurfaceView[pkg](BLAST)#N` 或 `pkg/Activity#N` |
+| 14+ | 34+ | 可能省略 `SurfaceView` 前缀，`pkg/Activity#N` |
+
+**多 Surface 回退流程**:
+
+```
+FPS 采集请求
+    │
+    v
+GameSurfaceDetector 扫描候选 Surface
+    │
+    v
+┌─────────────────────────────┐
+│ 1. 尝试当前 SurfaceView     │ ── 有效数据 ──> 返回 FPS
+│    └─ 无数据                │
+│ 2. 尝试所有候选 Surface      │ ── 有效数据 ──> 返回 FPS
+│    └─ 全部无数据             │
+│ 3. Page flip count 回退     │ ── 返回全局 FPS
+└─────────────────────────────┘
 ```
 
 **JANK 计算**:

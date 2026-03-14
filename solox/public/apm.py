@@ -15,7 +15,7 @@ import solox.public._iosPerf as iosP
 from solox.public.iosperf._perf import DataType, Performance
 from solox.public.adb import adb
 from solox.public.common import Devices, File, Method, Platform, Scrcpy
-from solox.public.android_fps import FPSMonitor, TimeUtils
+from solox.public.android_fps import FPSMonitor, SurfaceStatsCollector, TimeUtils
 
 d = Devices()
 f = File()
@@ -433,22 +433,32 @@ class FPS(object):
         self.monitors = None
     
     def getAndroidFps(self, noLog=False):
-        """get Android Fps, unit:HZ"""
+        """get Android Fps, unit:HZ
+
+        Uses synchronous one-shot collection: reads SurfaceFlinger buffer,
+        waits 1 second, reads again, and calculates FPS from fresh frames.
+        This eliminates thread race conditions that caused ~50fps underreporting.
+        """
         try:
-            monitors = FPSMonitor(device_id=self.deviceId, package_name=self.pkgName, frequency=1,
-                                  surfaceview=self.surfaceview, start_time=TimeUtils.getCurrentTimeUnderline())
-            monitors.start()
-            fps, jank = monitors.stop()
+            collector = SurfaceStatsCollector(
+                device=self.deviceId,
+                frequency=1,
+                package_name=self.pkgName,
+                fps_queue=None,
+                jank_threshold=166,
+                surfaceview=self.surfaceview,
+            )
+            fps, jank = collector.collect_oneshot()
             if noLog is False:
                 apm_time = datetime.datetime.now().strftime('%H:%M:%S.%f')
                 f.add_log(os.path.join(f.report_dir,'fps.log'), apm_time, fps)
                 f.add_log(os.path.join(f.report_dir,'jank.log'), apm_time, jank)
         except Exception as e:
-            fps, jank = 0
+            fps, jank = 0, 0
             if len(d.getPid(self.deviceId, self.pkgName)) == 0:
                 logger.error('[FPS] {} : No process found'.format(self.pkgName))
             else:
-                logger.exception(e)        
+                logger.exception(e)
         return fps, jank
     
     def getiOSFps(self, noLog=False):
