@@ -172,6 +172,19 @@ class SurfaceStatsCollector(object):
                         self._use_page_flip = True
 
                 if not self._use_page_flip:
+                    # Auto-detect game engines and force surfaceview mode.
+                    # Game engines (Unity/UE/Cocos/Laya) render via OpenGL/Vulkan,
+                    # bypassing Android's View system. gfxinfo framestats returns
+                    # no useful data for them, so SurfaceView latency is the only
+                    # reliable method.
+                    if not self.surfaceview:
+                        candidates = self._game_detector.get_candidate_surfaces()
+                        is_game = any(self._game_detector.is_game_surface(s) for s in candidates)
+                        if is_game:
+                            logger.info('Game engine detected with surfaceview=False, '
+                                        'auto-switching to SurfaceView mode for reliable FPS')
+                            self.surfaceview = True
+
                     if self.surfaceview:
                         self.focus_window = self.get_surfaceview()
                     else:
