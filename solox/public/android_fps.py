@@ -501,62 +501,32 @@ class SurfaceStatsCollector(object):
 
     def _get_surfaceflinger_frame_data(self):
         """Returns collected SurfaceFlinger frame timing data.
-        return:(16.6,[[t1,t2,t3],[t4,t5,t6]])
+
+        Enhanced with multi-surface fallback for game engines.
+
         Returns:
-            A tuple containing:
-            - The display's nominal refresh period in seconds.
-            - A list of timestamps signifying frame presentation times in seconds.
-            The return value may be (None, None) if there was no data collected (for
-            example, if the app was closed before the collector thread has finished).
+            A tuple (refresh_period, timestamps) or (None, None).
         """
-        # shell dumpsys SurfaceFlinger --latency <window name>
-        # prints some information about the last 128 frames displayed in
-        # that window.
-        # The data returned looks like this:
-        # 16954612
-        # 7657467895508     7657482691352     7657493499756
-        # 7657484466553     7657499645964     7657511077881
-        # 7657500793457     7657516600576     7657527404785
-        # (...)
-        #
-        # The first line is the refresh period (here 16.95 ms), it is followed
-        # by 128 lines w/ 3 timestamps in nanosecond each:
-        # A) when the app started to draw
-        # B) the vsync immediately preceding SF submitting the frame to the h/w
-        # C) timestamp immediately after SF submitted that frame to the h/w
-        #
-        # The difference between the 1st and 3rd timestamp is the frame-latency.
-        # An interesting data is when the frame latency crosses a refresh period
-        # boundary, this can be calculated this way:
-        #
-        # ceil((C - A) / refresh-period)
-        #
-        # (each time the number above changes, we have a "jank").
-        # If this happens a lot during an animation, the animation appears
-        # janky, even if it runs at 60 fps in average.
-        #
-
-        # Google Pixel 2 android8.0 dumpsys SurfaceFlinger --latency结果
-        # 16666666
-        # 0       0       0
-        # 0       0       0
-        # 0       0       0
-        # 0       0       0
-        # 但华为 荣耀9 android8.0 dumpsys SurfaceFlinger --latency结果是正常的 但数据更新很慢  也不能用来计算fps
-        # 16666666
-        # 9223372036854775807     3618832932780   9223372036854775807
-        # 9223372036854775807     3618849592155   9223372036854775807
-        # 9223372036854775807     3618866251530   9223372036854775807
-
-        refresh_period = None
-        timestamps = []
         nanoseconds_per_second = 1e9
         pending_fence_timestamp = (1 << 63) - 1
+
         if self.surfaceview is not True:
+            return self._get_frame_data_from_gfxinfo(nanoseconds_per_second, pending_fence_timestamp)
+        else:
+            return self._get_frame_data_from_surfaceflinger(nanoseconds_per_second, pending_fence_timestamp)
+
+    def _get_frame_data_from_gfxinfo(self, nanoseconds_per_second, pending_fence_timestamp):
+        """Get frame data from dumpsys gfxinfo framestats (for standard Android apps)."""
+        refresh_period = None
+        timestamps = []
+        try:
             results = adb.shell(
                 cmd='dumpsys SurfaceFlinger --latency %s' % self.focus_window, deviceId=self.device)
             results = results.replace("\r\n", "\n").splitlines()
+            if not results or not results[0].strip().isdigit():
+                return (None, None)
             refresh_period = int(results[0]) / nanoseconds_per_second
+
             results = adb.shell(cmd='dumpsys gfxinfo %s framestats' % self.package_name, deviceId=self.device)
             results = results.replace("\r\n", "\n").splitlines()
             if not len(results):
@@ -564,7 +534,7 @@ class SurfaceStatsCollector(object):
             isHaveFoundWindow = False
             PROFILEDATA_line = 0
             activity = self.focus_window
-            if self.focus_window.__contains__('#'):
+            if self.focus_window and '#' in self.focus_window:
                 activity = activity.split('#')[0]
             for line in results:
                 if not isHaveFoundWindow:
@@ -574,13 +544,8 @@ class SurfaceStatsCollector(object):
                     continue
                 if "PROFILEDATA" in line:
                     PROFILEDATA_line += 1
-                fields = []
                 fields = line.split(",")
                 if fields and '0' == fields[0]:
-                    # https://www.cnblogs.com/zhengna/p/10032078.html
-                    # 1 INTENDED_VSYNC
-                    # 2 VSYNC
-                    # 13 FRAME_COMPLETED
                     timestamp = [int(fields[1]), int(fields[2]), int(fields[13])]
                     if timestamp[1] == pending_fence_timestamp:
                         continue
@@ -588,41 +553,103 @@ class SurfaceStatsCollector(object):
                     timestamps.append(timestamp)
                 if 2 == PROFILEDATA_line:
                     break
-        else:
-            # self.focus_window = self.get_surfaceview_activity()
-            self.focus_window = self.get_surfaceview()
+        except Exception:
+            traceback.print_exc()
+            return (None, None)
+        return (refresh_period, timestamps)
+
+    def _try_surface_latency(self, surface_name, nanoseconds_per_second, pending_fence_timestamp):
+        """Try to get frame timing data from a specific surface.
+
+        Returns:
+            tuple: (refresh_period, timestamps) or (None, None) if no valid data
+        """
+        try:
             results = adb.shell(
-                cmd='dumpsys SurfaceFlinger --latency \\"%s\\"' % self.focus_window, deviceId=self.device)
+                cmd='dumpsys SurfaceFlinger --latency \\"%s\\"' % surface_name,
+                deviceId=self.device
+            )
             results = results.replace("\r\n", "\n").splitlines()
-            if len(results) <= 1 or int(results[-2].split()[0]) ==0:
-                self.focus_window = self.get_surfaceview_activity()
-                results = adb.shell(
-                cmd='dumpsys SurfaceFlinger --latency \\"%s\\"' % self.focus_window, deviceId=self.device)
-                results = results.replace("\r\n", "\n").splitlines()
-            if not len(results):
+
+            if not results or len(results) <= 1:
                 return (None, None)
-            if not results[0].isdigit():
+
+            first_line = results[0].strip()
+            if not first_line.isdigit():
                 return (None, None)
-            try:
-                refresh_period = int(results[0]) / nanoseconds_per_second
-            except Exception as e:
-                logger.exception(e)
+
+            refresh_period = int(first_line) / nanoseconds_per_second
+            if refresh_period <= 0:
                 return (None, None)
-            # If a fence associated with a frame is still pending when we query the
-            # latency data, SurfaceFlinger gives the frame a timestamp of INT64_MAX.
-            # Since we only care about completed frames, we will ignore any timestamps
-            # with this value.
-            
-            for line in results[2:]:
+
+            timestamps = []
+            for line in results[1:]:
                 fields = line.split()
                 if len(fields) != 3:
                     continue
-                timestamp = [int(fields[0]), int(fields[1]), int(fields[2])]
+                try:
+                    timestamp = [int(fields[0]), int(fields[1]), int(fields[2])]
+                except ValueError:
+                    continue
                 if timestamp[1] == pending_fence_timestamp:
+                    continue
+                if timestamp[0] == 0 and timestamp[1] == 0 and timestamp[2] == 0:
                     continue
                 timestamp = [_timestamp / nanoseconds_per_second for _timestamp in timestamp]
                 timestamps.append(timestamp)
-        return (refresh_period, timestamps)
+
+            if len(timestamps) > 0:
+                return (refresh_period, timestamps)
+            return (None, None)
+        except Exception:
+            return (None, None)
+
+    def _get_frame_data_from_surfaceflinger(self, nanoseconds_per_second, pending_fence_timestamp):
+        """Get frame data from SurfaceFlinger with multi-surface fallback.
+
+        Strategy:
+        1. Try the current surfaceview surface
+        2. If that returns no data, try all candidate surfaces from GameSurfaceDetector
+        3. Return the first surface that yields valid timestamps
+        """
+        # Step 1: Try current surface
+        if self.focus_window:
+            result = self._try_surface_latency(
+                self.focus_window, nanoseconds_per_second, pending_fence_timestamp
+            )
+            if result[0] is not None:
+                return result
+
+        # Step 2: Try all candidate surfaces from GameSurfaceDetector
+        candidates = getattr(self, '_surface_candidates', None)
+        if not candidates:
+            detector = GameSurfaceDetector(self.device, self.package_name)
+            candidates = detector.get_candidate_surfaces()
+            self._surface_candidates = candidates
+
+        for surface in candidates:
+            if surface == self.focus_window:
+                continue
+            result = self._try_surface_latency(
+                surface, nanoseconds_per_second, pending_fence_timestamp
+            )
+            if result[0] is not None:
+                logger.info('Found valid FPS surface: {}'.format(surface))
+                self.focus_window = surface
+                return result
+
+        # Step 3: Try activity name version
+        activity = self.get_surfaceview_activity()
+        if activity and activity != self.focus_window:
+            result = self._try_surface_latency(
+                activity, nanoseconds_per_second, pending_fence_timestamp
+            )
+            if result[0] is not None:
+                self.focus_window = activity
+                return result
+
+        logger.warning('All SurfaceFlinger surfaces returned no data for {}'.format(self.package_name))
+        return (None, None)
 
     def _get_surface_stats_legacy(self):
         """Legacy method (before JellyBean), returns the current Surface index
