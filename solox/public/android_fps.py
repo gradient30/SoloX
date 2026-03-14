@@ -29,6 +29,7 @@ GAME_ENGINE_PATTERNS = {
     ],
     'cocos': [
         'org.cocos2dx.lib.Cocos2dxActivity',
+        'org.cocos2dx.cpp.AppActivity',
         'com.cocos.game.AppActivity',
         'org.cocos2dx.lib.Cocos2dxGLSurfaceView',
         'org.cocos2dx.javascript.AppActivity',
@@ -309,11 +310,16 @@ class SurfaceStatsCollector(object):
     def get_focus_activity(self):
         activity_name = ''
         activity_line = ''
-        dumpsys_result = adb.shell(cmd='dumpsys window windows', deviceId=self.device)
-        dumpsys_result_list = dumpsys_result.split('\n')
-        for line in dumpsys_result_list:
-            if line.find('mCurrentFocus') != -1:
-                activity_line = line.strip()
+        # Try 'dumpsys window windows' first, then 'dumpsys window' as fallback
+        for cmd in ['dumpsys window windows', 'dumpsys window']:
+            dumpsys_result = adb.shell(cmd=cmd, deviceId=self.device)
+            dumpsys_result_list = dumpsys_result.split('\n')
+            for line in dumpsys_result_list:
+                if 'mCurrentFocus' in line or 'mFocusedWindow' in line:
+                    activity_line = line.strip()
+                    break
+            if activity_line:
+                break
         if activity_line:
             activity_line_split = activity_line.split(' ')
         else:
@@ -324,7 +330,7 @@ class SurfaceStatsCollector(object):
             else:
                 activity_name = activity_line_split[1]
         if not activity_name:
-            activity_name = self.get_surfaceview_activity()        
+            activity_name = self.get_surfaceview_activity()
         return activity_name
 
     def get_foreground_process(self):
@@ -719,7 +725,9 @@ class SurfaceStatsCollector(object):
         ret = adb.shell(cmd="service call SurfaceFlinger 1013", deviceId=self.device)
         if not ret:
             return None
-        match = re.search('^Result: Parcel\((\w+)', ret)
+        if 'Error' in ret or 'not permitted' in ret:
+            return None
+        match = re.search(r'^Result: Parcel\(([0-9a-fA-F]+)', ret)
         if match:
             cur_surface = int(match.group(1), 16)
             return {'page_flip_count': cur_surface, 'timestamp': timestamp}
@@ -738,7 +746,10 @@ class SurfaceStatsCollector(object):
             ret = adb.shell(cmd="service call SurfaceFlinger 1013", deviceId=self.device)
             if not ret:
                 return -1
-            match = re.search(r'Parcel\((\w+)', ret)
+            # Check for error response first
+            if 'Error' in ret or 'not permitted' in ret:
+                return -1
+            match = re.search(r'Parcel\(([0-9a-fA-F]+)', ret)
             if match:
                 return int(match.group(1), 16)
         except Exception:
@@ -748,27 +759,64 @@ class SurfaceStatsCollector(object):
     def _get_fps_by_page_flip(self):
         """Calculate FPS using page flip count difference over 1 second.
 
-        This is the most reliable fallback - works on all Android versions
-        and all app types including game engines. Measures global screen
-        frame rate (not per-app), but ensures FPS is never 0 when the
-        screen is actively updating.
+        Falls back to gfxinfo total frames if page flip count is not permitted.
 
         Returns:
             tuple: (fps, 0) - jank is always 0 for this method
         """
         count1 = self._get_page_flip_count()
         if count1 < 0:
-            return 0, 0
+            # Page flip not available, try gfxinfo total frames fallback
+            return self._get_fps_by_gfxinfo_frames()
         time.sleep(1)
         count2 = self._get_page_flip_count()
         if count2 < 0:
-            return 0, 0
+            return self._get_fps_by_gfxinfo_frames()
         fps = count2 - count1
         if fps < 0:
             fps = 0
         if fps > 120:
             fps = 120
         return fps, 0
+
+    def _get_fps_by_gfxinfo_frames(self):
+        """Calculate FPS from 'dumpsys gfxinfo' Total frames rendered count.
+
+        This is the final fallback when both SurfaceFlinger latency and
+        page flip count are unavailable.
+
+        Returns:
+            tuple: (fps, 0)
+        """
+        try:
+            result1 = adb.shell(
+                cmd='dumpsys gfxinfo {} | {} "Total frames"'.format(
+                    self.package_name, d.filterType()),
+                deviceId=self.device
+            )
+            match1 = re.search(r'Total frames rendered:\s*(\d+)', result1)
+            if not match1:
+                return 0, 0
+            frames1 = int(match1.group(1))
+            time.sleep(1)
+            result2 = adb.shell(
+                cmd='dumpsys gfxinfo {} | {} "Total frames"'.format(
+                    self.package_name, d.filterType()),
+                deviceId=self.device
+            )
+            match2 = re.search(r'Total frames rendered:\s*(\d+)', result2)
+            if not match2:
+                return 0, 0
+            frames2 = int(match2.group(1))
+            fps = frames2 - frames1
+            if fps < 0:
+                fps = 0
+            if fps > 120:
+                fps = 120
+            return fps, 0
+        except Exception:
+            traceback.print_exc()
+            return 0, 0
 
 
 class Monitor(object):
