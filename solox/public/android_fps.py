@@ -14,6 +14,130 @@ d = Devices()
 collect_fps = 0
 collect_jank = 0
 
+# Known game engine activity patterns for surface name matching
+GAME_ENGINE_PATTERNS = {
+    'unity': [
+        'com.unity3d.player.UnityPlayerActivity',
+        'com.unity3d.player.UnityPlayerNativeActivity',
+        'com.unity3d.player.UnityPlayerGameActivity',
+        'com.unity3d.player.UnityPlayerNativeActivityPico',
+    ],
+    'unreal': [
+        'com.epicgames.ue4.GameActivity',
+        'com.epicgames.unreal.GameActivity',
+        'com.epicgames.ue4.SplashActivity',
+    ],
+    'cocos': [
+        'org.cocos2dx.lib.Cocos2dxActivity',
+        'com.cocos.game.AppActivity',
+        'org.cocos2dx.lib.Cocos2dxGLSurfaceView',
+        'org.cocos2dx.javascript.AppActivity',
+    ],
+    'laya': [
+        'com.layabox.game',
+        'com.layabox.conch',
+        'com.layabox.conch5.LayaMainActivity',
+    ],
+}
+
+# Flatten all game engine activity keywords for quick lookup
+_ALL_GAME_KEYWORDS = []
+for patterns in GAME_ENGINE_PATTERNS.values():
+    _ALL_GAME_KEYWORDS.extend(patterns)
+
+
+class GameSurfaceDetector(object):
+    """Detects rendering surfaces for game engine apps across Android 8.x-16.x."""
+
+    def __init__(self, device, package_name):
+        self.device = device
+        self.package_name = package_name
+        self._sdk_version = None
+
+    def get_sdk_version(self):
+        if self._sdk_version is None:
+            try:
+                result = adb.shell(cmd='getprop ro.build.version.sdk', deviceId=self.device)
+                self._sdk_version = int(result.strip())
+            except Exception:
+                self._sdk_version = 28
+        return self._sdk_version
+
+    def get_all_surfaces(self):
+        """Get all SurfaceFlinger surfaces for this package."""
+        try:
+            result = adb.shell(
+                cmd='dumpsys SurfaceFlinger --list',
+                deviceId=self.device
+            )
+            if not result:
+                return []
+            lines = result.strip().split('\n')
+            surfaces = []
+            for line in lines:
+                line = line.strip()
+                if not line:
+                    continue
+                if self.package_name in line:
+                    surfaces.append(line)
+            return surfaces
+        except Exception:
+            traceback.print_exc()
+            return []
+
+    def is_game_surface(self, surface_name):
+        """Check if a surface name matches a known game engine pattern."""
+        for keyword in _ALL_GAME_KEYWORDS:
+            if keyword in surface_name:
+                return True
+        return False
+
+    def detect_game_engine(self, surface_name):
+        """Detect which game engine a surface belongs to. Returns engine name or None."""
+        for engine, patterns in GAME_ENGINE_PATTERNS.items():
+            for pattern in patterns:
+                if pattern in surface_name:
+                    return engine
+        return None
+
+    def get_candidate_surfaces(self):
+        """Get ranked list of candidate surfaces for FPS measurement.
+
+        Priority order:
+        1. SurfaceView surfaces matching game engine patterns
+        2. SurfaceView surfaces matching the package
+        3. Any surface matching the package (activity-level)
+        """
+        all_surfaces = self.get_all_surfaces()
+        if not all_surfaces:
+            return []
+
+        game_surfaceviews = []
+        normal_surfaceviews = []
+        activity_surfaces = []
+
+        for surface in all_surfaces:
+            is_surfaceview = (
+                surface.startswith('SurfaceView') or
+                surface.startswith('SurfaceView[')
+            )
+            is_game = self.is_game_surface(surface)
+
+            if is_surfaceview and is_game:
+                game_surfaceviews.append(surface)
+            elif is_surfaceview:
+                normal_surfaceviews.append(surface)
+            elif self.package_name in surface:
+                activity_surfaces.append(surface)
+
+        candidates = game_surfaceviews + normal_surfaceviews + activity_surfaces
+        return candidates
+
+    def should_prefer_page_flip(self):
+        """On Android 8.x (API 26-27), SurfaceFlinger latency is unreliable."""
+        sdk = self.get_sdk_version()
+        return sdk <= 27
+
 
 class SurfaceStatsCollector(object):
     def __init__(self, device, frequency, package_name, fps_queue, jank_threshold, surfaceview, use_legacy=False):
