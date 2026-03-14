@@ -588,6 +588,51 @@ class SurfaceStatsCollector(object):
             return {'page_flip_count': cur_surface, 'timestamp': timestamp}
         return None
 
+    def _get_page_flip_count(self):
+        """Get current page flip count from SurfaceFlinger.
+
+        Uses 'service call SurfaceFlinger 1013' which returns a global
+        page flip counter. Works on all Android versions 8.x-16.x.
+
+        Returns:
+            int: current page flip count, or -1 on failure
+        """
+        try:
+            ret = adb.shell(cmd="service call SurfaceFlinger 1013", deviceId=self.device)
+            if not ret:
+                return -1
+            match = re.search(r'Parcel\((\w+)', ret)
+            if match:
+                return int(match.group(1), 16)
+        except Exception:
+            traceback.print_exc()
+        return -1
+
+    def _get_fps_by_page_flip(self):
+        """Calculate FPS using page flip count difference over 1 second.
+
+        This is the most reliable fallback - works on all Android versions
+        and all app types including game engines. Measures global screen
+        frame rate (not per-app), but ensures FPS is never 0 when the
+        screen is actively updating.
+
+        Returns:
+            tuple: (fps, 0) - jank is always 0 for this method
+        """
+        count1 = self._get_page_flip_count()
+        if count1 < 0:
+            return 0, 0
+        time.sleep(1)
+        count2 = self._get_page_flip_count()
+        if count2 < 0:
+            return 0, 0
+        fps = count2 - count1
+        if fps < 0:
+            fps = 0
+        if fps > 120:
+            fps = 120
+        return fps, 0
+
 
 class Monitor(object):
     def __init__(self, **kwargs):
