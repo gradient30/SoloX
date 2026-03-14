@@ -153,21 +153,42 @@ class SurfaceStatsCollector(object):
         self.focus_window = None
         self.surfaceview = surfaceview
         self.fps_queue = fps_queue
+        self._surface_candidates = []
+        self._game_detector = None
+        self._use_page_flip = False
 
     def start(self, start_time):
+        self._game_detector = GameSurfaceDetector(self.device, self.package_name)
+
         if not self.use_legacy_method:
             try:
-                self.focus_window = self.get_focus_activity()
-                if self.focus_window.find('$') != -1:
-                    self.focus_window = self.focus_window.replace('$', '\$')
+                # Check if we should prefer page flip (Android 8.x + game app)
+                if self._game_detector.should_prefer_page_flip():
+                    candidates = self._game_detector.get_candidate_surfaces()
+                    has_game_surface = any(self._game_detector.is_game_surface(s) for s in candidates)
+                    if has_game_surface:
+                        logger.info('Android 8.x detected with game engine app, using page flip count method')
+                        self._use_page_flip = True
+
+                if not self._use_page_flip:
+                    if self.surfaceview:
+                        self.focus_window = self.get_surfaceview()
+                    else:
+                        self.focus_window = self.get_focus_activity()
+
+                    if self.focus_window and '$' in self.focus_window:
+                        self.focus_window = self.focus_window.replace('$', '\\$')
+
+                    if not self.focus_window:
+                        logger.warning('Could not find focus window, will try multi-surface detection')
             except Exception:
-                logger.warning(u'Unable to dynamically obtain the current activity name, using page_ Flip statistics full screen frame rate')
-                self.use_legacy_method = True
-                self.surface_before = self._get_surface_stats_legacy()
+                logger.warning('Unable to get activity/surface, trying page flip fallback')
+                traceback.print_exc()
+                self._use_page_flip = True
         else:
-            logger.debug("dumpsys SurfaceFlinger --latency-clear is none")
             self.use_legacy_method = True
             self.surface_before = self._get_surface_stats_legacy()
+
         self.collector_thread = threading.Thread(target=self._collector_thread)
         self.collector_thread.start()
         self.calculator_thread = threading.Thread(target=self._calculator_thread, args=(start_time,))
@@ -414,23 +435,26 @@ class SurfaceStatsCollector(object):
                     if fps > 60:
                         fps = 60
                     self.surface_before = data
-                    # logger.debug('FPS:%2s'%fps)
                     collect_fps = fps
+                elif isinstance(data, tuple) and len(data) == 4 and data[0] == 'page_flip':
+                    # Page flip fallback data
+                    fps = data[1]
+                    jank = data[2]
+                    collect_fps = fps
+                    collect_jank = jank
                 else:
                     refresh_period = data[0]
                     timestamps = data[1]
                     collect_time = data[2]
-                    # fps,jank = self._calculate_results(refresh_period, timestamps)
                     fps, jank = self._calculate_results_new(refresh_period, timestamps)
-                    # logger.debug('FPS:%2s Jank:%s'%(fps,jank))
                     collect_fps = fps
                     collect_jank = jank
                 time_consume = time.time() - before
                 delta_inter = self.frequency - time_consume
                 if delta_inter > 0:
                     time.sleep(delta_inter)
-            except:
-                logger.error("an exception hanpend in fps _calculator_thread ,reason unkown!")
+            except Exception:
+                logger.error("an exception happened in fps _calculator_thread")
                 s = traceback.format_exc()
                 logger.debug(s)
                 if self.fps_queue:
@@ -438,20 +462,46 @@ class SurfaceStatsCollector(object):
 
     def _collector_thread(self):
         is_first = True
+        consecutive_failures = 0
+        max_failures_before_fallback = 3
+
         while not self.stop_event.is_set():
             try:
                 before = time.time()
+
                 if self.use_legacy_method:
                     surface_state = self._get_surface_stats_legacy()
                     if surface_state:
                         self.data_queue.put(surface_state)
+                elif self._use_page_flip:
+                    # Page flip count fallback
+                    fps, jank = self._get_fps_by_page_flip()
+                    self.data_queue.put(('page_flip', fps, jank, time.time()))
                 else:
                     timestamps = []
                     refresh_period, new_timestamps = self._get_surfaceflinger_frame_data()
+
                     if refresh_period is None or new_timestamps is None:
-                        self.focus_window = self.get_focus_activity()
-                        logger.warning("refresh_period is None or timestamps is None")
+                        consecutive_failures += 1
+                        if consecutive_failures >= max_failures_before_fallback:
+                            logger.warning(
+                                'SurfaceFlinger returned no data {} times, switching to page flip fallback'
+                                .format(consecutive_failures)
+                            )
+                            self._use_page_flip = True
+                            continue
+                        # Try refreshing focus window
+                        if self.surfaceview:
+                            self.focus_window = self.get_surfaceview()
+                        else:
+                            self.focus_window = self.get_focus_activity()
+                        logger.warning("refresh_period is None or timestamps is None, retry #{}"
+                                      .format(consecutive_failures))
                         continue
+
+                    # Got valid data - reset failure counter
+                    consecutive_failures = 0
+
                     timestamps += [timestamp for timestamp in new_timestamps
                                    if timestamp[1] > self.last_timestamp]
                     if len(timestamps):
@@ -462,22 +512,25 @@ class SurfaceStatsCollector(object):
                         is_first = False
                     else:
                         is_first = True
-                        cur_focus_window = self.get_focus_activity()
-                        if self.focus_window != cur_focus_window:
-                            self.focus_window = cur_focus_window
-                            continue
+                        if not self.surfaceview:
+                            cur_focus_window = self.get_focus_activity()
+                            if self.focus_window != cur_focus_window:
+                                self.focus_window = cur_focus_window
+                                continue
+
                     self.data_queue.put((refresh_period, timestamps, time.time()))
-                    time_consume = time.time() - before
-                    delta_inter = self.frequency - time_consume
-                    if delta_inter > 0:
-                        time.sleep(delta_inter)
-            except:
-                logger.error("an exception hanpend in fps _collector_thread , reason unkown!")
+
+                time_consume = time.time() - before
+                delta_inter = self.frequency - time_consume
+                if delta_inter > 0:
+                    time.sleep(delta_inter)
+            except Exception:
+                logger.error("an exception happened in fps _collector_thread")
                 s = traceback.format_exc()
                 logger.debug(s)
                 if self.fps_queue:
                     self.fps_queue.task_done()
-        self.data_queue.put(u'Stop')
+        self.data_queue.put('Stop')
 
     def _clear_surfaceflinger_latency_data(self):
         """Clears the SurfaceFlinger latency data.
