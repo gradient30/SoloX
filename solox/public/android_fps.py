@@ -182,52 +182,109 @@ class SurfaceStatsCollector(object):
                 self.fps_queue.task_done()
 
     def get_surfaceview(self):
-        activity_name = ''
-        activity_line = ''
+        """Get the best SurfaceView surface name for FPS measurement.
+
+        Enhanced to support:
+        - Game engine surfaces (Unity, UE4/5, Cocos, Laya)
+        - Android 12+ BLAST surface format: SurfaceView[pkg](BLAST)#N
+        - Activity-level surface format: pkg/Activity#N
+        """
         try:
-            dumpsys_result = adb.shell(cmd='dumpsys SurfaceFlinger --list | {} {}'.format(d.filterType(), self.package_name), deviceId=self.device)
+            detector = GameSurfaceDetector(self.device, self.package_name)
+            candidates = detector.get_candidate_surfaces()
+
+            if candidates:
+                engine = detector.detect_game_engine(candidates[0])
+                if engine:
+                    logger.info('Detected {} game engine surface: {}'.format(engine, candidates[0]))
+                self._surface_candidates = candidates
+                return candidates[0]
+
+            # Original fallback: use dumpsys SurfaceFlinger --list with grep
+            dumpsys_result = adb.shell(
+                cmd='dumpsys SurfaceFlinger --list | {} {}'.format(d.filterType(), self.package_name),
+                deviceId=self.device
+            )
             dumpsys_result_list = dumpsys_result.split('\n')
             for line in dumpsys_result_list:
-                if line.startswith('SurfaceView') and line.find(self.package_name) != -1:
-                    activity_line = line.strip()
-                    return activity_line
+                line = line.strip()
+                if not line:
+                    continue
+                if line.startswith('SurfaceView') and self.package_name in line:
+                    return line
+                if line.startswith('SurfaceView[') and self.package_name in line:
+                    return line
 
-            activity_name = dumpsys_result_list[len(dumpsys_result_list) - 1]
-            if not activity_name.__contains__(self.package_name):
-                logger.error('get activity name failed, Please provide SurfaceFlinger --list information to the author')
-                logger.info('dumpsys SurfaceFlinger --list info: {}'.format(dumpsys_result))
+            for line in reversed(dumpsys_result_list):
+                line = line.strip()
+                if line and self.package_name in line:
+                    return line
+
+            logger.error('get surface name failed for {}'.format(self.package_name))
+            logger.info('dumpsys SurfaceFlinger --list info: {}'.format(dumpsys_result))
         except Exception:
             traceback.print_exc()
-            logger.error('get activity name failed, Please provide SurfaceFlinger --list information to the author')
-            logger.info('dumpsys SurfaceFlinger --list info: {}'.format(dumpsys_result))
-        return activity_name            
+            logger.error('get surface name failed for {}'.format(self.package_name))
+        return ''            
      
     def get_surfaceview_activity(self):
+        """Extract the activity name from the SurfaceView surface.
+
+        Handles multiple formats:
+        - 'SurfaceView - pkg/Activity#N' -> 'pkg/Activity'
+        - 'SurfaceView[pkg](BLAST)#N' -> 'pkg'
+        - 'pkg/Activity#N' -> 'pkg/Activity'
+        """
         activity_name = ''
-        activity_line = ''
         try:
-            dumpsys_result = adb.shell(cmd='dumpsys SurfaceFlinger --list | {} {}'.format(d.filterType(), self.package_name), deviceId=self.device)
-            dumpsys_result_list = dumpsys_result.split('\n')    
+            dumpsys_result = adb.shell(
+                cmd='dumpsys SurfaceFlinger --list | {} {}'.format(d.filterType(), self.package_name),
+                deviceId=self.device
+            )
+            dumpsys_result_list = dumpsys_result.split('\n')
+            activity_line = ''
+
             for line in dumpsys_result_list:
-                if line.startswith('SurfaceView') and line.find(self.package_name) != -1:
-                    activity_line = line.strip()
+                line = line.strip()
+                if not line:
+                    continue
+                if (line.startswith('SurfaceView') or line.startswith('SurfaceView[')) and self.package_name in line:
+                    activity_line = line
                     break
+
             if activity_line:
-                if activity_line.find(' ')  != -1:      
-                    activity_name = activity_line.split(' ')[2]
-                else:
-                    activity_name = activity_line.replace('SurfaceView','').replace('[','').replace(']','').replace('-','').strip()    
+                if ' - ' in activity_line:
+                    parts = activity_line.split(' - ', 1)
+                    if len(parts) > 1:
+                        activity_name = parts[1].strip()
+                        if '#' in activity_name:
+                            activity_name = activity_name.split('#')[0]
+                elif activity_line.startswith('SurfaceView['):
+                    match = re.search(r'SurfaceView\[([^\]]+)\]', activity_line)
+                    if match:
+                        activity_name = match.group(1)
+                elif activity_line.startswith('SurfaceView'):
+                    activity_name = activity_line.replace('SurfaceView', '').replace('[', '').replace(']', '').replace('-', '').strip()
+
+                if not activity_name:
+                    activity_name = activity_line
             else:
-                activity_name = dumpsys_result_list[len(dumpsys_result_list) - 1]
-                if not activity_name.__contains__(self.package_name):
-                    logger.error('get activity name failed, Please provide SurfaceFlinger --list information to the author')
+                for line in reversed(dumpsys_result_list):
+                    line = line.strip()
+                    if line and self.package_name in line:
+                        activity_name = line
+                        if '#' in activity_name:
+                            activity_name = activity_name.split('#')[0]
+                        break
+
+                if activity_name and self.package_name not in activity_name:
+                    logger.error('get activity name failed for {}'.format(self.package_name))
                     logger.info('dumpsys SurfaceFlinger --list info: {}'.format(dumpsys_result))
         except Exception:
             traceback.print_exc()
-            logger.error('get activity name failed, Please provide SurfaceFlinger --list information to the author')
-            logger.info('dumpsys SurfaceFlinger --list info: {}'.format(dumpsys_result))
+            logger.error('get activity name failed for {}'.format(self.package_name))
         return activity_name
-     
+
     def get_focus_activity(self):
         activity_name = ''
         activity_line = ''
