@@ -44,8 +44,8 @@ python -m build
 - `solox/debug.py` → Debug entry point, runs Flask with `debug=True` (uses relative imports from `view/`)
 
 ### Web Layer (`solox/view/`)
-- `pages.py` — Flask Blueprint for HTML pages (index, report, analysis, PK comparison)
-- `apis.py` — Flask Blueprint for REST API endpoints (`/apm/cpu`, `/apm/fps`, `/apm/memory`, etc.)
+- `pages.py` — Flask Blueprint for HTML pages (index, report, analysis, PK comparison). Report page uses AJAX pagination (`/apm/report/list`).
+- `apis.py` — Flask Blueprint for REST API endpoints (`/apm/cpu`, `/apm/fps`, `/apm/memory`, `/apm/report/list`, `/apm/logcat/*`, `/apm/record/cast`, etc.)
 - API endpoints create metric collector objects from `solox/public/apm.py`, call their `get*()` methods, return JSON
 
 ### Performance Collection (`solox/public/`)
@@ -53,9 +53,15 @@ python -m build
 - `apm_pk.py` — PK (comparison) mode: `CPU_PK`, `MEM_PK`, `Flow_PK`, `FPS_PK` for dual-device/dual-app benchmarking
 - `android_fps.py` — Android FPS collection engine. Key classes:
   - `GameSurfaceDetector` — Detects game engine surfaces (Unity/UE4/5/Cocos/Laya) across Android 8-16
-  - `SurfaceStatsCollector` — Main collector with threaded collection/calculation. Uses SurfaceFlinger `--latency` for SurfaceView apps, `gfxinfo framestats` for standard apps, with page flip count and gfxinfo total frames as fallbacks
+  - `SurfaceStatsCollector` — Main collector with threaded collection/calculation. Uses SurfaceFlinger `--latency` for SurfaceView apps, `gfxinfo framestats` for standard apps, with page flip count and gfxinfo total frames as fallbacks. Includes credibility metadata for data quality tracking.
   - `FPSMonitor` — Wrapper that starts/stops `SurfaceStatsCollector`
-- `common.py` — `Devices` (device discovery, ADB ID lookup, PID), `File` (report I/O, log management), `Method` (request helpers), `Platform` enum
+- `common.py` — Core utilities:
+  - `Devices` — Device discovery, ADB ID lookup, PID resolution
+  - `File` — Report I/O, log management, `getDuration()` for test duration calculation
+  - `Method` — HTTP request helpers
+  - `Platform` — Platform enum
+  - `Scrcpy` — Screen casting/recording via scrcpy. Uses software encoder (`c2.android.avc.encoder`) by default to avoid hardware encoder crashes. Supports High/Medium/Low quality presets.
+  - `LogcatManager` — Singleton for adb logcat streaming via AJAX polling. Supports severity-level capture (`*:V` through `*:F`), structured log parsing (time/severity/tag/msg), client-side filtering, and export.
 - `adb.py` — ADB wrapper with bundled platform-specific adb binaries (`solox/public/adb/{windows,mac,linux}/`). Key method: `adb.shell(cmd, deviceId)` for all device commands
 
 ### iOS Support
@@ -63,8 +69,14 @@ python -m build
 - `iosperf/` — iOS device communication library (USB muxd, instruments, device pairing)
 
 ### Frontend
-- `solox/templates/` — Jinja2 HTML templates
+- `solox/templates/` — Jinja2 HTML templates. Key templates:
+  - `index.html` — Main dashboard with device selection, metric charts, screen cast (quality dropdown), error log panel (severity/tag/keyword filters, pause, export), WiFi ADB modal
+  - `report.html` — Report management with AJAX pagination and duration column
+  - `base.html` — Layout shell with settings offcanvas (Timer, Remote Connection, with feature descriptions)
 - `solox/static/` — JS, CSS, images for the web UI
+
+### Tests
+- `tests/test_fps_calculation.py` — 21 unit tests covering FPS calculation, jank detection, game engine surface detection, and fallback chains
 
 ## Key Patterns
 
@@ -74,6 +86,12 @@ API request → `FPS.getObject()` (singleton) → `FPSMonitor.start()` → `Surf
 2. `surfaceview=True`: SurfaceFlinger `--latency` with surface name from `dumpsys SurfaceFlinger --list`
 3. `surfaceview=False`: `gfxinfo framestats` (only works for View-based apps, not game engines)
 4. Fallback chain: multi-surface retry → page flip count (`service call SurfaceFlinger 1013`) → gfxinfo total frames
+
+### Screen Casting
+`Scrcpy.cast_screen(device, quality)` → `_cast_monitor_thread()`:
+- Default: software encoder (`c2.android.avc.encoder`) to avoid Qualcomm OMX hardware encoder crashes
+- Auto-retry: if software encoder fails, falls back to hardware encoder
+- Quality presets: high (1920/60fps/6M), medium (1024/60fps/3M), low (720/30fps/1M)
 
 ### Device Communication
 All Android commands go through `adb.shell()`. The `Devices` class provides:

@@ -54,8 +54,6 @@ http://localhost:50003
 生产环境部署和运维管理：
 
 - **[部署指南](./03-deployment/deployment-guide.md)** - 生产部署、Docker 容器化、系统服务配置
-- **[Docker 指南](./03-deployment/docker-guide.md)** - 容器化部署和编排
-- **[监控运维](./03-deployment/monitoring-guide.md)** - 服务监控、日志管理、备份恢复
 
 ### Docker 一键部署
 ```bash
@@ -72,7 +70,6 @@ API 使用和性能监控指南：
 
 - **[API 文档](./04-user-guides/api-documentation.md)** - RESTful API、Python SDK、WebSocket 接口
 - **[性能监控](./04-user-guides/performance-monitoring.md)** - 监控指标详解、最佳实践、分析方法
-- **[Web 界面](./04-user-guides/web-interface-guide.md)** - 界面使用、配置管理、报告生成
 
 ### API 快速示例
 ```python
@@ -117,8 +114,7 @@ memory_data = apm.collectMemory()
 
 ### 运维人员
 1. **生产部署** → [部署指南](./03-deployment/deployment-guide.md)
-2. **容器化** → [Docker指南](./03-deployment/docker-guide.md)
-3. **故障处理** → [故障排除](./05-issues/troubleshooting.md)
+2. **故障处理** → [故障排除](./05-issues/troubleshooting.md)
 
 ## 📊 支持的监控指标
 
@@ -162,7 +158,7 @@ memory_data = apm.collectMemory()
 ---
 
 📝 **文档更新**: 本文档持续更新，确保与最新版本保持同步
-🕒 **最后更新**: 2026-03-14
+🕒 **最后更新**: 2026-03-15
 📋 **文档版本**: v2.9.3+
 
 *Happy Testing with SoloX! 🎉*

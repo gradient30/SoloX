@@ -17,44 +17,47 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Android 14+ activity-level Surface 格式支持 (`pkg/Activity#N`)
 - Android 8.x (API 26-27) 自动识别不可靠的 SurfaceFlinger 数据并切换策略
 - `get_focus_activity()` 增强：支持 `dumpsys window windows` 和 `dumpsys window` 双命令回退
+- FPS 数据可信度元数据：采集来源、帧数、置信度等级
+- 报告分页 API (`/apm/report/list`)：支持 page/size 参数，解决大量报告时页面加载缓慢
+- 报告持续时长列：替代冗余的 Scene 名称，通过日志首尾行时间戳计算
+- 投屏画质选择：高清 (1080p/60fps/6M)、标清 (720p/60fps/3M)、流畅 (480p/30fps/1M)
+- 投屏软件编码器回退：默认使用 `c2.android.avc.encoder` 避免高通硬件编码器崩溃
+- Error Log 增强面板：严重级别过滤 (V/D/I/W/E/F)、标签过滤、关键词搜索、暂停/恢复、导出
+- WiFi ADB 连接模态框：本地化双语内容，替换外部 adbshell.com iframe 依赖
+- 设置面板功能说明：定时器和远程连接设置增加操作说明
+- 21 个 FPS 计算单元测试
 - CLAUDE.md 项目指导文件
 - 完整的技术文档体系 (docs/ 目录)
 - 依赖问题解决方案文档 (DEPENDENCIES.md)
-- 自动化依赖安装脚本 (Linux/macOS/Windows)
-- setup.py 依赖版本验证脚本
 - 现代化项目配置 (pyproject.toml)
-- Makefile 开发工具集
 - Docker 容器化支持
-- Docker Compose 多服务部署
-- Nginx 反向代理配置
-- GitHub Actions CI/CD 流水线
-- 代码质量检查工具配置
 
 ### Changed
 - 增强 `get_surfaceview()` 方法：支持游戏引擎 Surface 和 Android 12+ 格式
 - 重构 `_get_surfaceflinger_frame_data()` 为策略分发器，分离 gfxinfo 和 SurfaceFlinger 路径
 - `_collector_thread()` 支持 page flip 回退数据
 - `_calculator_thread()` 支持处理 page flip 数据元组
-- 更新 setup.py 为兼容的依赖版本组合
-- 创建 requirements.txt 文件
-- 优化项目结构和配置
+- `LogcatManager` 重构：结构化日志解析 (时间/级别/标签/消息)，支持服务端和客户端双重过滤
+- `Scrcpy._get_cast_params()` 接受 quality 参数，支持三档画质预设
+- `Scrcpy._cast_monitor_thread()` 增加编码器回退逻辑
+- 报告页面从服务端渲染改为 AJAX 分页加载
+- 视频播放器从 cv2 切换为系统默认播放器 (os.startfile/open/xdg-open)
 
 ### Fixed
 - 修复游戏类 APP (Unity/UE4/Cocos/Laya) FPS 始终返回 0 的问题
-- 修复 `surfaceview=False` 时游戏应用无法采集 FPS 的问题 (gfxinfo framestats 对游戏引擎返回陈旧数据)
+- 修复 `surfaceview=False` 时游戏应用无法采集 FPS 的问题
+- 修复投屏频繁断开：高通 OMX.qcom.video.encoder.avc 硬件编码器崩溃 (0x80001009)
 - 修复 `_get_page_flip_count()` 正则表达式匹配错误
 - 修复 `_get_surface_stats_legacy()` page flip 解析错误处理
 - 解决 Flask/Werkzeug 版本兼容性问题
-- 修复 Flask-SocketIO 4.3.1 与新版本 Flask 的冲突
-- 统一依赖版本管理
 
 ### Technical Details
 - 支持 Android 8.x-16.x (API 26+) 全版本 FPS 采集
 - 游戏引擎模式识别: Unity, UE4/5, Cocos2d-x/Creator, Laya
 - Surface 名称格式: `SurfaceView - pkg/Activity#N` (8-11), `SurfaceView[pkg](BLAST)#N` (12+), `pkg/Activity#N` (14+)
+- 投屏默认使用软件编码器 `c2.android.avc.encoder`，硬件编码器失败时自动回退
 - Flask 2.0.3 + Werkzeug 2.0.3 + Flask-SocketIO 4.3.1 兼容组合
 - 支持 Python 3.10+ 版本
-- 完整的开发环境配置
 
 ## [2.9.3] - 2023-XX-XX
 
@@ -108,4 +111,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-*最后更新: 2026-03-14*
+*最后更新: 2026-03-15*
