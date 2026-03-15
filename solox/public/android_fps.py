@@ -145,7 +145,7 @@ class SurfaceStatsCollector(object):
         self.device = device
         self.frequency = frequency
         self.package_name = package_name
-        self.jank_threshold = jank_threshold / 1000.0 
+        self.jank_threshold = jank_threshold / 1000.0
         self.use_legacy_method = use_legacy
         self.surface_before = 0
         self.last_timestamp = 0
@@ -157,6 +157,8 @@ class SurfaceStatsCollector(object):
         self._surface_candidates = []
         self._game_detector = None
         self._use_page_flip = False
+        # Credibility metadata from the most recent collection
+        self.last_collection_meta = None
 
     def _init_surface(self):
         """Initialize game detector and resolve the target surface.
@@ -219,6 +221,24 @@ class SurfaceStatsCollector(object):
         self.calculator_thread = threading.Thread(target=self._calculator_thread, args=(start_time,))
         self.calculator_thread.start()
 
+    def _make_meta(self, source, fps, fresh_count=0, buffer_count=0,
+                   window_seconds=0.0, refresh_rate_hz=0, surface='',
+                   verified=False, confidence='low'):
+        """Build credibility metadata dict for FPS collection."""
+        meta = {
+            'source': source,
+            'fps': fps,
+            'fresh_frame_count': fresh_count,
+            'buffer_frame_count': buffer_count,
+            'window_seconds': round(window_seconds, 4),
+            'refresh_rate_hz': refresh_rate_hz,
+            'surface_name': surface,
+            'verified': verified,
+            'confidence': confidence,
+        }
+        self.last_collection_meta = meta
+        return meta
+
     def collect_oneshot(self):
         """Synchronous one-shot FPS measurement — no threads, no race conditions.
 
@@ -230,43 +250,62 @@ class SurfaceStatsCollector(object):
 
         This measures the *actual* rendering rate over a precise 1-second
         window, unaffected by ADB overhead or thread scheduling.
+
+        Populates self.last_collection_meta with credibility metadata.
         """
         self._init_surface()
 
-        # --- Page flip or legacy path: simple delta over 1s ---
+        # --- Page flip fallback path ---
         if self._use_page_flip:
-            return self._get_fps_by_page_flip()
+            fps, jank = self._get_fps_by_page_flip()
+            self._make_meta('page_flip', fps, fresh_count=fps,
+                            surface=self.focus_window or '',
+                            confidence='medium' if fps > 0 else 'low')
+            return fps, jank
 
+        # --- Legacy path ---
         if self.use_legacy_method:
             before = self._get_surface_stats_legacy()
             if not before:
+                self._make_meta('legacy', 0, confidence='low')
                 return 0, 0
             time.sleep(1.0)
             after = self._get_surface_stats_legacy()
             if not after:
+                self._make_meta('legacy', 0, confidence='low')
                 return 0, 0
             td = after['timestamp'] - before['timestamp']
             seconds = td.seconds + td.microseconds / 1e6
             frame_count = after['page_flip_count'] - before['page_flip_count']
             fps = int(round(frame_count / seconds)) if seconds > 0 else 0
-            return min(fps, 60), 0
+            fps = min(fps, 60)
+            self._make_meta('legacy', fps, fresh_count=frame_count,
+                            window_seconds=seconds, confidence='medium')
+            return fps, 0
 
-        # --- SurfaceFlinger latency path ---
+        # --- SurfaceFlinger latency path (primary) ---
         nanoseconds_per_second = 1e9
         pending_fence_timestamp = (1 << 63) - 1
+        surface_name = self.focus_window or ''
 
         # Step 1: Read buffer to get baseline timestamp
         if self.surfaceview is not True:
             refresh_period, baseline_ts = self._get_frame_data_from_gfxinfo(
                 nanoseconds_per_second, pending_fence_timestamp)
+            data_source = 'gfxinfo_framestats'
         else:
             refresh_period, baseline_ts = self._get_frame_data_from_surfaceflinger(
                 nanoseconds_per_second, pending_fence_timestamp)
+            data_source = 'surfaceflinger_latency'
 
         if not baseline_ts:
             # No baseline data; try page flip as last resort
-            return self._get_fps_by_page_flip()
+            fps, jank = self._get_fps_by_page_flip()
+            self._make_meta('page_flip_fallback', fps, fresh_count=fps,
+                            surface=surface_name, confidence='low')
+            return fps, jank
 
+        baseline_count = len(baseline_ts)
         baseline_last = baseline_ts[-1][1]
 
         # Step 2: Wait exactly 1 second for fresh frames
@@ -281,32 +320,70 @@ class SurfaceStatsCollector(object):
                 nanoseconds_per_second, pending_fence_timestamp)
 
         if not new_ts:
-            return self._get_fps_by_page_flip()
+            fps, jank = self._get_fps_by_page_flip()
+            self._make_meta('page_flip_fallback', fps, fresh_count=fps,
+                            surface=surface_name, confidence='low')
+            return fps, jank
+
+        buffer_count = len(new_ts)
+        rp = refresh_period2 if refresh_period2 else refresh_period
+        refresh_hz = int(round(1.0 / rp)) if rp and rp > 0 else 0
 
         # Step 4: Keep only frames newer than the baseline
         fresh_frames = [t for t in new_ts if t[1] > baseline_last]
+        fresh_count = len(fresh_frames)
 
-        if len(fresh_frames) == 0:
+        if fresh_count == 0:
+            self._make_meta(data_source, 0, fresh_count=0,
+                            buffer_count=buffer_count, refresh_rate_hz=refresh_hz,
+                            surface=surface_name, confidence='low')
             return 0, 0
-        if len(fresh_frames) == 1:
+        if fresh_count == 1:
+            self._make_meta(data_source, 1, fresh_count=1,
+                            buffer_count=buffer_count, refresh_rate_hz=refresh_hz,
+                            surface=surface_name, confidence='low')
             return 1, 0
 
         # Step 5: Calculate FPS from the fresh frame window
-        rp = refresh_period2 if refresh_period2 else refresh_period
         seconds = fresh_frames[-1][1] - fresh_frames[0][1]
         if seconds <= 0:
+            self._make_meta(data_source, 1, fresh_count=fresh_count,
+                            buffer_count=buffer_count, refresh_rate_hz=refresh_hz,
+                            surface=surface_name, confidence='low')
             return 1, 0
 
-        fps = int(round((len(fresh_frames) - 1) / seconds))
+        fps = int(round((fresh_count - 1) / seconds))
 
         # Cap at display refresh rate
         if rp and rp > 0:
             max_fps = int(round(1.0 / rp)) + 1
             fps = min(fps, max_fps)
 
-        # Jank from fresh frames
-        jank = self._calculate_jankey_new(fresh_frames) if len(fresh_frames) > 4 \
-            else self._calculate_janky(fresh_frames)
+        # Jank from fresh frames — use PerfDog-compatible thresholds
+        jank, big_jank = self._calculate_jank_ex(fresh_frames, rp)
+
+        # Determine confidence level
+        if fresh_count >= 30 and 0.8 <= seconds <= 1.5:
+            confidence = 'high'
+        elif fresh_count >= 10:
+            confidence = 'medium'
+        else:
+            confidence = 'low'
+
+        # Cross-verify with page flip if available
+        verified = False
+        page_flip_count = self._get_page_flip_count()
+        if page_flip_count >= 0:
+            time.sleep(0.05)  # minimal wait for a delta check
+            page_flip_count2 = self._get_page_flip_count()
+            if page_flip_count2 >= 0 and page_flip_count2 > page_flip_count:
+                verified = True  # page flip counter is working → independent confirmation
+
+        self._make_meta(data_source, fps, fresh_count=fresh_count,
+                        buffer_count=buffer_count, window_seconds=seconds,
+                        refresh_rate_hz=refresh_hz, surface=surface_name,
+                        verified=verified, confidence=confidence)
+        self.last_collection_meta['big_jank'] = big_jank
 
         return fps, jank
 
@@ -479,35 +556,97 @@ class SurfaceStatsCollector(object):
         FPS = (frame_count - 1) / time_span, where time_span is measured
         only across real frame timestamps (no artificial bridging).
         Result is capped at the display refresh rate to prevent spikes.
+        Uses PerfDog-compatible jank thresholds based on actual refresh_period.
         """
         frame_count = len(timestamps)
         if frame_count == 0:
-            fps = 0
-            jank = 0
-        elif frame_count == 1:
-            fps = 1
-            jank = 0
-        elif frame_count <= 4:
-            seconds = timestamps[-1][1] - timestamps[0][1]
-            if seconds > 0:
-                fps = int(round((frame_count - 1) / seconds))
-                jank = self._calculate_janky(timestamps)
-            else:
-                fps = 1
-                jank = 0
-        else:
-            seconds = timestamps[-1][1] - timestamps[0][1]
-            if seconds > 0:
-                fps = int(round((frame_count - 1) / seconds))
-                jank = self._calculate_jankey_new(timestamps)
-            else:
-                fps = 1
-                jank = 0
+            return 0, 0
+        if frame_count == 1:
+            return 1, 0
+
+        seconds = timestamps[-1][1] - timestamps[0][1]
+        if seconds <= 0:
+            return 1, 0
+
+        fps = int(round((frame_count - 1) / seconds))
+        jank, _big_jank = self._calculate_jank_ex(timestamps, refresh_period)
         # Cap at display refresh rate + 1 to prevent spurious spikes
         if refresh_period and refresh_period > 0:
             max_fps = int(round(1.0 / refresh_period)) + 1
             fps = min(fps, max_fps)
         return fps, jank
+
+    def _calculate_jank_ex(self, timestamps, refresh_period=None):
+        """Calculate jank and big_jank using PerfDog-compatible definitions.
+
+        Jank:     frame_time > 2x avg(last 3 frames) AND > 2 × vsync_period
+        Big Jank: frame_time > 2x avg(last 3 frames) AND > 3 × vsync_period
+
+        Args:
+            timestamps: list of [app_ts, display_ts, vsync_ts]
+            refresh_period: display refresh period in seconds (e.g. 0.01667 for 60Hz).
+                           If None, defaults to 60Hz.
+
+        Returns:
+            tuple: (jank_count, big_jank_count)
+        """
+        if not refresh_period or refresh_period <= 0:
+            refresh_period = 1.0 / 60  # default 60Hz
+
+        # Use a tiny tolerance (1μs) so that a frame gap of exactly
+        # 2×vsync (e.g. 33.333ms at 60Hz) is counted as jank.
+        # Without this, floating-point equality causes borderline janks
+        # to be missed.
+        eps = 1e-6
+        vsync_2x = refresh_period * 2 - eps   # ~33.3ms at 60Hz — 1 dropped frame
+        vsync_3x = refresh_period * 3 - eps   # ~50.0ms at 60Hz — 2 dropped frames
+
+        jank = 0
+        big_jank = 0
+        frame_count = len(timestamps)
+
+        if frame_count < 5:
+            # Not enough frames for sliding window; use simple threshold
+            prev = 0
+            for ts in timestamps:
+                if prev == 0:
+                    prev = ts[1]
+                    continue
+                ft = ts[1] - prev
+                if ft > vsync_2x:
+                    jank += 1
+                if ft > vsync_3x:
+                    big_jank += 1
+                prev = ts[1]
+            return jank, big_jank
+
+        for i in range(4, frame_count):
+            cur  = timestamps[i][1]
+            prev = timestamps[i - 1][1]
+            p2   = timestamps[i - 2][1]
+            p3   = timestamps[i - 3][1]
+            p4   = timestamps[i - 4][1]
+
+            # Average frame time over the previous 3 intervals
+            avg3 = ((p3 - p4) + (p2 - p3) + (prev - p2)) / 3.0
+            threshold_dynamic = avg3 * 2 - eps  # 2x recent average
+
+            current_ft = cur - prev
+
+            if current_ft > threshold_dynamic and current_ft > vsync_2x:
+                jank += 1
+            if current_ft > threshold_dynamic and current_ft > vsync_3x:
+                big_jank += 1
+
+        # Also check first 4 frames with simple threshold
+        for i in range(1, min(4, frame_count)):
+            ft = timestamps[i][1] - timestamps[i - 1][1]
+            if ft > vsync_2x:
+                jank += 1
+            if ft > vsync_3x:
+                big_jank += 1
+
+        return jank, big_jank
 
     def _calculate_jankey_new(self, timestamps):
         twofilmstamp = 83.3 / 1000.0

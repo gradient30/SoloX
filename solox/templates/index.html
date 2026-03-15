@@ -65,10 +65,26 @@ SoloX - Application Performance Monitoring
     </a>
 </div>
 <div class="ms-auto d-print-none  col-auto">
-    <a class="btn btn-default" onclick="cast()">
-        <svg t="1690357482122" class="icon" viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg" p-id="5413" width="128" height="128"><path d="M896 192a64 64 0 0 1 63.84 59.2L960 256v384a64 64 0 0 1-59.2 63.84L896 704h-272v64h195.2c7.04 0 12.8 5.76 12.8 12.8v38.4a12.8 12.8 0 0 1-12.8 12.8H448v-64h80v-64h-110.848v-64H896V256H256v32H192V256a64 64 0 0 1 59.2-63.84L256 192h640z m-544 128a32 32 0 0 1 32 32v448a32 32 0 0 1-32 32H128a32 32 0 0 1-32-32V352a32 32 0 0 1 32-32h224z m-32 64H160v384h160V384z" fill="#000000" p-id="5414"></path></svg>
-        {% if lan == 'cn' %} 投屏 {% else %} Cast {% endif %}
-    </a>
+    <div class="btn-group">
+        <a class="btn btn-default" onclick="cast()">
+            <svg t="1690357482122" class="icon" viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg" p-id="5413" width="128" height="128"><path d="M896 192a64 64 0 0 1 63.84 59.2L960 256v384a64 64 0 0 1-59.2 63.84L896 704h-272v64h195.2c7.04 0 12.8 5.76 12.8 12.8v38.4a12.8 12.8 0 0 1-12.8 12.8H448v-64h80v-64h-110.848v-64H896V256H256v32H192V256a64 64 0 0 1 59.2-63.84L256 192h640z m-544 128a32 32 0 0 1 32 32v448a32 32 0 0 1-32 32H128a32 32 0 0 1-32-32V352a32 32 0 0 1 32-32h224z m-32 64H160v384h160V384z" fill="#000000" p-id="5414"></path></svg>
+            {% if lan == 'cn' %} 投屏 {% else %} Cast {% endif %}
+        </a>
+        <button type="button" class="btn btn-default dropdown-toggle dropdown-toggle-split" data-bs-toggle="dropdown" aria-expanded="false" style="padding: 0 6px;">
+            <span class="visually-hidden">Quality</span>
+        </button>
+        <div class="dropdown-menu dropdown-menu-end" style="min-width: 120px;">
+            <a class="dropdown-item cast-quality-item" data-quality="high" href="#">
+                {% if lan == 'cn' %}高清 (1080p){% else %}High (1080p){% endif %}
+            </a>
+            <a class="dropdown-item cast-quality-item active" data-quality="medium" href="#">
+                {% if lan == 'cn' %}标清 (720p){% else %}Medium (720p){% endif %}
+            </a>
+            <a class="dropdown-item cast-quality-item" data-quality="low" href="#">
+                {% if lan == 'cn' %}流畅 (480p){% else %}Low (480p){% endif %}
+            </a>
+        </div>
+    </div>
 </div>
 {% endif %}
 <div class="ms-auto d-print-none  col-auto">
@@ -146,6 +162,11 @@ SoloX - Application Performance Monitoring
                 <div class="card-body">
                     <div class="tab-content">
                         <div class="tab-pane active show" id="tabs-apm-target">
+                            <div class="mb-2 d-flex gap-1">
+                                <button class="btn btn-sm btn-outline-primary btn-quick-toggle" data-mode="1min" title="{% if lan == 'cn' %}仅核心指标{% else %}Core metrics only{% endif %}">1</button>
+                                <button class="btn btn-sm btn-outline-primary btn-quick-toggle" data-mode="5min" title="{% if lan == 'cn' %}常用指标{% else %}Common metrics{% endif %}">5</button>
+                                <button class="btn btn-sm btn-outline-primary btn-quick-toggle active" data-mode="all" title="{% if lan == 'cn' %}全部指标{% else %}All metrics{% endif %}">All</button>
+                            </div>
                             <label class="dropdown-item cursor-pointer"><input class="form-check-input m-0 me-2 cursor-pointer" id="cpu_checkbox" type="checkbox" checked name="cpu"> 
                                 <svg t="1702629502002" class="icon me-2" viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg" p-id="7953" width="320" height="320"><path d="M426.666667 85.333333v85.333334h170.666666V85.333333h85.333334v85.333334h42.666666a128 128 0 0 1 128 128v42.666666h85.333334v85.333334h-85.333334v170.666666h85.333334v85.333334h-85.333334v42.666666a128 128 0 0 1-128 128h-42.666666v85.333334h-85.333334v-85.333334h-170.666666v85.333334h-85.333334v-85.333334h-42.666666a128 128 0 0 1-128-128v-42.666666H85.333333v-85.333334h85.333334v-170.666666H85.333333v-85.333334h85.333334v-42.666666a128 128 0 0 1 128-128h42.666666V85.333333h85.333334z m-128 170.666667a42.666667 42.666667 0 0 0-42.666667 42.666667v426.666666a42.666667 42.666667 0 0 0 42.666667 42.666667h426.666666a42.666667 42.666667 0 0 0 42.666667-42.666667V298.666667a42.666667 42.666667 0 0 0-42.666667-42.666667H298.666667z" fill="#000000" p-id="7954"></path><path d="M362.666667 405.333333a42.666667 42.666667 0 0 1 42.666666-42.666666h213.333334a42.666667 42.666667 0 0 1 42.666666 42.666666v213.333334a42.666667 42.666667 0 0 1-42.666666 42.666666H405.333333a42.666667 42.666667 0 0 1-42.666666-42.666666V405.333333z m85.333333 42.666667v128h128v-128h-128z" fill="#0078FF" p-id="7955"></path></svg>
                                 <strong>CPU</strong>
@@ -186,26 +207,64 @@ SoloX - Application Performance Monitoring
                             </label>
                         </div>
                         <div class="tab-pane" id="tabs-device-info">
-                            <div class="mb-2">
-                                <strong>{% if lan == 'cn' %} 品牌 {% else %} Brand {% endif %}:</strong> <lable id="brand"></lable>
-                            </div>
-                            <div class="mb-2">
-                                <strong>{% if lan == 'cn' %} 设备名称 {% else %} Device Name {% endif %}:</strong> <lable id="device_name"></lable>
-                            </div>
-                            <div class="mb-2">
-                                <strong>{% if lan == 'cn' %} 系统版本 {% else %} Os Version {% endif %}:</strong> <lable id="os_version"></lable>
-                            </div>
-                            <div class="mb-2">
-                                <strong>{% if lan == 'cn' %} 序列号 {% else %} Serial Number {% endif %}:</strong> <lable id="serialno"></lable>
-                            </div>
-                            <div class="mb-2">
-                                <strong>{% if lan == 'cn' %} WiFi地址 {% else %} WiFi Address {% endif %}:</strong> <lable id="wifiadr"></lable>
-                            </div>
-                            <div class="mb-2">
-                                <strong>{% if lan == 'cn' %} 屏幕分辨率 {% else %} Physical Size {% endif %}:</strong> <lable id="physical_size"></lable>
-                            </div>
-                            <div class="mb-2">
-                                <strong>{% if lan == 'cn' %} CPU核心数 {% else %} CPU Cores {% endif %}:</strong> <lable id="cpu_cores"></lable>
+                            <div class="row g-1" style="font-size:12px;">
+                                <div class="col-6">
+                                    <div class="mb-1"><strong>{% if lan == 'cn' %}品牌{% else %}Brand{% endif %}:</strong> <label id="brand"></label></div>
+                                </div>
+                                <div class="col-6">
+                                    <div class="mb-1"><strong>{% if lan == 'cn' %}设备{% else %}Device{% endif %}:</strong> <label id="device_name"></label></div>
+                                </div>
+                                <div class="col-6">
+                                    <div class="mb-1"><strong>OS:</strong> <label id="os_info"></label></div>
+                                </div>
+                                <div class="col-6">
+                                    <div class="mb-1"><strong>{% if lan == 'cn' %}序列号{% else %}Serial{% endif %}:</strong> <label id="serialno" style="word-break:break-all;"></label></div>
+                                </div>
+                                <div class="col-6">
+                                    <div class="mb-1"><strong>CPU Type:</strong> <label id="cpu_type"></label></div>
+                                </div>
+                                <div class="col-6">
+                                    <div class="mb-1"><strong>CPU Info:</strong> <label id="cpu_info"></label></div>
+                                </div>
+                                <div class="col-6">
+                                    <div class="mb-1"><strong>CPU Arch:</strong> <label id="cpu_arch"></label></div>
+                                </div>
+                                <div class="col-6">
+                                    <div class="mb-1"><strong>CPU Cores:</strong> <label id="cpu_cores"></label></div>
+                                </div>
+                                <div class="col-6">
+                                    <div class="mb-1"><strong>CPU Freq:</strong> <label id="cpu_freq"></label></div>
+                                </div>
+                                <div class="col-6">
+                                    <div class="mb-1"><strong>GPU Type:</strong> <label id="gpu_type"></label></div>
+                                </div>
+                                <div class="col-6">
+                                    <div class="mb-1"><strong>OpenGL:</strong> <label id="opengl"></label></div>
+                                </div>
+                                <div class="col-6">
+                                    <div class="mb-1"><strong>GPU Freq:</strong> <label id="gpu_freq"></label></div>
+                                </div>
+                                <div class="col-6">
+                                    <div class="mb-1"><strong>{% if lan == 'cn' %}分辨率{% else %}Resolution{% endif %}:</strong> <label id="physical_size"></label></div>
+                                </div>
+                                <div class="col-6">
+                                    <div class="mb-1"><strong>{% if lan == 'cn' %}屏幕{% else %}Screen{% endif %}:</strong> <label id="screen_size"></label></div>
+                                </div>
+                                <div class="col-6">
+                                    <div class="mb-1"><strong>RAM:</strong> <label id="ram_size"></label></div>
+                                </div>
+                                <div class="col-6">
+                                    <div class="mb-1"><strong>Swap:</strong> <label id="swap_info"></label></div>
+                                </div>
+                                <div class="col-6">
+                                    <div class="mb-1"><strong>LMK:</strong> <label id="lmk_threshold"></label></div>
+                                </div>
+                                <div class="col-6">
+                                    <div class="mb-1"><strong>Root:</strong> <label id="root_status"></label></div>
+                                </div>
+                                <div class="col-6">
+                                    <div class="mb-1"><strong>WiFi:</strong> <label id="wifiadr"></label></div>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -260,6 +319,12 @@ SoloX - Application Performance Monitoring
         </div>
     </div>
     <div class="apm-data mt-1" style="width: 75%;">
+        <div class="mb-2 d-flex align-items-center gap-2" style="padding: 4px 8px; background: #232e3c; border-radius: 4px; width: fit-content;">
+            <span style="font-size: 13px; color: #a0aec0;">{% if lan == 'cn' %}全局缩放{% else %}Global Zoom{% endif %}</span>
+            <button class="btn btn-sm btn-global-zoom active" data-zoom="0" style="padding: 1px 8px; font-size: 12px; background: #e6c619; color: #000; border: none; border-radius: 3px;">1min</button>
+            <button class="btn btn-sm btn-global-zoom" data-zoom="1" style="padding: 1px 8px; font-size: 12px; background: #666; color: #fff; border: none; border-radius: 3px;">5min</button>
+            <button class="btn btn-sm btn-global-zoom" data-zoom="2" style="padding: 1px 8px; font-size: 12px; background: #666; color: #fff; border: none; border-radius: 3px;">All</button>
+        </div>
         <div id="cpu" class="mb-3 cpu" style="min-width:400px;height:300px"></div>
         {% if platform == 'Android' %}
         <div id="cpu_core" class="mb-3 cpu_core" style="min-width:400px;height:300px; display: none;"></div>
@@ -281,28 +346,61 @@ SoloX - Application Performance Monitoring
 <div class="offcanvas offcanvas-bottom layout-boxed" tabindex="-1" id="offcanvasBottom" aria-labelledby="offcanvasBottomLabel" style="height: 90%">
     <div class="offcanvas-header">
       <h2 class="offcanvas-title" id="offcanvasBottomLabel">Error Log</h2>
+      <span id="logcat-counter" class="badge bg-secondary ms-2" style="font-size:0.75rem;"></span>
       <button type="button" class="btn-close text-reset" data-bs-dismiss="offcanvas" aria-label="Close"></button>
     </div>
-    <div class="offcanvas-body">
-        <div class="btn-list logcat-btn-list">
-            <a id="run-logcat" class="btn btn-default">
+    <div class="offcanvas-body" style="display:flex;flex-direction:column;overflow:hidden;">
+        <!-- Toolbar row 1: Start/Stop/Pause/Clear/Copy/Export -->
+        <div class="btn-list logcat-btn-list mb-2">
+            <a id="run-logcat" class="btn btn-default" onclick="startLogcat()">
                 <svg t="1647757457022" class="icon" viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg" p-id="21859" width="200" height="200"><path d="M511.4 512.1m-448 0a448 448 0 1 0 896 0 448 448 0 1 0-896 0Z" fill="#006DFC" p-id="21860"></path><path d="M658.4 555.6L475.5 661.1c-33.4 19.3-75-4.8-75-43.3V406.6c0-38.5 41.7-62.6 75-43.3l182.9 105.6c33.3 19.3 33.3 67.4 0 86.7z" fill="#FFFFFF" p-id="21861"></path></svg>
                 {% if lan == 'cn' %} 开始 {% else %} Start {% endif %}
             </a>
-            <a id="stop-logcat"  class="btn btn-default" style="display: none">
+            <a id="stop-logcat" class="btn btn-default" style="display: none" onclick="stopLogcat()">
                 <svg t="1638096947956" class="icon" viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg" p-id="235254" width="200" height="200"><path d="M512 512m-512 0a512 512 0 1 0 1024 0 512 512 0 1 0-1024 0Z" fill="#EE827F" p-id="235255"></path><path d="M512 512m-443.191534 0a443.191534 443.191534 0 1 0 886.383068 0 443.191534 443.191534 0 1 0-886.383068 0Z" fill="#E64537" p-id="235256"></path><path d="M0 512C0 794.638448 229.180952 1023.8194 512 1023.8194V0C229.180952 0 0 229.180952 0 512z" fill="#FEFFFF" opacity=".1" p-id="235257"></path><path d="M477.866667 683.208466H375.647266c-1.083598 0-1.986596-0.902998-1.986596-1.986597V342.597531c0-1.083598 0.902998-1.986596 1.986596-1.986596h102.4c1.083598 0 1.986596 0.902998 1.986596 1.986596v338.443739c-0.1806 1.264198-1.083598 2.167196-2.167195 2.167196zM648.352734 683.208466h-102.4c-1.083598 0-1.986596-0.902998-1.986596-1.986597V342.597531c0-1.083598 0.902998-1.986596 1.986596-1.986596H648.352734c1.083598 0 1.986596 0.902998 1.986596 1.986596v338.443739c0 1.264198-0.902998 2.167196-1.986596 2.167196z" fill="#FFFFFF" p-id="235258"></path></svg>
                 {% if lan == 'cn' %} 停止 {% else %} Stop {% endif %}
             </a>
-            <a id="logcat-copy" class="btn"  onclick="cppyLogcat()">
+            <a id="pause-logcat" class="btn btn-default" style="display:none" onclick="togglePauseLogcat()">
+                {% if lan == 'cn' %} ⏸ 暂停 {% else %} ⏸ Pause {% endif %}
+            </a>
+            <a id="resume-logcat" class="btn btn-warning" style="display:none" onclick="togglePauseLogcat()">
+                {% if lan == 'cn' %} ▶ 继续 {% else %} ▶ Resume {% endif %}
+            </a>
+            <a id="logcat-copy" class="btn" onclick="cppyLogcat()">
                 <svg t="1681097872350" class="icon" viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg" p-id="14723" width="50" height="50"><path d="M744.296296 128a151.703704 151.703704 0 0 1 151.703704 151.703704v344.613926a75.851852 75.851852 0 0 1-75.851852 75.851851h-38.589629V373.210074a130.787556 130.787556 0 0 0-130.768593-130.768593L323.830519 242.422519V203.851852a75.851852 75.851852 0 0 1 75.851851-75.851852h344.613926z m-93.50637 179.825778a65.384296 65.384296 0 0 1 65.384296 65.384296v10.467556a75.851852 75.851852 0 0 0-72.059259-75.757037l-3.792593-0.094815h10.467556z" fill="#0CCA8A" fill-opacity=".5" p-id="14724"></path><path d="M144.004741 307.825778m75.851852 0l420.465777 0q75.851852 0 75.851852 75.851852l0 420.465777q0 75.851852-75.851852 75.851852l-420.465777 0q-75.851852 0-75.851852-75.851852l0-420.465777q0-75.851852 75.851852-75.851852Z" fill="#0CCA8A" p-id="14725"></path></svg>
                 {% if lan == 'cn' %} 复制 {% else %} Copy {% endif %}
+            </a>
+            <a id="logcat-export" class="btn" onclick="exportLogcat()">
+                {% if lan == 'cn' %} 📥 导出 {% else %} 📥 Export {% endif %}
             </a>
             <a id="logcat-clear" class="btn" onclick="clearLogcat()">
                 <svg t="1681097907668" class="icon" viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg" p-id="15706" width="50" height="50"><path d="M274.5344 582.0928h480.9728v265.0624H274.5344z" fill="#D9FFEC" p-id="15707"></path><path d="M852.6336 539.9552H177.408c-43.9296 0-79.6672-35.7376-79.6672-79.6672V335.8208c0-43.9296 35.7376-79.6672 79.6672-79.6672h159.8976V175.7184c0-48.5376 39.4752-88.064 88.064-88.064h179.3536c48.5376 0 88.064 39.4752 88.064 88.064v80.4864h159.8976c43.9296 0 79.6672 35.7376 79.6672 79.6672v124.5184c-0.0512 43.8784-35.7888 79.5648-79.7184 79.5648z m-672.9728-81.92h670.72V338.1248H651.776c-22.6304 0-40.96-18.3296-40.96-40.96V175.7184c0-3.3792-2.7648-6.144-6.144-6.144H425.3696c-3.3792 0-6.144 2.7648-6.144 6.144v121.4464c0 22.6304-18.3296 40.96-40.96 40.96H179.6608v119.9104z" fill="#34333A" p-id="15708"></path><path d="M390.5536 889.9072c-22.6304 0-40.96-18.3296-40.96-40.96v-173.6704c0-22.6304 18.3296-40.96 40.96-40.96s40.96 18.3296 40.96 40.96v173.6704c0 22.6304-18.3296 40.96-40.96 40.96z" fill="#3AD285" p-id="15709"></path><path d="M797.7472 932.1472H232.2944c-53.1456 0-96.3584-43.2128-96.3584-96.3584v-255.9488h81.92v255.9488c0 7.9872 6.5024 14.4384 14.4384 14.4384H797.696c7.9872 0 14.4384-6.5024 14.4384-14.4384v-255.9488h81.92v255.9488c0.0512 53.0944-43.1616 96.3584-96.3072 96.3584z" fill="#34333A" p-id="15710"></path></svg>
                 {% if lan == 'cn' %} 清除 {% else %} Clear {% endif %}
             </a>
         </div>
-        <div class="mt-2" id="logcat-content" style="color: rgba(214, 39, 8, 0.849);"></div>
+        <!-- Toolbar row 2: Severity filter + Tag filter + Keyword search -->
+        <div class="d-flex flex-wrap align-items-center gap-2 mb-2" id="logcat-filters">
+            <div class="btn-group btn-group-sm" role="group" id="severity-filter">
+                <button type="button" class="btn btn-outline-secondary logcat-sev-btn active" data-sev="all">ALL</button>
+                <button type="button" class="btn btn-outline-danger logcat-sev-btn" data-sev="F">F</button>
+                <button type="button" class="btn btn-outline-danger logcat-sev-btn" data-sev="E">E</button>
+                <button type="button" class="btn btn-outline-warning logcat-sev-btn" data-sev="W">W</button>
+                <button type="button" class="btn btn-outline-info logcat-sev-btn" data-sev="I">I</button>
+                <button type="button" class="btn btn-outline-success logcat-sev-btn" data-sev="D">D</button>
+                <button type="button" class="btn btn-outline-secondary logcat-sev-btn" data-sev="V">V</button>
+            </div>
+            <input type="text" id="logcat-tag-filter" class="form-control form-control-sm" style="width:120px"
+                   placeholder="{% if lan == 'cn' %}标签过滤{% else %}Tag filter{% endif %}">
+            <input type="text" id="logcat-keyword-filter" class="form-control form-control-sm" style="width:180px"
+                   placeholder="{% if lan == 'cn' %}关键词搜索{% else %}Keyword search{% endif %}">
+            <select id="logcat-capture-level" class="form-select form-select-sm" style="width:auto">
+                <option value="V">{% if lan == 'cn' %}采集: 全部{% else %}Capture: All{% endif %}</option>
+                <option value="W">{% if lan == 'cn' %}采集: W+{% else %}Capture: W+{% endif %}</option>
+                <option value="E" selected>{% if lan == 'cn' %}采集: E+{% else %}Capture: E+{% endif %}</option>
+            </select>
+        </div>
+        <!-- Log content area -->
+        <div id="logcat-content" style="flex:1;overflow-y:auto;font-family:monospace;font-size:12px;background:#1a1a2e;color:#eee;padding:8px;border-radius:4px;"></div>
     </div>
   </div>
 <div class="offcanvas offcanvas-bottom layout-boxed" tabindex="-1" id="offcanvas-startup-time" aria-labelledby="offcanvasBottomLabel" style="height: 90%">
@@ -311,49 +409,270 @@ SoloX - Application Performance Monitoring
       <button type="button" class="btn-close text-reset" data-bs-dismiss="offcanvas" aria-label="Close"></button>
     </div>
     <div class="offcanvas-body">
-        <div class="row">
+        <!-- Launch flow diagram -->
+        <div class="mb-3 p-3" style="background:rgba(0,109,252,0.05);border-radius:8px;border:1px solid rgba(0,109,252,0.15);">
+            <div class="d-flex align-items-center flex-wrap" style="gap:6px;font-size:13px;">
+                {% if lan == 'cn' %}
+                <span class="badge bg-blue-lt">1. 输入 Activity</span>
+                <span style="color:#999;">&rarr;</span>
+                <span class="badge bg-blue-lt">2. 选择启动类型</span>
+                <span style="color:#999;">&rarr;</span>
+                <span class="badge bg-blue-lt">3. 点击开始</span>
+                <span style="color:#999;">&rarr;</span>
+                <span class="badge bg-green-lt">得到启动耗时</span>
+                <span style="color:#aaa;margin-left:12px;font-size:12px;">
+                    <strong>冷启动</strong>=杀进程重启(am start -W -S) |
+                    <strong>热启动</strong>=自动按HOME切后台再恢复
+                </span>
+                {% else %}
+                <span class="badge bg-blue-lt">1. Enter Activity</span>
+                <span style="color:#999;">&rarr;</span>
+                <span class="badge bg-blue-lt">2. Select Launch Type</span>
+                <span style="color:#999;">&rarr;</span>
+                <span class="badge bg-blue-lt">3. Click Start</span>
+                <span style="color:#999;">&rarr;</span>
+                <span class="badge bg-green-lt">Get Startup Time</span>
+                <span style="color:#aaa;margin-left:12px;font-size:12px;">
+                    <strong>Cold</strong>=kill+restart(am start -W -S) |
+                    <strong>Hot</strong>=auto HOME+resume from background
+                </span>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Input controls row -->
+        <div class="row g-2 align-items-end">
             {% if platform == 'Android' %}
             <div class="col-auto">
                 <div class="input-group" style="width:550px">
                     <span class="input-group-text">
                       Activity
                     </span>
-                    <input type="text" id="activity" class="form-control"  placeholder="Input activity"  autocomplete="off">
+                    <input type="text" id="activity" class="form-control"  placeholder="{% if lan == 'cn' %}点击右侧获取当前Activity，或手动输入{% else %}Click right to get current, or type manually{% endif %}"  autocomplete="off">
                     <a onclick="getCurActivity()" class="input-group-text" style="cursor: pointer;color: rgb(0, 132, 255);">
                       <strong>Get current activity</strong>
                     </a>
                 </div>
             </div>
+            <div class="col-auto">
+                <select id="launch-type" class="form-select" style="width:160px" onchange="onLaunchTypeChange()">
+                    <option value="cold" selected>{% if lan == 'cn' %}冷启动{% else %}Cold Start{% endif %}</option>
+                    <option value="hot">{% if lan == 'cn' %}热启动{% else %}Hot Start{% endif %}</option>
+                </select>
+            </div>
+            <div class="col-auto">
+                <a onclick="sendAppToBackground()" class="btn btn-outline-secondary" id="btn-home"
+                   title="{% if lan == 'cn' %}按HOME键将应用切到后台{% else %}Press HOME to send app to background{% endif %}">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M5 12l-2 0l9 -9l9 9l-2 0" /><path d="M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2 -2v-7" /><path d="M9 21v-6a2 2 0 0 1 2 -2h2a2 2 0 0 1 2 2v6" /></svg>
+                    {% if lan == 'cn' %}切后台{% else %}Home{% endif %}
+                </a>
+            </div>
             {% endif %}
             <div class="col-auto">
                 {% if platform == 'Android' %}
-                <a onclick="getStartupTimeByAndroid()" class="btn btn-default">
-                    <svg t="1647757457022" class="icon" viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg" p-id="21859" width="200" height="200"><path d="M511.4 512.1m-448 0a448 448 0 1 0 896 0 448 448 0 1 0-896 0Z" fill="#006DFC" p-id="21860"></path><path d="M658.4 555.6L475.5 661.1c-33.4 19.3-75-4.8-75-43.3V406.6c0-38.5 41.7-62.6 75-43.3l182.9 105.6c33.3 19.3 33.3 67.4 0 86.7z" fill="#FFFFFF" p-id="21861"></path></svg>
-                    {% if lan == 'cn' %} 开始 {% else %} Start {% endif %}
+                <a onclick="getStartupTimeByAndroid()" class="btn btn-primary">
+                    <svg t="1647757457022" class="icon" viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg" p-id="21859" width="200" height="200"><path d="M511.4 512.1m-448 0a448 448 0 1 0 896 0 448 448 0 1 0-896 0Z" fill="#FFFFFF" p-id="21860"></path><path d="M658.4 555.6L475.5 661.1c-33.4 19.3-75-4.8-75-43.3V406.6c0-38.5 41.7-62.6 75-43.3l182.9 105.6c33.3 19.3 33.3 67.4 0 86.7z" fill="#006DFC" p-id="21861"></path></svg>
+                    {% if lan == 'cn' %} 开始测量 {% else %} Measure {% endif %}
                 </a>
                 {% else %}
-                <a onclick="getStartupTimeByiOS()" class="btn btn-default">
-                    <svg t="1647757457022" class="icon" viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg" p-id="21859" width="200" height="200"><path d="M511.4 512.1m-448 0a448 448 0 1 0 896 0 448 448 0 1 0-896 0Z" fill="#006DFC" p-id="21860"></path><path d="M658.4 555.6L475.5 661.1c-33.4 19.3-75-4.8-75-43.3V406.6c0-38.5 41.7-62.6 75-43.3l182.9 105.6c33.3 19.3 33.3 67.4 0 86.7z" fill="#FFFFFF" p-id="21861"></path></svg>
-                    {% if lan == 'cn' %} 开始 {% else %} Start {% endif %}
+                <a onclick="getStartupTimeByiOS()" class="btn btn-primary">
+                    <svg t="1647757457022" class="icon" viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg" p-id="21859" width="200" height="200"><path d="M511.4 512.1m-448 0a448 448 0 1 0 896 0 448 448 0 1 0-896 0Z" fill="#FFFFFF" p-id="21860"></path><path d="M658.4 555.6L475.5 661.1c-33.4 19.3-75-4.8-75-43.3V406.6c0-38.5 41.7-62.6 75-43.3l182.9 105.6c33.3 19.3 33.3 67.4 0 86.7z" fill="#006DFC" p-id="21861"></path></svg>
+                    {% if lan == 'cn' %} 开始测量 {% else %} Measure {% endif %}
                 </a>
                 <span class="form-help" style="margin-left: 10px;" data-bs-toggle="popover" data-bs-placement="top" data-bs-html="true" data-bs-content="
                 If no results are returned, please reinstall py-ios-device [pip install py-ios-device].
-                <p class='mb-0'><a href='https://github.com/YueChen-C/py-ios-device' target='_blank'>Documentation</a></p>">?</span> 
+                <p class='mb-0'><a href='https://github.com/YueChen-C/py-ios-device' target='_blank'>Documentation</a></p>">?</span>
                 {% endif %}
             </div>
         </div>
-        <pre class="mt-2" id="startup-time-content"></pre>
+
+        <!-- Hot start hint (shown when hot start is selected) -->
+        <div class="mt-2" id="hot-start-hint" style="display:none;">
+            <span class="badge bg-cyan-lt" style="font-size:12px;">
+                {% if lan == 'cn' %}
+                <svg xmlns="http://www.w3.org/2000/svg" class="icon" width="16" height="16" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M12 9v2m0 4v.01" /><path d="M5 19h14a2 2 0 0 0 1.84 -2.75l-7.1 -12.25a2 2 0 0 0 -3.5 0l-7.1 12.25a2 2 0 0 0 1.84 2.75" /></svg>
+                热启动测量时会自动按HOME键将应用切到后台，等待1.5秒后再启动测量
+                {% else %}
+                <svg xmlns="http://www.w3.org/2000/svg" class="icon" width="16" height="16" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M12 9v2m0 4v.01" /><path d="M5 19h14a2 2 0 0 0 1.84 -2.75l-7.1 -12.25a2 2 0 0 0 -3.5 0l-7.1 12.25a2 2 0 0 0 1.84 2.75" /></svg>
+                Hot start will auto-press HOME to background the app, wait 1.5s, then measure
+                {% endif %}
+            </span>
+        </div>
+
+        <!-- Results area -->
+        <div class="mt-3" id="startup-time-result" style="display:none;">
+            <!-- Error alert (hidden by default) -->
+            <div class="alert alert-warning" id="st-error-alert" style="display:none;">
+                <div class="d-flex align-items-center">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon alert-icon" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M12 9v2m0 4v.01" /><path d="M5 19h14a2 2 0 0 0 1.84 -2.75l-7.1 -12.25a2 2 0 0 0 -3.5 0l-7.1 12.25a2 2 0 0 0 1.84 2.75" /></svg>
+                    <div id="st-error-text"></div>
+                </div>
+            </div>
+            <!-- Metric cards -->
+            <div class="row g-3">
+                <div class="col-6 col-sm-3">
+                    <div class="card">
+                        <div class="card-body text-center p-3">
+                            <div class="text-muted mb-1" style="font-size:12px;">{% if lan == 'cn' %}启动类型{% else %}Launch Type{% endif %}</div>
+                            <div class="h3 mb-0" id="st-launch-type">-</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-6 col-sm-3">
+                    <div class="card">
+                        <div class="card-body text-center p-3">
+                            <div class="text-muted mb-1" style="font-size:12px;">TotalTime (ms)</div>
+                            <div class="h2 mb-0" id="st-total-time">-</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-6 col-sm-3">
+                    <div class="card">
+                        <div class="card-body text-center p-3">
+                            <div class="text-muted mb-1" style="font-size:12px;">WaitTime (ms)</div>
+                            <div class="h2 mb-0" id="st-wait-time">-</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-6 col-sm-3">
+                    <div class="card">
+                        <div class="card-body text-center p-3">
+                            <div class="text-muted mb-1" style="font-size:12px;">{% if lan == 'cn' %}启动状态{% else %}Launch State{% endif %}</div>
+                            <div class="h4 mb-0" id="st-launch-state">-</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="mt-2">
+                <span class="text-muted" style="font-size:12px;" id="st-assessment"></span>
+            </div>
+            <div class="mt-2">
+                <a class="text-muted" style="font-size:12px;cursor:pointer;" onclick="$('#startup-time-raw').toggle()">
+                    {% if lan == 'cn' %}查看原始输出{% else %}Show raw output{% endif %} &#9660;
+                </a>
+                <pre class="mt-1" id="startup-time-raw" style="display:none;font-size:11px;max-height:200px;overflow-y:auto;"></pre>
+            </div>
+        </div>
+
+        <!-- Troubleshooting tips (always visible, compact) -->
+        <div class="mt-3 p-2" style="background:rgba(0,0,0,0.02);border-radius:6px;font-size:12px;color:#666;">
+            {% if lan == 'cn' %}
+            <strong>常见问题：</strong>
+            SecurityException/not exported &rarr; 当前Activity不可外部启动，系统会自动尝试解析Launcher Activity，若仍失败请先手动打开应用再获取Activity |
+            TotalTime=-1 &rarr; 确认Activity格式 <code>包名/Activity全名</code>，先点击"Get current activity" |
+            数据波动大 &rarr; 建议测量3-5次取中位数 |
+            超时 &rarr; 游戏冷启动可能超10秒属正常
+            {% else %}
+            <strong>Tips：</strong>
+            SecurityException/not exported &rarr; Current activity can't be launched externally, system auto-resolves launcher activity; if still failing, open app manually first |
+            TotalTime=-1 &rarr; Verify Activity format <code>pkg/Activity</code>, click "Get current activity" |
+            High variance &rarr; Measure 3-5 times, use median |
+            Timeout &rarr; Game cold start may take 10s+, this is normal
+            {% endif %}
+        </div>
     </div>
   </div>
 <div class="modal modal-blur fade" style="margin-top: 20px;margin-right: 20px;" id="modal-scrollable" tabindex="-1" role="dialog" aria-hidden="true">
-    <div class="modal-dialog  modal-full-width modal-dialog-centered modal-dialog-scrollable" role="document">
+    <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable" role="document">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title">Connect to a Android device over Wi-Fi</h5>
+                <h5 class="modal-title">{% if lan == 'cn' %}通过 Wi-Fi 连接 Android 设备{% else %}Connect to Android Device over Wi-Fi{% endif %}</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
-            <div class="modal-body">
-                <iframe src="https://adbshell.com/commands/adb-connect" width="100%" height="1500px"></iframe>
+            <div class="modal-body" style="max-height:70vh; overflow-y:auto;">
+                {% if lan == 'cn' %}
+                <h4>方式一：传统 ADB TCP/IP（Android 10 及以下）</h4>
+                <ol>
+                    <li>手机通过 USB 连接电脑，确认 <code>adb devices</code> 能识别设备</li>
+                    <li>切换到 TCP 模式：<br><code>adb tcpip 5555</code></li>
+                    <li>查看手机 IP：<strong>设置 → 关于手机 → 状态 → IP 地址</strong>，或执行：<br><code>adb shell ip addr show wlan0</code></li>
+                    <li>拔掉 USB，无线连接：<br><code>adb connect &lt;手机IP&gt;:5555</code></li>
+                    <li>验证：<code>adb devices</code> 应显示 <code>&lt;IP&gt;:5555 device</code></li>
+                </ol>
+                <div class="alert alert-info">
+                    <strong>提示：</strong>手机与电脑必须在同一 Wi-Fi 网络。重启手机后需要重新连接。
+                </div>
+
+                <hr>
+                <h4>方式二：无线调试配对（Android 11+）</h4>
+                <ol>
+                    <li>手机进入 <strong>设置 → 开发者选项 → 无线调试</strong>，开启开关</li>
+                    <li>点击 <strong>使用配对码配对设备</strong>，记录显示的 <strong>配对码</strong> 和 <strong>IP:端口</strong></li>
+                    <li>在电脑上执行配对（端口号是配对页面显示的，不是调试端口）：<br>
+                        <code>adb pair &lt;IP&gt;:&lt;配对端口&gt;</code><br>
+                        输入配对码完成配对</li>
+                    <li>返回无线调试页面，查看 <strong>IP 地址和端口</strong>（这是调试端口，与配对端口不同）</li>
+                    <li>连接设备：<br><code>adb connect &lt;IP&gt;:&lt;调试端口&gt;</code></li>
+                    <li>验证：<code>adb devices</code></li>
+                </ol>
+                <div class="alert alert-warning">
+                    <strong>注意：</strong>每次打开无线调试时端口号会变化，需要重新查看。Android 11+ 推荐使用此方式，更安全。
+                </div>
+
+                <hr>
+                <h4>断开连接</h4>
+                <pre><code>adb disconnect &lt;IP&gt;:&lt;端口&gt;    # 断开指定设备
+adb disconnect                   # 断开所有无线设备</code></pre>
+
+                <hr>
+                <h4>常见问题</h4>
+                <table class="table table-bordered table-sm">
+                    <thead><tr><th style="width:40%">问题</th><th>解决方法</th></tr></thead>
+                    <tbody>
+                        <tr><td><code>unable to connect</code></td><td>确认手机和电脑在同一 Wi-Fi；检查防火墙是否阻止 ADB 端口；尝试 ping 手机 IP</td></tr>
+                        <tr><td><code>cannot connect to daemon</code></td><td><code>adb kill-server && adb start-server</code> 然后重试</td></tr>
+                        <tr><td>连接频繁断开</td><td>Wi-Fi 信号弱或手机进入省电模式；关闭手机电池优化/省电模式</td></tr>
+                        <tr><td>配对码过期 (Android 11+)</td><td>配对码有效期很短，需在弹出后尽快输入；超时重新点击"配对设备"</td></tr>
+                    </tbody>
+                </table>
+
+                {% else %}
+
+                <h4>Method 1: Traditional ADB TCP/IP (Android 10 and below)</h4>
+                <ol>
+                    <li>Connect your phone via USB and verify with <code>adb devices</code></li>
+                    <li>Switch to TCP mode:<br><code>adb tcpip 5555</code></li>
+                    <li>Find your phone's IP: <strong>Settings → About Phone → Status → IP Address</strong>, or run:<br><code>adb shell ip addr show wlan0</code></li>
+                    <li>Unplug USB and connect wirelessly:<br><code>adb connect &lt;PHONE_IP&gt;:5555</code></li>
+                    <li>Verify: <code>adb devices</code> should show <code>&lt;IP&gt;:5555 device</code></li>
+                </ol>
+                <div class="alert alert-info">
+                    <strong>Note:</strong> Phone and computer must be on the same Wi-Fi network. Connection resets after phone reboot.
+                </div>
+
+                <hr>
+                <h4>Method 2: Wireless Debugging Pairing (Android 11+)</h4>
+                <ol>
+                    <li>On your phone go to <strong>Settings → Developer Options → Wireless Debugging</strong> and enable it</li>
+                    <li>Tap <strong>Pair device with pairing code</strong>, note the <strong>pairing code</strong> and <strong>IP:port</strong></li>
+                    <li>On your computer, run (use the pairing port, not the debug port):<br>
+                        <code>adb pair &lt;IP&gt;:&lt;PAIRING_PORT&gt;</code><br>
+                        Enter the pairing code when prompted</li>
+                    <li>Go back to the Wireless Debugging screen, note the <strong>IP address and port</strong> (this is the debug port, different from pairing port)</li>
+                    <li>Connect:<br><code>adb connect &lt;IP&gt;:&lt;DEBUG_PORT&gt;</code></li>
+                    <li>Verify: <code>adb devices</code></li>
+                </ol>
+                <div class="alert alert-warning">
+                    <strong>Note:</strong> The port number changes each time you toggle Wireless Debugging. Android 11+ recommends this method for better security.
+                </div>
+
+                <hr>
+                <h4>Disconnect</h4>
+                <pre><code>adb disconnect &lt;IP&gt;:&lt;PORT&gt;    # Disconnect specific device
+adb disconnect                   # Disconnect all wireless devices</code></pre>
+
+                <hr>
+                <h4>Troubleshooting</h4>
+                <table class="table table-bordered table-sm">
+                    <thead><tr><th style="width:40%">Problem</th><th>Solution</th></tr></thead>
+                    <tbody>
+                        <tr><td><code>unable to connect</code></td><td>Verify phone and computer are on the same Wi-Fi; check firewall settings; try pinging the phone IP</td></tr>
+                        <tr><td><code>cannot connect to daemon</code></td><td>Run <code>adb kill-server && adb start-server</code> then retry</td></tr>
+                        <tr><td>Frequent disconnections</td><td>Weak Wi-Fi signal or phone entering power-save mode; disable battery optimization</td></tr>
+                        <tr><td>Pairing code expired (Android 11+)</td><td>Pairing codes expire quickly; re-tap "Pair device" to get a new one</td></tr>
+                    </tbody>
+                </table>
+                {% endif %}
             </div>
         </div>
     </div>
@@ -405,6 +724,51 @@ SoloX - Application Performance Monitoring
 <script>
 
     var stop = false; // 任务状态
+    var pidRefreshTimer = null; // 进程列表刷新定时器
+
+    function startPidRefresh() {
+        stopPidRefresh();
+        if (platform !== 'Android') return;
+        pidRefreshTimer = setInterval(function() {
+            var device = $('.select-device').val();
+            var pkgname = $('.select-app').val();
+            if (!device || !pkgname || stop) {
+                stopPidRefresh();
+                return;
+            }
+            var currentPid = $('.select-pid').val();
+            $.ajax({
+                url: Host + "/package/pids",
+                type: "GET",
+                async: true,
+                cache: false,
+                data: { platform: platform, device: device, pkgname: pkgname },
+                success: function(data) {
+                    if (data['status'] == 1 && data['pids'].length > 0) {
+                        var oldOptions = [];
+                        $('.select-pid option').each(function() { oldOptions.push($(this).val()); });
+                        var newPids = data['pids'];
+                        if (JSON.stringify(oldOptions) !== JSON.stringify(newPids)) {
+                            $('.select-pid').empty();
+                            for (var i = 0; i < newPids.length; i++) {
+                                $('.select-pid').append('<option>' + newPids[i] + '</option>');
+                            }
+                            if (currentPid && newPids.indexOf(currentPid) !== -1) {
+                                $('.select-pid').val(currentPid);
+                            }
+                        }
+                    }
+                }
+            });
+        }, 30000);
+    }
+
+    function stopPidRefresh() {
+        if (pidRefreshTimer) {
+            clearInterval(pidRefreshTimer);
+            pidRefreshTimer = null;
+        }
+    }
 
     var cores_num = cpucoreNum();
 
@@ -444,6 +808,53 @@ SoloX - Application Performance Monitoring
                 }
             });
         });
+
+        // Quick-toggle buttons for batch metric switching
+        var metricCheckboxIds = ['cpu_checkbox', 'mem_checkbox', 'flow_checkbox', 'fps_checkbox', 'battery_checkbox', 'gpu_checkbox', 'mem_detail_checkbox', 'thermal_checkbox', 'cpu_core_checkbox', 'disk_checkbox', 'energy_checkbox'];
+        var coreMetrics = ['cpu'];
+        var commonMetrics = ['cpu', 'mem', 'network', 'fps', 'battery'];
+
+        $('.btn-quick-toggle').click(function() {
+            var mode = $(this).data('mode');
+            $('.btn-quick-toggle').removeClass('active');
+            $(this).addClass('active');
+
+            var enabledNames = null;
+            if (mode === '1min') {
+                enabledNames = coreMetrics;
+            } else if (mode === '5min') {
+                enabledNames = commonMetrics;
+            }
+
+            $.each(metricCheckboxIds, function(i, cbId) {
+                var cb = $('#' + cbId);
+                if (cb.length === 0) return;
+                var metricName = cb.prop('name');
+                if (enabledNames === null) {
+                    cb.prop('checked', true);
+                    $('.' + metricName).show();
+                } else {
+                    var shouldCheck = enabledNames.indexOf(metricName) !== -1;
+                    cb.prop('checked', shouldCheck);
+                    if (shouldCheck) { $('.' + metricName).show(); }
+                    else { $('.' + metricName).hide(); }
+                }
+            });
+        });
+
+        // Global zoom control for all charts
+        $('.btn-global-zoom').click(function() {
+            var zoomIndex = parseInt($(this).data('zoom'));
+            $('.btn-global-zoom').removeClass('active').css({'background': '#666', 'color': '#fff'});
+            $(this).addClass('active').css({'background': '#e6c619', 'color': '#000'});
+
+            $.each(Highcharts.charts, function(i, chart) {
+                if (chart && chart.rangeSelector) {
+                    chart.rangeSelector.clickButton(zoomIndex);
+                }
+            });
+        });
+
         versionCheck()
   });
 
@@ -598,11 +1009,23 @@ SoloX - Application Performance Monitoring
                     }
                     $('#brand').text(data['device_detail']['brand']);
                     $('#device_name').text(data['device_detail']['name']);
-                    $('#os_version').text(data['device_detail']['version']);
+                    $('#os_info').text(data['device_detail']['os'] || data['device_detail']['version']);
                     $('#serialno').text(data['device_detail']['serialno']);
                     $('#wifiadr').text(data['device_detail']['wifiadr']);
                     $('#cpu_cores').text(data['device_detail']['cpu_cores']);
                     $('#physical_size').text(data['device_detail']['physical_size']);
+                    $('#cpu_type').text(data['device_detail']['cpu_type'] || '-');
+                    $('#cpu_info').text(data['device_detail']['cpu_info'] || '-');
+                    $('#cpu_arch').text(data['device_detail']['cpu_arch'] || '-');
+                    $('#cpu_freq').text(data['device_detail']['cpu_freq'] || '-');
+                    $('#gpu_type').text(data['device_detail']['gpu_type'] || '-');
+                    $('#opengl').text(data['device_detail']['opengl'] || '-');
+                    $('#gpu_freq').text(data['device_detail']['gpu_freq'] || '-');
+                    $('#screen_size').text(data['device_detail']['screen_size'] || '-');
+                    $('#ram_size').text(data['device_detail']['ram_size'] || '-');
+                    $('#lmk_threshold').text(data['device_detail']['lmk_threshold'] || '-');
+                    $('#swap_info').text(data['device_detail']['swap'] || '-');
+                    $('#root_status').text(data['device_detail']['root'] || '-');
                     swal.close();
                 }
             },
@@ -647,11 +1070,10 @@ SoloX - Application Performance Monitoring
                                 y_sys = data['systemCpuRate'];
                             app_series.addPoint([x, y_app], true, true);
                             sys_series.addPoint([x, y_sys], true, true);
-                            if(data['appCpuRate'] == 0 && data['systemCpuRate'] == 0 && platform == 'Android'){
-                                $('.select-pid').empty();
-                            }
                             timerQ = setTimeout(getCpuRate(pkgname,device), 1000);
                         }catch (e) {}
+                    }else if(data['status'] == 2){
+                        timerQ = setTimeout(getCpuRate(pkgname,device), 1000);
                     }else{
                         SwalFire('error','Something error',data['msg'],2000);
                     }
@@ -696,6 +1118,8 @@ SoloX - Application Performance Monitoring
                             })
                             timerQ = setTimeout(getCoreCpuRate(pkgname,device), 1000);
                         }catch (e) {}
+                    }else if(data['status'] == 2){
+                        timerQ = setTimeout(getCoreCpuRate(pkgname,device), 1000);
                     }else{
                         SwalFire('error','Something error',data['msg'],2000);
                     }
@@ -733,6 +1157,8 @@ SoloX - Application Performance Monitoring
                             series.addPoint([x, y], true, true);
                             timerQ = setTimeout(getGpu(pkgname, device), 1000);
                         }catch (e) {}
+                    }else if(data['status'] == 2){
+                        timerQ = setTimeout(getGpu(pkgname, device), 1000);
                     }else{
                         SwalFire('error','Something error',data['msg'],2000);
                     }
@@ -789,6 +1215,8 @@ SoloX - Application Performance Monitoring
                             } 
                             timerQ = setTimeout(getBattery(device), 1000);
                         }catch (e) {}
+                    }else if(data['status'] == 2){
+                        timerQ = setTimeout(getBattery(device), 1000);
                     }else{
                         SwalFire('error','Something error',data['msg'],2000);
                     }
@@ -843,6 +1271,8 @@ SoloX - Application Performance Monitoring
                             timerQ = setTimeout(getMemPss(pkgname,device), 1000);
 
                         }catch (e) {}
+                    }else if(data['status'] == 2){
+                        timerQ = setTimeout(getMemPss(pkgname,device), 1000);
                     }else{
                         SwalFire('error','Something error',data['msg'],2000);
                     }
@@ -904,6 +1334,8 @@ SoloX - Application Performance Monitoring
                             timerQ = setTimeout(getMemDetailPss(pkgname,device), 1000);
 
                         }catch (e) {}
+                    }else if(data['status'] == 2){
+                        timerQ = setTimeout(getMemDetailPss(pkgname,device), 1000);
                     }else{
                         SwalFire('error','Something error',data['msg'],2000);
                     }
@@ -1035,6 +1467,8 @@ SoloX - Application Performance Monitoring
                         }catch (e) {
                             console.log(e)
                         }
+                    }else if(data['status'] == 2){
+                        timerQ = setTimeout(getNetWork(pkgname,device,net_switch), 1000);
                     }else{
                         SwalFire('error','Something error',data['msg'],2000);
                     }
@@ -1080,6 +1514,8 @@ SoloX - Application Performance Monitoring
                             }
                             timerQ = setTimeout(getFps(pkgname,device,fps_switch), 1000);
                         }catch (e) {}
+                    }else if(data['status'] == 2){
+                        timerQ = setTimeout(getFps(pkgname,device,fps_switch), 1000);
                     }else{
                         SwalFire('error','Something error',data['msg'],2000);
                     }
@@ -1121,6 +1557,8 @@ SoloX - Application Performance Monitoring
                         }catch (e) {
                             console.log(e)
                         }
+                    }else if(data['status'] == 2){
+                        timerQ = setTimeout(getDisk(device), 3000);
                     }else{
                         SwalFire('error','Something error',data['msg'],2000);
                     }
@@ -1177,6 +1615,8 @@ SoloX - Application Performance Monitoring
                         }catch (e) {
                             console.log(e)
                         }
+                    }else if(data['status'] == 2){
+                        timerQ = setTimeout(getEnergy(pkgname,device), 2000);
                     }else{
                         SwalFire('error','Something error',data['msg'],2000);
                     }
@@ -2107,6 +2547,14 @@ SoloX - Application Performance Monitoring
         }
     }
 
+    var castQuality = 'medium';
+    $('.cast-quality-item').on('click', function(e){
+        e.preventDefault();
+        $('.cast-quality-item').removeClass('active');
+        $(this).addClass('active');
+        castQuality = $(this).data('quality');
+    });
+
     function cast(){
         var device = $('.select-device').val();
         if(device){
@@ -2118,6 +2566,7 @@ SoloX - Application Performance Monitoring
                 data:{
                     platform:platform,
                     device:$('.select-device').val(),
+                    quality:castQuality,
                 },
                 beforeSend: function () {
                     SwalLoading('Casting','')
@@ -2125,6 +2574,16 @@ SoloX - Application Performance Monitoring
                 success: function (data) {
                     if(data['status']==0){
                         SwalFire('error','Cast Failed',data['msg'],2000)
+                    } else {
+                        swal.close();
+                        var record_switch = $('#record-switch').is(':checked');
+                        if(record_switch || !stop){
+                            if(lan == 'cn'){
+                                SwalFire('info','提示','投屏已启动（与数据采集/录屏并行时自动降低画质）',3000);
+                            } else {
+                                SwalFire('info','Info','Cast started (quality auto-reduced when running with data collection/recording)',3000);
+                            }
+                        }
                     }
                 },
                 complete: function(){
@@ -2164,6 +2623,7 @@ SoloX - Application Performance Monitoring
 
     function stopTask(){
         stop = true;
+        stopPidRefresh();
         var wifi_switch = $('#net-switch').is(':checked');
         var record_switch = $('#record-switch').is(':checked');
         var thermal_switch = $('#thermal_checkbox').is(':checked')
@@ -2210,6 +2670,7 @@ SoloX - Application Performance Monitoring
     
     $('#run-apm').click(function () {
         stop = false;
+        startPidRefresh();
         $('#stop-apm').show();
         $('#run-apm').hide();
         initializeAPM();
@@ -2262,17 +2723,59 @@ SoloX - Application Performance Monitoring
     // var socket
     // if(platform == 'Android'){
     //     socket = io.connect('http://' + document.domain + ':' + location.port + '/logcat',{'forceNew':true });
-        
+
     // }
+
+    var logcatPollingTimer = null;
+    var logcatOffset = 0;
+    var logcatPaused = false;
+    var logcatActiveSeverity = 'all'; // client-side severity filter
+
+    // Severity color map
+    var sevColors = {
+        'F': '#ff0040', 'E': '#e63946', 'W': '#f4a261',
+        'I': '#2ec4b6', 'D': '#8ac926', 'V': '#adb5bd', '?': '#6c757d'
+    };
+
+    // Severity filter buttons
+    $(document).on('click', '.logcat-sev-btn', function(){
+        $('.logcat-sev-btn').removeClass('active');
+        $(this).addClass('active');
+        logcatActiveSeverity = $(this).data('sev');
+        // Re-render existing content with new filter
+        refilterLogcatDisplay();
+    });
+
     function startLogcat() {
         let device = $('.select-device').val();
         if(device){
             $('#run-logcat').hide();
             $('#stop-logcat').show();
-            socket = io.connect('http://' + document.domain + ':' + location.port + '/logcat',{'forceNew':true });
-            socket.on('message', function (msg) {
-                if(status){
-                    $('#logcat-content').prepend(msg.data + '<br>');
+            $('#pause-logcat').show();
+            $('#resume-logcat').hide();
+            logcatOffset = 0;
+            logcatPaused = false;
+            $('#logcat-content').empty();
+            var captureLevel = $('#logcat-capture-level').val() || 'E';
+            $.ajax({
+                url: "/apm/logcat/start",
+                type: "GET",
+                data: { device: device, platform: platform, severity: captureLevel },
+                success: function(res) {
+                    if(res.status == 1){
+                        logcatPollingTimer = setInterval(pollLogcat, 1000);
+                    } else {
+                        SwalFire('error','Error', res.msg, 2000);
+                        $('#run-logcat').show();
+                        $('#stop-logcat').hide();
+                        $('#pause-logcat').hide();
+                    }
+                },
+                error: function() {
+                    SwalFire('error','Error','Failed to start logcat',2000);
+                    $('#run-logcat').show();
+                    $('#stop-logcat').hide();
+                    $('#pause-logcat').hide();
                 }
             });
         }else{
@@ -2280,28 +2783,126 @@ SoloX - Application Performance Monitoring
         }
     };
 
+    function pollLogcat() {
+        if(logcatPaused) return;
+        var tagFilter = $('#logcat-tag-filter').val() || '';
+        var kwFilter = $('#logcat-keyword-filter').val() || '';
+        $.ajax({
+            url: "/apm/logcat/get",
+            type: "GET",
+            data: { offset: logcatOffset, tag: tagFilter, keyword: kwFilter },
+            success: function(res) {
+                if(res.status == 1){
+                    logcatOffset = res.offset;
+                    $('#logcat-counter').text(res.total + ' lines');
+                    if(res.lines && res.lines.length > 0){
+                        var html = '';
+                        for(var i = res.lines.length - 1; i >= 0; i--){
+                            var item = res.lines[i];
+                            // Client-side severity filter
+                            if(logcatActiveSeverity !== 'all' && item.severity !== logcatActiveSeverity) continue;
+                            var color = sevColors[item.severity] || '#eee';
+                            var sevBadge = '<span style="color:'+color+';font-weight:bold;width:14px;display:inline-block;">'+
+                                           escHtml(item.severity)+'</span>';
+                            var tagSpan = item.tag ? '<span style="color:#64b5f6;">'+escHtml(item.tag)+'</span> ' : '';
+                            var timeSpan = item.time ? '<span style="color:#888;">'+escHtml(item.time)+'</span> ' : '';
+                            html += '<div class="logcat-line" data-sev="'+escHtml(item.severity)+'" '+
+                                    'style="border-bottom:1px solid rgba(255,255,255,0.05);padding:1px 4px;white-space:pre-wrap;word-break:break-all;">'+
+                                    timeSpan + sevBadge + ' ' + tagSpan + escHtml(item.msg) + '</div>';
+                        }
+                        $('#logcat-content').prepend(html);
+                        // Auto-scroll to top (newest)
+                        $('#logcat-content').scrollTop(0);
+                    }
+                    if(!res.running){
+                        stopLogcat();
+                    }
+                }
+            }
+        });
+    };
+
+    function escHtml(s) {
+        if(!s) return '';
+        return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+
+    function togglePauseLogcat() {
+        logcatPaused = !logcatPaused;
+        if(logcatPaused){
+            $('#pause-logcat').hide();
+            $('#resume-logcat').show();
+        } else {
+            $('#pause-logcat').show();
+            $('#resume-logcat').hide();
+        }
+    }
+
+    function refilterLogcatDisplay() {
+        // Show/hide lines based on severity filter
+        if(logcatActiveSeverity === 'all'){
+            $('#logcat-content .logcat-line').show();
+        } else {
+            $('#logcat-content .logcat-line').each(function(){
+                if($(this).data('sev') === logcatActiveSeverity){
+                    $(this).show();
+                } else {
+                    $(this).hide();
+                }
+            });
+        }
+    }
+
     function stopLogcat() {
         $('#run-logcat').show();
         $('#stop-logcat').hide();
-        status = false;
-        // socket.emit('disconnect_request');
-        socket.close()
-
+        $('#pause-logcat').hide();
+        $('#resume-logcat').hide();
+        logcatPaused = false;
+        if(logcatPollingTimer){
+            clearInterval(logcatPollingTimer);
+            logcatPollingTimer = null;
+        }
+        $.ajax({ url: "/apm/logcat/stop", type: "GET" });
     };
 
     function cppyLogcat() {
-        const textValue = document.createElement('textarea');
-        document.body.appendChild(textValue);
-        textValue.value = $("#logcat-content").text(); 
-        textValue.select();
-        var result = document.execCommand('copy');
-        console.log(result)
-        document.body.removeChild(textValue);
-        SwalFire('success','Copy Success','',1000);
+        var lines = [];
+        $('#logcat-content .logcat-line:visible').each(function(){
+            lines.push($(this).text());
+        });
+        var text = lines.join('\n');
+        if(navigator.clipboard && navigator.clipboard.writeText){
+            navigator.clipboard.writeText(text).then(function(){
+                SwalFire('success','Copy Success','',1000);
+            });
+        } else {
+            const textValue = document.createElement('textarea');
+            document.body.appendChild(textValue);
+            textValue.value = text;
+            textValue.select();
+            document.execCommand('copy');
+            document.body.removeChild(textValue);
+            SwalFire('success','Copy Success','',1000);
+        }
     };
+
+    function exportLogcat() {
+        var tagFilter = $('#logcat-tag-filter').val() || '';
+        var kwFilter = $('#logcat-keyword-filter').val() || '';
+        var sev = logcatActiveSeverity !== 'all' ? logcatActiveSeverity : '';
+        var params = new URLSearchParams();
+        if(sev) params.set('severity', sev);
+        if(tagFilter) params.set('tag', tagFilter);
+        if(kwFilter) params.set('keyword', kwFilter);
+        window.open('/apm/logcat/export?' + params.toString(), '_blank');
+    }
 
     function clearLogcat() {
         $('#logcat-content').empty();
+        logcatOffset = 0;
+        $('#logcat-counter').text('');
+        $.ajax({ url: "/apm/logcat/clear", type: "GET" });
     };
     
     function getCurActivity(){
@@ -2335,29 +2936,154 @@ SoloX - Application Performance Monitoring
         }
     }
 
+    function onLaunchTypeChange(){
+        var val = $('#launch-type').val();
+        if(val === 'hot'){
+            $('#hot-start-hint').show();
+        } else {
+            $('#hot-start-hint').hide();
+        }
+    }
+
+    function sendAppToBackground(){
+        let device = $('.select-device').val();
+        if(!device){
+            SwalFire('error','Error','{% if lan == "cn" %}请先选择设备{% else %}Select a device first{% endif %}',2000);
+            return;
+        }
+        $.ajax({
+            url: "/apm/device/home",
+            type: "GET",
+            data:{ platform:platform, device:$('.select-device').val() },
+            beforeSend: function(){
+                SwalLoading('{% if lan == "cn" %}正在发送HOME键...{% else %}Sending HOME key...{% endif %}','')
+            },
+            success: function(data){
+                if(data['status']==1){
+                    SwalFire('success','OK','{% if lan == "cn" %}应用已切到后台{% else %}App sent to background{% endif %}',1500);
+                } else {
+                    SwalFire('error','Error',data['msg'],2000);
+                }
+            },
+            error: function(xhr,status,error){
+                SwalFire('error','Error',error,2000);
+            },
+            complete: function(){ swal.close(); }
+        });
+    }
+
     function getStartupTimeByAndroid(){
         let device = $('.select-device').val();
         let activity = $('#activity').val().trim();
+        let launchType = $('#launch-type').val() || 'cold';
         if(device && activity){
             $.ajax({
                 url: "/package/start/time/android",
                 type: "GET",
                 async: true,
                 cache: false,
+                timeout: 45000,
                 data:{
                     platform:platform,
                     device:$('.select-device').val(),
-                    activity: activity
+                    activity: activity,
+                    launch_type: launchType
                 },
                 beforeSend: function () {
-                    SwalLoading('Loading','')
+                    if(launchType === 'hot'){
+                        SwalLoading('{% if lan == "cn" %}正在按HOME键切后台并等待...{% else %}Pressing HOME and waiting...{% endif %}','')
+                    } else {
+                        SwalLoading('{% if lan == "cn" %}正在启动应用并计时...{% else %}Launching app and measuring...{% endif %}','')
+                    }
                 },
                 success: function (data) {
                     if(data['status']==1){
-                        console.log(data['time'])
-                        $('#startup-time-content').text(data['time']);
+                        var d = data['data'];
+                        $('#startup-time-result').show();
+                        var typeLabels = {
+                            'cold': '{% if lan == "cn" %}冷启动{% else %}Cold{% endif %}',
+                            'hot': '{% if lan == "cn" %}热启动{% else %}Hot{% endif %}'
+                        };
+                        $('#st-launch-type').text(typeLabels[d.launch_type] || d.launch_type);
+                        // Show resolved activity if different from input
+                        if(d.resolved_activity){
+                            {% if lan == 'cn' %}
+                            $('#st-launch-type').html(typeLabels[d.launch_type] + '<br><small class="text-muted" style="font-size:11px;">已自动解析: ' + d.resolved_activity + '</small>');
+                            {% else %}
+                            $('#st-launch-type').html(typeLabels[d.launch_type] + '<br><small class="text-muted" style="font-size:11px;">Auto-resolved: ' + d.resolved_activity + '</small>');
+                            {% endif %}
+                        }
+                        var tt = d.TotalTime;
+                        var wt = d.WaitTime;
+                        // Check if timing data was captured
+                        if(tt < 0 || (tt == 0 && wt <= 0 && !d.Status)){
+                            // No timing data returned
+                            $('#st-total-time').text('-').css('color','');
+                            $('#st-wait-time').text('-').css('color','');
+                            $('#st-launch-state').text(d.LaunchState || '-');
+                            $('#st-error-alert').show();
+                            if(d.error == 'not_exported' || d.error == 'security'){
+                                {% if lan == 'cn' %}
+                                $('#st-error-text').html('Activity 未导出(not exported)，自动重试也未能获取数据。<br>该应用的当前Activity不允许外部启动。<br><strong>建议：</strong>先手动打开应用，再点击 "Get current activity" 获取可启动的Activity');
+                                {% else %}
+                                $('#st-error-text').html('Activity not exported (SecurityException), auto-retry also failed.<br>The current activity does not allow external launch.<br><strong>Tip:</strong> Open the app manually first, then click "Get current activity"');
+                                {% endif %}
+                            } else {
+                                {% if lan == 'cn' %}
+                                $('#st-error-text').html('未获取到启动时间数据。可能原因：<br>1. Activity格式不正确，先手动打开应用再点击 "Get current activity"<br>2. 部分厂商ROM不支持 am start -W 计时<br>3. 应用启动过程中发生重定向');
+                                {% else %}
+                                $('#st-error-text').html('No timing data returned. Possible causes:<br>1. Open the app manually first, then click "Get current activity"<br>2. Some ROMs do not support am start -W timing<br>3. App redirects during launch');
+                                {% endif %}
+                            }
+                            $('#st-assessment').text('');
+                        } else {
+                            $('#st-error-alert').hide();
+                            $('#st-total-time').text(tt);
+                            $('#st-wait-time').text(wt >= 0 ? wt : '-');
+                            $('#st-launch-state').text(d.LaunchState || d.Status || '-');
+                            // Color code TotalTime
+                            if(tt > 0 && tt < 1000){ $('#st-total-time').css('color','#2fb344'); }
+                            else if(tt >= 1000 && tt < 2000){ $('#st-total-time').css('color','#f76707'); }
+                            else if(tt >= 2000){ $('#st-total-time').css('color','#d63939'); }
+                            else { $('#st-total-time').css('color',''); }
+                            // Assessment text
+                            var assess = '';
+                            if(d.launch_type == 'cold'){
+                                if(tt > 0 && tt < 1000) assess = '{% if lan == "cn" %}冷启动优秀 (<1s){% else %}Cold start excellent (<1s){% endif %}';
+                                else if(tt >= 1000 && tt < 2000) assess = '{% if lan == "cn" %}冷启动正常 (1-2s){% else %}Cold start normal (1-2s){% endif %}';
+                                else if(tt >= 2000 && tt < 5000) assess = '{% if lan == "cn" %}冷启动较慢 (2-5s)，建议优化{% else %}Cold start slow (2-5s), needs optimization{% endif %}';
+                                else if(tt >= 5000) assess = '{% if lan == "cn" %}冷启动过慢 (>5s)，必须优化{% else %}Cold start too slow (>5s), must optimize{% endif %}';
+                            } else {
+                                if(tt > 0 && tt < 300) assess = '{% if lan == "cn" %}热启动优秀 (<300ms){% else %}Hot start excellent (<300ms){% endif %}';
+                                else if(tt >= 300 && tt < 1000) assess = '{% if lan == "cn" %}热启动正常 (300ms-1s){% else %}Hot start normal (300ms-1s){% endif %}';
+                                else if(tt >= 1000) assess = '{% if lan == "cn" %}热启动较慢 (>1s){% else %}Hot start slow (>1s){% endif %}';
+                            }
+                            if(tt == 0 && wt > 0){
+                                {% if lan == 'cn' %}
+                                assess = 'TotalTime=0: 应用已在前台，无实际启动。WaitTime=' + wt + 'ms 为Intent分发耗时';
+                                {% else %}
+                                assess = 'TotalTime=0: App already in foreground, no actual launch. WaitTime=' + wt + 'ms is Intent dispatch time';
+                                {% endif %}
+                            }
+                            {% if lan == 'cn' %}
+                            if(assess) assess += ' | ';
+                            assess += '行业标准: 冷启动<2s, 热启动<1s (Google Android Vitals)';
+                            {% else %}
+                            if(assess) assess += ' | ';
+                            assess += 'Standard: Cold<2s, Hot<1s (Google Android Vitals)';
+                            {% endif %}
+                            $('#st-assessment').text(assess);
+                        }
+                        $('#startup-time-raw').text(d.raw || '');
                     }else{
                         SwalFire('error','Execution Error',data['msg'],2000)
+                    }
+                },
+                error: function(xhr, status, error){
+                    if(status === 'timeout'){
+                        SwalFire('warning','{% if lan == "cn" %}超时{% else %}Timeout{% endif %}','{% if lan == "cn" %}应用启动超过30秒，游戏类应用可能需要更长时间{% else %}App launch exceeded 30s, games may need longer{% endif %}',5000)
+                    } else {
+                        SwalFire('error','Error',error,3000)
                     }
                 },
                 complete: function(){
@@ -2365,7 +3091,11 @@ SoloX - Application Performance Monitoring
                 }
             });
         }else{
-            SwalFire('error','Execution Error','No devices or activity found',2000)
+            {% if lan == 'cn' %}
+            SwalFire('error','参数缺失','请选择设备并填写Activity（点击 Get current activity 自动获取）',3000)
+            {% else %}
+            SwalFire('error','Missing Params','Select device and fill Activity (click Get current activity)',3000)
+            {% endif %}
         }
     }
 

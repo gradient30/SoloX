@@ -9,7 +9,7 @@ from flask import Blueprint
 from solox import __version__
 from solox.public.apm import (CPU, Memory, Network, FPS, Battery, GPU, Energy, Disk,ThermalSensor, Target)
 from solox.public.apm_pk import (CPU_PK, MEM_PK, Flow_PK, FPS_PK)
-from solox.public.common import (Devices, File, Method, Install, Platform, Scrcpy)
+from solox.public.common import (Devices, File, Method, Install, Platform, Scrcpy, LogcatManager)
 
 d = Devices()
 f = File()
@@ -160,15 +160,30 @@ def getPackageActivity():
         result = {'status': 0, 'msg': 'no activity found'}
     return result
 
+@api.route('/apm/device/home', methods=['post', 'get'])
+def sendDeviceHome():
+    """Send HOME key to background the current app."""
+    platform = method._request(request, 'platform')
+    device = method._request(request, 'device')
+    try:
+        deviceId = d.getIdbyDevice(device, platform)
+        d.sendHomeKey(deviceId)
+        result = {'status': 1, 'msg': 'Home key sent'}
+    except Exception as e:
+        logger.exception(e)
+        result = {'status': 0, 'msg': str(e)}
+    return result
+
 @api.route('/package/start/time/android', methods=['post', 'get'])
 def getStartupTimeByAndroid():
     platform = method._request(request, 'platform')
     device = method._request(request, 'device')
     activity = method._request(request, 'activity')
+    launch_type = method._request(request, 'launch_type') or 'cold'
     try:
         deviceId = d.getIdbyDevice(device, platform)
-        time = d.getStartupTimeByAndroid(activity, deviceId)
-        result = {'status': 1, 'time': time}
+        data = d.getStartupTimeByAndroid(activity, deviceId, launch_type)
+        result = {'status': 1, 'data': data}
     except Exception as e:
         logger.exception(e)
         result = {'status': 0, 'msg': 'no result found'}
@@ -221,7 +236,7 @@ def getCpuRate():
     except Exception as e:
         logger.error('get cpu failed')
         logger.exception(e)
-        result = {'status': 1, 'appCpuRate': 0, 'systemCpuRate': 0, 'first': 0, 'second': 0}
+        result = {'status': 1, 'appCpuRate': 0, 'systemCpuRate': 0}
     return result
 
 @api.route('/apm/corecpu', methods=['post', 'get'])
@@ -287,7 +302,7 @@ def getMemory():
     except Exception as e:
         logger.error('get memory data failed')
         logger.exception(e)
-        result = {'status': 1, 'totalPass': 0, 'nativePass': 0, 'dalvikPass': 0, 'first': 0, 'second': 0}
+        result = {'status': 1, 'totalPass': 0, 'swapPass': 0}
     return result
 
 @api.route('/apm/mem/detail', methods=['post', 'get'])
@@ -405,13 +420,13 @@ def getFps():
                 fps_monitor = FPS.getObject(pkgName=pkgname, deviceId=deviceId, surfaceview=surfaceview, platform=platform)
                 fps, jank = fps_monitor.getFPS()
                 result = {'status': 1, 'fps': fps, 'jank': jank}
+                if hasattr(fps_monitor, 'fps_meta') and fps_monitor.fps_meta:
+                    result['fps_meta'] = fps_monitor.fps_meta
     except Exception as e:
         logger.error('get fps failed')
         logger.exception(e)
-        result = {'status': 1, 'fps': 0, 'jank': 0, 'first': 0, 'second': 0}
+        result = {'status': 1, 'fps': 0, 'jank': 0}
     return result
-
-@api.route('/apm/battery', methods=['post', 'get'])
 def getBattery():
     """get Battery data"""
     platform = method._request(request, 'platform')
@@ -776,6 +791,41 @@ def removeReport():
         result = {'status': 0, 'msg': str(e)}
     return result
 
+@api.route('/apm/report/list', methods=['get'])
+def getReportList():
+    """Get paginated report list"""
+    page = request.args.get('page', 1, type=int)
+    size = request.args.get('size', 20, type=int)
+    report_dir = os.path.join(os.getcwd(), 'report')
+    if not os.path.exists(report_dir):
+        os.mkdir(report_dir)
+    dirs = os.listdir(report_dir)
+    valid_dirs = [d for d in dirs if d.split('.')[-1] not in ['log', 'json', 'mkv', 'mp4']]
+    valid_dirs.sort(key=lambda x: os.path.getmtime(os.path.join(report_dir, x)), reverse=True)
+    total = len(valid_dirs)
+    start = (page - 1) * size
+    page_dirs = valid_dirs[start:start + size]
+    items = []
+    for dir_name in page_dirs:
+        try:
+            fpath = os.path.join(report_dir, dir_name, 'result.json')
+            with open(fpath) as fp:
+                json_data = json.loads(fp.read())
+            duration = f.getDuration(dir_name)
+            items.append({
+                'scene': dir_name,
+                'app': json_data.get('app', ''),
+                'platform': json_data.get('platform', ''),
+                'model': json_data.get('model', ''),
+                'devices': json_data.get('devices', ''),
+                'ctime': json_data.get('ctime', ''),
+                'video': json_data.get('video', 0),
+                'duration': duration
+            })
+        except Exception:
+            continue
+    return {'status': 1, 'data': items, 'total': total, 'page': page, 'size': size}
+
 @api.route('/apm/collect', methods=['post', 'get'])
 def apmCollect():
     """apm common api"""
@@ -808,6 +858,8 @@ def apmCollect():
                 fps_monitor = FPS(pkgName=pkgname, deviceId=deviceid, platform=platform)
                 fps, jank = fps_monitor.getFPS(noLog=True)
                 result = {'status': 1, 'fps': fps, 'jank': jank}
+                if hasattr(fps_monitor, 'fps_meta') and fps_monitor.fps_meta:
+                    result['fps_meta'] = fps_monitor.fps_meta
             case Target.Battery:
                 battery_monitor = Battery(deviceId=deviceid)
                 final = battery_monitor.getBattery(noLog=True)
@@ -902,9 +954,12 @@ def start_record():
 def cast_screen():
     device = method._request(request, 'device')
     platform = method._request(request, 'platform')
+    quality = request.args.get('quality', 'medium')
+    if quality not in ('high', 'medium', 'low'):
+        quality = 'medium'
     try:
         deviceId = d.getIdbyDevice(device, platform)
-        final = Scrcpy.cast_screen(deviceId)
+        final = Scrcpy.cast_screen(deviceId, quality=quality)
         if final == 0:
             result = {'status': 1, 'msg': 'success'}
         else:
@@ -914,14 +969,118 @@ def cast_screen():
         result = {'status': 0, 'msg': 'cast screen failed'}
     return result
 
+@api.route('/apm/record/cast/stop', methods=['post', 'get'])
+def stop_cast_screen():
+    try:
+        Scrcpy._stop_cast_process()
+        result = {'status': 1, 'msg': 'cast stopped'}
+    except Exception as e:
+        logger.exception(e)
+        result = {'status': 0, 'msg': str(e)}
+    return result
+
+@api.route('/apm/record/cast/status', methods=['post', 'get'])
+def cast_screen_status():
+    try:
+        running = Scrcpy._cast_running
+        recording = Scrcpy._is_recording()
+        result = {'status': 1, 'casting': running, 'recording': recording}
+    except Exception as e:
+        result = {'status': 0, 'casting': False, 'recording': False}
+    return result
+
 @api.route('/apm/record/play', methods=['post', 'get'])
 def play_record():
     scene = method._request(request, 'scene')
-    video = os.path.join(f.get_repordir(), scene, 'record.mkv')
+    video = os.path.join(f.get_repordir(), scene, 'record.mp4')
+    # Fallback to mkv for old recordings
+    if not os.path.exists(video):
+        video = os.path.join(f.get_repordir(), scene, 'record.mkv')
     try:
         Scrcpy.play_video(video)
         result = {'status': 1, 'msg': 'success'}
     except Exception as e:
         logger.exception(e)
         result = {'status': 0, 'msg': 'play video failed'}
+    return result
+
+@api.route('/apm/logcat/start', methods=['post', 'get'])
+def startLogcat():
+    """Start logcat error log capture"""
+    device = method._request(request, 'device')
+    platform = method._request(request, 'platform')
+    severity = request.args.get('severity', 'E')
+    try:
+        deviceId = d.getIdbyDevice(device, platform)
+        mgr = LogcatManager.get_instance()
+        mgr.start(deviceId, severity=severity)
+        result = {'status': 1, 'msg': 'logcat started'}
+    except Exception as e:
+        logger.exception(e)
+        result = {'status': 0, 'msg': str(e)}
+    return result
+
+@api.route('/apm/logcat/stop', methods=['post', 'get'])
+def stopLogcat():
+    """Stop logcat error log capture"""
+    try:
+        mgr = LogcatManager.get_instance()
+        mgr.stop()
+        result = {'status': 1, 'msg': 'logcat stopped'}
+    except Exception as e:
+        logger.exception(e)
+        result = {'status': 0, 'msg': str(e)}
+    return result
+
+@api.route('/apm/logcat/get', methods=['post', 'get'])
+def getLogcat():
+    """Get logcat lines via polling with optional filtering"""
+    offset = request.args.get('offset', 0, type=int)
+    severity = request.args.get('severity', None)
+    tag = request.args.get('tag', None)
+    keyword = request.args.get('keyword', None)
+    try:
+        mgr = LogcatManager.get_instance()
+        lines, new_offset, total = mgr.get_lines(
+            offset, severity=severity, tag=tag, keyword=keyword
+        )
+        result = {
+            'status': 1, 'lines': lines, 'offset': new_offset,
+            'total': total, 'running': mgr.is_running
+        }
+    except Exception as e:
+        logger.exception(e)
+        result = {'status': 0, 'msg': str(e)}
+    return result
+
+@api.route('/apm/logcat/export', methods=['post', 'get'])
+def exportLogcat():
+    """Export all logcat lines as downloadable text file"""
+    severity = request.args.get('severity', None)
+    tag = request.args.get('tag', None)
+    keyword = request.args.get('keyword', None)
+    try:
+        mgr = LogcatManager.get_instance()
+        all_lines = mgr.get_all_lines(severity=severity, tag=tag, keyword=keyword)
+        content = '\n'.join(all_lines)
+        from flask import Response
+        return Response(
+            content,
+            mimetype='text/plain',
+            headers={'Content-Disposition': 'attachment; filename=logcat_export.txt'}
+        )
+    except Exception as e:
+        logger.exception(e)
+        return {'status': 0, 'msg': str(e)}
+
+@api.route('/apm/logcat/clear', methods=['post', 'get'])
+def clearLogcatBuffer():
+    """Clear logcat buffer"""
+    try:
+        mgr = LogcatManager.get_instance()
+        mgr.clear()
+        result = {'status': 1, 'msg': 'logcat cleared'}
+    except Exception as e:
+        logger.exception(e)
+        result = {'status': 0, 'msg': str(e)}
     return result

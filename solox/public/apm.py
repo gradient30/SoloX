@@ -293,19 +293,23 @@ class Battery(object):
 
     def getAndroidBattery(self, noLog=False):
         """Get android battery info, unit:%"""
-        # Switch mobile phone battery to non-charging state
-        self.recoverBattery()
-        cmd = 'dumpsys battery set status 1'
-        adb.shell(cmd=cmd, deviceId=self.deviceId)
-        # Get phone battery info
-        cmd = 'dumpsys battery'
-        output = adb.shell(cmd=cmd, deviceId=self.deviceId)
-        level = int(re.findall(u'level:\s?(\d+)', output)[0])
-        temperature = int(re.findall(u'temperature:\s?(\d+)', output)[0]) / 10
-        if noLog is False:
-             apm_time = datetime.datetime.now().strftime('%H:%M:%S.%f')
-             f.add_log(os.path.join(f.report_dir,'battery_level.log'), apm_time, level)
-             f.add_log(os.path.join(f.report_dir,'battery_tem.log'), apm_time, temperature)
+        try:
+            # Switch mobile phone battery to non-charging state
+            self.recoverBattery()
+            cmd = 'dumpsys battery set status 1'
+            adb.shell(cmd=cmd, deviceId=self.deviceId)
+            # Get phone battery info
+            cmd = 'dumpsys battery'
+            output = adb.shell(cmd=cmd, deviceId=self.deviceId)
+            level = int(re.findall(u'level:\s?(\d+)', output)[0])
+            temperature = int(re.findall(u'temperature:\s?(\d+)', output)[0]) / 10
+            if noLog is False:
+                 apm_time = datetime.datetime.now().strftime('%H:%M:%S.%f')
+                 f.add_log(os.path.join(f.report_dir,'battery_level.log'), apm_time, level)
+                 f.add_log(os.path.join(f.report_dir,'battery_tem.log'), apm_time, temperature)
+        except Exception as e:
+            level, temperature = 0, 0
+            logger.exception(e)
         return level, temperature
 
     def getiOSBattery(self, noLog=False):
@@ -431,13 +435,16 @@ class FPS(object):
         self.surfaceview = surfaceview
         self.apm_time = datetime.datetime.now().strftime('%H:%M:%S.%f')
         self.monitors = None
-    
+        self.fps_meta = None  # credibility metadata from last FPS collection
+
     def getAndroidFps(self, noLog=False):
         """get Android Fps, unit:HZ
 
         Uses synchronous one-shot collection: reads SurfaceFlinger buffer,
         waits 1 second, reads again, and calculates FPS from fresh frames.
         This eliminates thread race conditions that caused ~50fps underreporting.
+
+        Populates self.fps_meta with credibility metadata.
         """
         try:
             collector = SurfaceStatsCollector(
@@ -449,12 +456,15 @@ class FPS(object):
                 surfaceview=self.surfaceview,
             )
             fps, jank = collector.collect_oneshot()
+            self.fps_meta = collector.last_collection_meta
             if noLog is False:
                 apm_time = datetime.datetime.now().strftime('%H:%M:%S.%f')
                 f.add_log(os.path.join(f.report_dir,'fps.log'), apm_time, fps)
                 f.add_log(os.path.join(f.report_dir,'jank.log'), apm_time, jank)
         except Exception as e:
             fps, jank = 0, 0
+            self.fps_meta = {'source': 'error', 'fps': 0, 'confidence': 'low',
+                             'fresh_frame_count': 0, 'verified': False}
             if len(d.getPid(self.deviceId, self.pkgName)) == 0:
                 logger.error('[FPS] {} : No process found'.format(self.pkgName))
             else:

@@ -3,6 +3,8 @@ import os
 import platform
 import re
 import shutil
+import subprocess
+import threading
 import time
 import requests
 from logzero import logger
@@ -13,7 +15,6 @@ import ssl
 import xlwt
 import psutil
 import signal
-import cv2
 from functools import wraps
 from jinja2 import Environment, FileSystemLoader
 from tidevice._device import Device
@@ -193,11 +194,31 @@ class Devices:
                 result['name'] = adb.shell(cmd='getprop ro.product.model', deviceId=deviceId)
                 result['version'] = adb.shell(cmd='getprop ro.build.version.release', deviceId=deviceId)
                 result['serialno'] = adb.shell(cmd='getprop ro.serialno', deviceId=deviceId)
+                if not result['serialno']:
+                    result['serialno'] = adb.shell(cmd='getprop persist.sys.usb.config', deviceId=deviceId) or ''
                 cmd = f'ip addr show wlan0 | {self.filterType()} link/ether'
-                wifiadr_content = adb.shell(cmd=cmd, deviceId=deviceId)                
+                wifiadr_content = adb.shell(cmd=cmd, deviceId=deviceId)
                 result['wifiadr'] = Method._index(wifiadr_content.split(), 1, '')
                 result['cpu_cores'] = self.getCpuCores(deviceId)
                 result['physical_size'] = adb.shell(cmd='wm size', deviceId=deviceId).replace('Physical size:','').strip()
+                # Extended device info
+                result['os'] = 'Android ' + result['version']
+                sdk = adb.shell(cmd='getprop ro.build.version.sdk', deviceId=deviceId)
+                if sdk:
+                    result['os'] += ' (API {})'.format(sdk)
+                result['cpu_type'] = self._getDeviceProp(deviceId,
+                    'ro.hardware', 'ro.board.platform', 'ro.product.board')
+                result['cpu_info'] = self._getCpuInfo(deviceId)
+                result['cpu_arch'] = adb.shell(cmd='getprop ro.product.cpu.abi', deviceId=deviceId)
+                result['cpu_freq'] = self._getCpuFreq(deviceId)
+                result['gpu_type'] = self._getGpuType(deviceId)
+                result['opengl'] = self._getOpenGLVersion(deviceId)
+                result['gpu_freq'] = self._getGpuFreq(deviceId)
+                result['screen_size'] = self._getScreenDensity(deviceId)
+                result['ram_size'] = self._getRamSize(deviceId)
+                result['lmk_threshold'] = self._getLmkThreshold(deviceId)
+                result['swap'] = self._getSwapInfo(deviceId)
+                result['root'] = self._getRootStatus(deviceId)
             case Platform.iOS:
                 ios_device = Device(udid=deviceId)
                 result['brand'] = ios_device.get_value("DeviceClass", no_session=True)
@@ -207,9 +228,255 @@ class Devices:
                 result['wifiadr'] = ios_device.get_value("WiFiAddress", no_session=True)
                 result['cpu_cores'] = 0
                 result['physical_size'] = self.getPhysicalSzieOfiOS(deviceId)
+                result['os'] = 'iOS ' + (result['version'] or '')
+                result['cpu_type'] = ios_device.get_value("HardwareModel", no_session=True) or ''
+                result['cpu_info'] = ios_device.get_value("CPUArchitecture", no_session=True) or ''
+                result['cpu_arch'] = result['cpu_info']
+                result['cpu_freq'] = ''
+                result['gpu_type'] = ''
+                result['opengl'] = ''
+                result['gpu_freq'] = ''
+                result['screen_size'] = result['physical_size']
+                try:
+                    ram_bytes = ios_device.get_value("TotalDiskCapacity", no_session=True)
+                    result['ram_size'] = ''
+                except Exception:
+                    result['ram_size'] = ''
+                result['lmk_threshold'] = ''
+                result['swap'] = ''
+                result['root'] = ''
             case _:
-                raise Exception('{} is undefined'.format(platform)) 
+                raise Exception('{} is undefined'.format(platform))
         return result
+
+    def _getDeviceProp(self, deviceId, *props):
+        """Try multiple property names, return first non-empty value."""
+        for prop in props:
+            val = adb.shell(cmd='getprop {}'.format(prop), deviceId=deviceId)
+            if val:
+                return val
+        return ''
+
+    def _getCpuInfo(self, deviceId):
+        """Get CPU model name from /proc/cpuinfo."""
+        try:
+            result = adb.shell(cmd='cat /proc/cpuinfo | grep -i "Hardware\\|model name" | head -1',
+                               deviceId=deviceId)
+            if result and ':' in result:
+                return result.split(':', 1)[1].strip()
+            # Fallback: try ro.hardware.chipname (Qualcomm/Samsung)
+            for prop in ('ro.hardware.chipname', 'ro.soc.model', 'ro.hardware'):
+                val = adb.shell(cmd='getprop {}'.format(prop), deviceId=deviceId)
+                if val:
+                    return val
+        except Exception:
+            pass
+        return ''
+
+    def _getCpuFreq(self, deviceId):
+        """Get CPU max frequency."""
+        try:
+            # Try cpuinfo_max_freq (in kHz)
+            result = adb.shell(
+                cmd='cat /sys/devices/system/cpu/cpu0/cpufreq/cpuinfo_max_freq',
+                deviceId=deviceId)
+            if result and result.isdigit():
+                freq_mhz = int(result) / 1000
+                if freq_mhz >= 1000:
+                    return '{:.2f} GHz'.format(freq_mhz / 1000)
+                return '{:.0f} MHz'.format(freq_mhz)
+            # Fallback: scaling_max_freq
+            result = adb.shell(
+                cmd='cat /sys/devices/system/cpu/cpu0/cpufreq/scaling_max_freq',
+                deviceId=deviceId)
+            if result and result.isdigit():
+                freq_mhz = int(result) / 1000
+                if freq_mhz >= 1000:
+                    return '{:.2f} GHz'.format(freq_mhz / 1000)
+                return '{:.0f} MHz'.format(freq_mhz)
+        except Exception:
+            pass
+        return ''
+
+    def _getGpuType(self, deviceId):
+        """Get GPU type/model."""
+        try:
+            # Method 1: dumpsys SurfaceFlinger (GLES info)
+            result = adb.shell(
+                cmd='dumpsys SurfaceFlinger | grep "GLES:" | head -1',
+                deviceId=deviceId)
+            if result and 'GLES:' in result:
+                parts = result.split('GLES:', 1)[1].strip()
+                # Format: "Vendor, Model, OpenGL ES version"
+                fields = [f.strip() for f in parts.split(',')]
+                if len(fields) >= 2:
+                    return fields[1]  # GPU model
+                return parts
+            # Method 2: getprop
+            for prop in ('ro.hardware.egl', 'ro.hardware.vulkan'):
+                val = adb.shell(cmd='getprop {}'.format(prop), deviceId=deviceId)
+                if val:
+                    return val
+        except Exception:
+            pass
+        return ''
+
+    def _getOpenGLVersion(self, deviceId):
+        """Get OpenGL ES version."""
+        try:
+            result = adb.shell(
+                cmd='dumpsys SurfaceFlinger | grep "GLES:" | head -1',
+                deviceId=deviceId)
+            if result and 'GLES:' in result:
+                parts = result.split('GLES:', 1)[1].strip()
+                fields = [f.strip() for f in parts.split(',')]
+                if len(fields) >= 3:
+                    return fields[2]  # OpenGL ES version string
+            # Fallback: getprop
+            val = adb.shell(cmd='getprop ro.opengles.version', deviceId=deviceId)
+            if val and val.isdigit():
+                v = int(val)
+                major = (v >> 16) & 0xFF
+                minor = v & 0xFF
+                return 'OpenGL ES {}.{}'.format(major, minor)
+        except Exception:
+            pass
+        return ''
+
+    def _getGpuFreq(self, deviceId):
+        """Get GPU max frequency."""
+        try:
+            # Qualcomm Adreno
+            result = adb.shell(
+                cmd='cat /sys/class/kgsl/kgsl-3d0/max_clock_mhz 2>/dev/null || '
+                    'cat /sys/class/kgsl/kgsl-3d0/devfreq/max_freq 2>/dev/null',
+                deviceId=deviceId)
+            if result and result.strip():
+                val = result.strip().split('\n')[0].strip()
+                if val.isdigit():
+                    freq = int(val)
+                    if freq > 100000:  # in Hz, convert
+                        return '{} MHz'.format(freq // 1000000)
+                    elif freq > 1000:  # in kHz
+                        return '{} MHz'.format(freq // 1000)
+                    else:  # already MHz
+                        return '{} MHz'.format(freq)
+            # Mali GPU
+            result = adb.shell(
+                cmd='cat /sys/devices/platform/*/mali*/max_clock 2>/dev/null || '
+                    'cat /sys/class/devfreq/*mali*/max_freq 2>/dev/null || '
+                    'cat /sys/class/devfreq/*gpu*/max_freq 2>/dev/null',
+                deviceId=deviceId)
+            if result and result.strip():
+                val = result.strip().split('\n')[0].strip()
+                if val.isdigit():
+                    freq = int(val)
+                    if freq > 100000000:
+                        return '{} MHz'.format(freq // 1000000)
+                    elif freq > 100000:
+                        return '{} MHz'.format(freq // 1000)
+        except Exception:
+            pass
+        return ''
+
+    def _getScreenDensity(self, deviceId):
+        """Get screen density (DPI) and compute approximate screen size."""
+        try:
+            density = adb.shell(cmd='wm density', deviceId=deviceId)
+            density = density.replace('Physical density:', '').strip() if density else ''
+            size = adb.shell(cmd='wm size', deviceId=deviceId)
+            size = size.replace('Physical size:', '').strip() if size else ''
+            if density and size and 'x' in size:
+                w, h = size.split('x')
+                w, h = int(w.strip()), int(h.strip())
+                dpi = int(density.split('\n')[0].strip())
+                diag_px = (w**2 + h**2) ** 0.5
+                diag_inch = diag_px / dpi
+                return '{} dpi ({:.1f}")'.format(dpi, diag_inch)
+            return density
+        except Exception:
+            pass
+        return ''
+
+    def _getRamSize(self, deviceId):
+        """Get total RAM size."""
+        try:
+            result = adb.shell(cmd='cat /proc/meminfo | grep MemTotal', deviceId=deviceId)
+            if result and 'MemTotal' in result:
+                val = result.split(':')[1].strip()  # e.g. "5939412 kB"
+                parts = val.split()
+                if parts and parts[0].isdigit():
+                    kb = int(parts[0])
+                    gb = kb / 1024 / 1024
+                    if gb >= 1:
+                        return '{:.1f} GB'.format(gb)
+                    return '{:.0f} MB'.format(kb / 1024)
+        except Exception:
+            pass
+        return ''
+
+    def _getLmkThreshold(self, deviceId):
+        """Get LMK (Low Memory Killer) thresholds."""
+        try:
+            # Method 1: minfree thresholds
+            result = adb.shell(
+                cmd='cat /sys/module/lowmemorykiller/parameters/minfree 2>/dev/null',
+                deviceId=deviceId)
+            if result and result.strip() and 'No such file' not in result:
+                # Convert pages to MB (4KB per page)
+                pages = [p.strip() for p in result.strip().split(',') if p.strip().isdigit()]
+                if pages:
+                    mb_vals = [str(int(p) * 4 // 1024) + 'MB' for p in pages]
+                    return ','.join(mb_vals)
+            # Method 2: lmkd (Android 10+)
+            result = adb.shell(cmd='getprop sys.lmk.minfree_levels', deviceId=deviceId)
+            if result and result.strip():
+                return result.strip()
+            # Method 3: device_config
+            result = adb.shell(
+                cmd='device_config get lmkd_native kill_heaviest_task 2>/dev/null',
+                deviceId=deviceId)
+            if result and result.strip() and 'null' not in result:
+                return 'lmkd: ' + result.strip()
+        except Exception:
+            pass
+        return ''
+
+    def _getSwapInfo(self, deviceId):
+        """Get swap/zRAM info."""
+        try:
+            result = adb.shell(cmd='cat /proc/meminfo | grep SwapTotal', deviceId=deviceId)
+            if result and 'SwapTotal' in result:
+                val = result.split(':')[1].strip()
+                parts = val.split()
+                if parts and parts[0].isdigit():
+                    kb = int(parts[0])
+                    if kb == 0:
+                        return 'No Swap'
+                    gb = kb / 1024 / 1024
+                    if gb >= 1:
+                        return '{:.1f} GB'.format(gb)
+                    return '{:.0f} MB'.format(kb / 1024)
+        except Exception:
+            pass
+        return ''
+
+    def _getRootStatus(self, deviceId):
+        """Check if device is rooted."""
+        try:
+            # Method 1: check su binary
+            result = adb.shell(cmd='which su 2>/dev/null', deviceId=deviceId)
+            if result and '/su' in result:
+                return 'Yes'
+            # Method 2: check ro.debuggable + ro.secure
+            debuggable = adb.shell(cmd='getprop ro.debuggable', deviceId=deviceId)
+            secure = adb.shell(cmd='getprop ro.secure', deviceId=deviceId)
+            if debuggable == '1' and secure == '0':
+                return 'Likely'
+            return 'No'
+        except Exception:
+            pass
+        return ''
     
     def getPhysicalSzieOfiOS(self, deviceId):
         ios_device = Device(udid=deviceId)
@@ -229,9 +496,182 @@ class Devices:
         else:
             raise Exception('No activity found')
 
-    def getStartupTimeByAndroid(self, activity, deviceId):
-        result = adb.shell(cmd='am start -W {}'.format(activity), deviceId=deviceId)
-        return result
+    def getLauncherActivity(self, pkg_name, deviceId):
+        """Find the exported launcher activity for a package."""
+        # Method 1: Parse dumpsys package (reliable, always available on device)
+        try:
+            result = self._adb_shell_timeout(
+                'dumpsys package {} | grep -B 5 "android.intent.category.LAUNCHER"'.format(pkg_name),
+                deviceId, timeout=10
+            )
+            if result:
+                for line in result.strip().split('\n'):
+                    line = line.strip()
+                    m = re.search(r'({}/\S+)'.format(re.escape(pkg_name)), line)
+                    if m:
+                        comp = m.group(1).split()[0].rstrip('}')
+                        return comp
+        except Exception:
+            pass
+
+        # Method 2: cmd package resolve-activity (short timeout, may not work on all devices)
+        try:
+            result = self._adb_shell_timeout(
+                'cmd package resolve-activity --brief -a android.intent.action.MAIN '
+                '-c android.intent.category.LAUNCHER {}'.format(pkg_name),
+                deviceId, timeout=5
+            )
+            if result:
+                for line in result.strip().split('\n'):
+                    line = line.strip()
+                    if '/' in line and not line.startswith('priority'):
+                        return line
+        except Exception:
+            pass
+
+        return None
+
+    def _adb_shell_timeout(self, cmd, deviceId, timeout=10):
+        """Run adb shell command with timeout, return stdout string."""
+        run_cmd = '{} -s {} shell {}'.format(adb.adb_path, deviceId, cmd)
+        try:
+            proc = subprocess.Popen(run_cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            stdout, stderr = proc.communicate(timeout=timeout)
+            return stdout.decode('utf-8', errors='replace').strip()
+        except subprocess.TimeoutExpired:
+            proc.kill()
+            return ''
+        except Exception:
+            return ''
+
+    def sendHomeKey(self, deviceId):
+        """Send HOME key (keyevent 3) to background the current app."""
+        adb.shell(cmd='input keyevent 3', deviceId=deviceId)
+
+    def _run_am_start(self, cmd, deviceId, timeout=30):
+        """Run am start command capturing both stdout and stderr, return combined output."""
+        run_cmd = '{} -s {} shell {}'.format(adb.adb_path, deviceId, cmd)
+        try:
+            proc = subprocess.Popen(
+                run_cmd, shell=True,
+                stdout=subprocess.PIPE, stderr=subprocess.PIPE
+            )
+            stdout, stderr = proc.communicate(timeout=timeout)
+            output = stdout.decode('utf-8', errors='replace').strip()
+            err_output = stderr.decode('utf-8', errors='replace').strip()
+            return output + '\n' + err_output if err_output else output
+        except subprocess.TimeoutExpired:
+            proc.kill()
+            return 'Error: Command timed out after {} seconds'.format(timeout)
+        except Exception as e:
+            return 'Error: {}'.format(str(e))
+
+    def _parse_am_output(self, combined, launch_type):
+        """Parse am start -W output into structured result."""
+        parsed = {
+            'raw': combined,
+            'launch_type': launch_type,
+            'TotalTime': -1,
+            'WaitTime': -1,
+            'LaunchState': '',
+            'Status': '',
+            'error': ''
+        }
+        if not combined:
+            return parsed
+
+        for line in combined.strip().split('\n'):
+            line = line.strip()
+            if line.startswith('Status:'):
+                parsed['Status'] = line.split(':', 1)[1].strip()
+            elif line.startswith('TotalTime:'):
+                try:
+                    parsed['TotalTime'] = int(line.split(':', 1)[1].strip())
+                except ValueError:
+                    pass
+            elif line.startswith('WaitTime:'):
+                try:
+                    parsed['WaitTime'] = int(line.split(':', 1)[1].strip())
+                except ValueError:
+                    pass
+            elif line.startswith('LaunchState:'):
+                parsed['LaunchState'] = line.split(':', 1)[1].strip()
+            elif 'SecurityException' in line or 'Permission Denial' in line:
+                parsed['error'] = 'security'
+            elif 'Error' in line and 'not exported' in line:
+                parsed['error'] = 'not_exported'
+            elif 'Exception' in line and not parsed['error']:
+                parsed['error'] = line
+
+        return parsed
+
+    def getStartupTimeByAndroid(self, activity, deviceId, launch_type='cold'):
+        """Measure Android app startup time following industry standards.
+
+        Automatically resolves launcher activity when the specified activity
+        is not exported (SecurityException). Uses am start -W -S for cold start.
+        For hot start, auto-sends HOME key to background the app first.
+        """
+        pkg_name = activity.split('/')[0] if '/' in activity else activity
+
+        # For hot start, first send app to background and wait
+        if launch_type == 'hot':
+            try:
+                self.sendHomeKey(deviceId)
+                time.sleep(1.5)
+            except Exception:
+                pass
+
+        # Build the am start command based on launch type
+        if launch_type == 'cold':
+            cmd = 'am start -W -S {}'.format(activity)
+        else:
+            cmd = 'am start -W {}'.format(activity)
+
+        combined = self._run_am_start(cmd, deviceId)
+        parsed = self._parse_am_output(combined, launch_type)
+
+        # If SecurityException (activity not exported), auto-retry with launcher activity
+        if parsed['error'] in ('security', 'not_exported') or (
+            'SecurityException' in combined or 'not exported' in combined
+        ):
+            logger.warning('Activity not exported, resolving launcher activity for {}'.format(pkg_name))
+
+            # Strategy 1: resolve launcher activity via package manager
+            launcher = self.getLauncherActivity(pkg_name, deviceId)
+            if launcher:
+                logger.info('Found launcher activity: {}'.format(launcher))
+                if launch_type == 'cold':
+                    cmd2 = 'am start -W -S {}'.format(launcher)
+                else:
+                    cmd2 = 'am start -W {}'.format(launcher)
+
+                combined2 = self._run_am_start(cmd2, deviceId)
+                parsed2 = self._parse_am_output(combined2, launch_type)
+
+                if parsed2['TotalTime'] >= 0 or parsed2['Status']:
+                    parsed2['raw'] = '[Auto-resolved launcher: {}]\n{}'.format(launcher, combined2)
+                    parsed2['resolved_activity'] = launcher
+                    return parsed2
+
+            # Strategy 2: launch via intent action (no specific component)
+            logger.info('Trying intent-based launch for {}'.format(pkg_name))
+            if launch_type == 'cold':
+                adb.shell(cmd='am force-stop {}'.format(pkg_name), deviceId=deviceId)
+                time.sleep(1)
+            cmd3 = 'am start -W -a android.intent.action.MAIN -c android.intent.category.LAUNCHER -p {}'.format(pkg_name)
+            combined3 = self._run_am_start(cmd3, deviceId)
+            parsed3 = self._parse_am_output(combined3, launch_type)
+
+            if parsed3['TotalTime'] >= 0 or parsed3['Status']:
+                parsed3['raw'] = '[Launched via package intent: {}]\n{}'.format(pkg_name, combined3)
+                return parsed3
+
+            # All strategies failed — return original error with guidance
+            parsed['raw'] = combined + '\n\n--- Retry via launcher ---\n' + (combined2 if launcher else 'No launcher found') + '\n--- Retry via intent ---\n' + combined3
+            parsed['error'] = 'not_exported'
+
+        return parsed
 
     def getStartupTimeByiOS(self, pkgname):
         try:
@@ -252,7 +692,7 @@ class File:
         if os.path.exists(self.report_dir):
             for f in os.listdir(self.report_dir):
                 filename = os.path.join(self.report_dir, f)
-                if f.split(".")[-1] in ['log', 'json', 'mkv']:
+                if f.split(".")[-1] in ['log', 'json', 'mkv', 'mp4']:
                     os.remove(filename)
         Scrcpy.stop_record()            
         logger.info('Clean up useless files success')            
@@ -351,6 +791,56 @@ class File:
             os.mkdir(report_dir)
         return report_dir
 
+    def getDuration(self, scene):
+        """Calculate test duration from first/last log timestamps."""
+        from datetime import datetime
+        scene_dir = os.path.join(self.report_dir, scene)
+        if not os.path.isdir(scene_dir):
+            return ''
+        first_ts, last_ts = None, None
+        for fname in os.listdir(scene_dir):
+            if not fname.endswith('.log'):
+                continue
+            fpath = os.path.join(scene_dir, fname)
+            try:
+                with open(fpath, 'r', encoding='utf-8') as fh:
+                    first_line = fh.readline().strip()
+                if not first_line or '=' not in first_line:
+                    continue
+                with open(fpath, 'rb') as fh:
+                    fh.seek(0, 2)
+                    pos = fh.tell()
+                    if pos < 2:
+                        continue
+                    fh.seek(-2, 2)
+                    while fh.tell() > 0 and fh.read(1) != b'\n':
+                        fh.seek(-2, 1)
+                    last_line = fh.readline().decode('utf-8').strip()
+                if not last_line or '=' not in last_line:
+                    continue
+                t1 = first_line.split('=')[0]
+                t2 = last_line.split('=')[0]
+                if first_ts is None or t1 < first_ts:
+                    first_ts = t1
+                if last_ts is None or t2 > last_ts:
+                    last_ts = t2
+            except Exception:
+                continue
+        if first_ts and last_ts:
+            try:
+                fmt = '%H:%M:%S.%f'
+                delta = datetime.strptime(last_ts, fmt) - datetime.strptime(first_ts, fmt)
+                total_sec = int(delta.total_seconds())
+                if total_sec < 0:
+                    return ''
+                h, m, s = total_sec // 3600, (total_sec % 3600) // 60, total_sec % 60
+                if h > 0:
+                    return f'{h:02d}:{m:02d}:{s:02d}'
+                return f'{m:02d}:{s:02d}'
+            except Exception:
+                return ''
+        return ''
+
     def create_file(self, filename, content=''):
         if not os.path.exists(self.report_dir):
             os.mkdir(self.report_dir)
@@ -399,7 +889,7 @@ class File:
 
         for f in os.listdir(self.report_dir):
             filename = os.path.join(self.report_dir, f)
-            if f.split(".")[-1] in ['log', 'json', 'mkv']:
+            if f.split(".")[-1] in ['log', 'json', 'mkv', 'mp4']:
                 shutil.move(filename, report_new_dir)        
         logger.info('Generating test results success: {}'.format(report_new_dir))
         return f'apm_{current_time}'        
@@ -970,7 +1460,15 @@ class Scrcpy:
         "32": os.path.join(STATICPATH, "scrcpy", "scrcpy-win32-v2.4", "scrcpy.exe"),
         "default":"scrcpy"
     }
-    
+
+    # Track active scrcpy processes
+    _cast_process = None
+    _cast_thread = None
+    _cast_device = None
+    _cast_running = False
+    _cast_quality = 'medium'
+    _record_process = None
+
     @classmethod
     def scrcpy_path(cls):
         bit = platform.architecture()[0]
@@ -981,81 +1479,445 @@ class Scrcpy:
             elif bit.__contains__('32'):
                 path =  cls.DEFAULT_SCRCPY_PATH["32"]
         return path
-    
+
+    @classmethod
+    def _is_recording(cls):
+        """Check if screen recording is currently active."""
+        if cls._record_process and cls._record_process.poll() is None:
+            return True
+        return False
+
+    # Use software encoder by default to avoid hardware encoder crashes
+    # (OMX.qcom.video.encoder.avc crashes with 0x80001009 on many Qualcomm devices)
+    _use_sw_encoder = True
+
+    @classmethod
+    def _get_cast_params(cls, device, for_recording=False, quality='medium'):
+        """Get optimized scrcpy parameters based on current state and quality setting.
+
+        quality: 'high', 'medium', 'low'
+        When data collection + recording run simultaneously,
+        use lower quality settings to reduce USB bandwidth pressure.
+        Uses software encoder (c2.android.avc.encoder) by default to avoid
+        hardware encoder crashes on Qualcomm/MediaTek devices.
+        """
+        params = [cls.scrcpy_path(), '-s', device, '--no-audio', '--video-codec=h264']
+
+        # Software encoder fallback: avoids OMX hardware encoder crashes
+        if cls._use_sw_encoder:
+            params.append('--video-encoder=c2.android.avc.encoder')
+
+        if for_recording:
+            # Recording mode: no display, lower quality to avoid USB contention
+            params.extend(['--no-playback', '--max-size=720', '--video-bit-rate=2M'])
+        else:
+            # Cast mode quality presets (bitrates lowered to reduce encoder stress)
+            quality_presets = {
+                'high':   {'max_size': 1920, 'max_fps': 60, 'bitrate': '6M'},
+                'medium': {'max_size': 1024, 'max_fps': 60, 'bitrate': '3M'},
+                'low':    {'max_size': 720,  'max_fps': 30, 'bitrate': '1M'},
+            }
+            preset = quality_presets.get(quality, quality_presets['medium'])
+
+            if cls._is_recording():
+                # Both casting and recording: force low quality regardless
+                params.extend(['--stay-awake', '--max-size=720', '--max-fps=30',
+                              '--video-bit-rate=1M'])
+                logger.info('cast screen: reduced quality due to concurrent recording')
+            else:
+                params.extend(['--stay-awake',
+                              '--max-size={}'.format(preset['max_size']),
+                              '--max-fps={}'.format(preset['max_fps']),
+                              '--video-bit-rate={}'.format(preset['bitrate'])])
+        return params
+
     @classmethod
     def start_record(cls, device):
         f = File()
         logger.info('start record screen')
-        win_cmd = "start /b {scrcpy_path} -s {deviceId} --no-playback --record={video}".format(
-            scrcpy_path = cls.scrcpy_path(), 
-            deviceId = device, 
-            video = os.path.join(f.report_dir, 'record.mkv')
-        )
-        mac_cmd = "nohup {scrcpy_path} -s {deviceId} --no-playback --record={video} &".format(
-            scrcpy_path = cls.scrcpy_path(), 
-            deviceId = device, 
-            video = os.path.join(f.report_dir, 'record.mkv')
-        )
-        if platform.system().lower().__contains__('windows'):
-            result = os.system(win_cmd)
-        else:
-            result = os.system(mac_cmd)    
-        if result == 0:
-            logger.info("record screen success : {}".format(os.path.join(f.report_dir, 'record.mkv')))
-        else:
-            logger.error("solox's scrcpy is incompatible with your PC")
-            logger.info("Please install the software yourself : brew install scrcpy")    
-        return result
-    
+        video_path = os.path.join(f.report_dir, 'record.mp4')
+        params = cls._get_cast_params(device, for_recording=True)
+        params.extend(['--record={}'.format(video_path)])
+
+        try:
+            if platform.system().lower().__contains__('windows'):
+                cls._record_process = subprocess.Popen(
+                    params, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE,
+                    creationflags=subprocess.CREATE_NO_WINDOW | subprocess.CREATE_NEW_PROCESS_GROUP
+                )
+            else:
+                cls._record_process = subprocess.Popen(
+                    params, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE
+                )
+            # Wait briefly to check if process started OK
+            import time as _time
+            _time.sleep(1)
+            if cls._record_process.poll() is not None:
+                stderr = cls._record_process.stderr.read().decode('utf-8', errors='replace')
+                logger.error('scrcpy record failed: {}'.format(stderr))
+                cls._record_process = None
+                return 1
+            logger.info("record screen success : {}".format(video_path))
+            return 0
+        except Exception as e:
+            logger.error("scrcpy record launch failed: {}".format(e))
+            logger.info("Please install scrcpy: brew install scrcpy (macOS) or download from github.com/Genymobile/scrcpy")
+            return 1
+
+    @classmethod
+    def _graceful_stop_process(cls, proc, name='scrcpy'):
+        """Gracefully stop a scrcpy process using SIGINT to allow file finalization."""
+        if proc is None or proc.poll() is not None:
+            return
+        try:
+            if platform.system().lower().__contains__('windows'):
+                # Windows: send CTRL_BREAK_EVENT (works with CREATE_NEW_PROCESS_GROUP)
+                import ctypes
+                kernel32 = ctypes.windll.kernel32
+                kernel32.GenerateConsoleCtrlEvent(1, proc.pid)  # CTRL_BREAK_EVENT=1
+            else:
+                # Unix: send SIGINT for graceful shutdown
+                import signal as _signal
+                proc.send_signal(_signal.SIGINT)
+
+            # Wait up to 10 seconds for scrcpy to finalize the video container
+            proc.wait(timeout=10)
+            logger.info('{} process stopped gracefully (video finalized)'.format(name))
+        except subprocess.TimeoutExpired:
+            logger.warning('{} did not stop gracefully, forcing termination'.format(name))
+            try:
+                proc.terminate()
+                proc.wait(timeout=3)
+            except Exception:
+                try:
+                    proc.kill()
+                except Exception:
+                    pass
+        except Exception as e:
+            logger.warning('{} graceful stop failed: {}, using terminate'.format(name, e))
+            try:
+                proc.terminate()
+                proc.wait(timeout=3)
+            except Exception:
+                try:
+                    proc.kill()
+                except Exception:
+                    pass
+
     @classmethod
     def stop_record(cls):
-        logger.info('stop scrcpy process')
+        logger.info('stop scrcpy record process')
+        # Gracefully stop record process (SIGINT lets scrcpy finalize the video file)
+        if cls._record_process and cls._record_process.poll() is None:
+            cls._graceful_stop_process(cls._record_process, 'record')
+            cls._record_process = None
+
+        # Also stop any cast process
+        cls._stop_cast_process()
+
+        # Fallback: kill any remaining scrcpy processes (backward compat)
         pids = psutil.pids()
         try:
             for pid in pids:
-                p = psutil.Process(pid)
-                if p.name().__contains__('scrcpy'):
-                    os.kill(pid, signal.SIGABRT)
-                    logger.info(pid)
+                try:
+                    p = psutil.Process(pid)
+                    if p.name().__contains__('scrcpy'):
+                        if platform.system().lower().__contains__('windows'):
+                            p.terminate()
+                        else:
+                            import signal as _signal
+                            os.kill(pid, _signal.SIGINT)
+                        logger.info('stopped remaining scrcpy pid: {}'.format(pid))
+                except (psutil.NoSuchProcess, psutil.AccessDenied):
+                    pass
         except Exception as e:
             logger.exception(e)
-    
+
     @classmethod
-    def cast_screen(cls, device):
-        logger.info('start cast screen')
-        win_cmd = "start /i {scrcpy_path} -s {deviceId} --stay-awake".format(
-            scrcpy_path = cls.scrcpy_path(), 
-            deviceId = device
+    def _stop_cast_process(cls):
+        """Stop the cast screen process."""
+        cls._cast_running = False
+        if cls._cast_process and cls._cast_process.poll() is None:
+            try:
+                cls._cast_process.terminate()
+                cls._cast_process.wait(timeout=3)
+            except Exception:
+                try:
+                    cls._cast_process.kill()
+                except Exception:
+                    pass
+        cls._cast_process = None
+
+    @classmethod
+    def _cast_monitor_thread(cls, device):
+        """Monitor thread that runs the cast process.
+        If software encoder fails, retries once with hardware encoder."""
+        params = cls._get_cast_params(device, for_recording=False, quality=cls._cast_quality)
+        try:
+            if platform.system().lower().__contains__('windows'):
+                cls._cast_process = subprocess.Popen(
+                    params, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE
+                )
+            else:
+                cls._cast_process = subprocess.Popen(
+                    params, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE
+                )
+            logger.info("cast screen started (quality={}, sw_encoder={})".format(
+                cls._cast_quality, cls._use_sw_encoder))
+
+            # Wait for process to exit
+            cls._cast_process.wait()
+            exit_code = cls._cast_process.returncode
+
+            if not cls._cast_running:
+                # Intentional stop
+                logger.info('cast screen stopped by user')
+                return
+
+            if exit_code != 0:
+                stderr = ''
+                try:
+                    stderr = cls._cast_process.stderr.read().decode('utf-8', errors='replace')[:500]
+                except Exception:
+                    pass
+
+                # If software encoder failed, retry with hardware encoder
+                if cls._use_sw_encoder and cls._cast_running:
+                    logger.warning('software encoder failed (code={}), retrying with hardware encoder: {}'.format(
+                        exit_code, stderr))
+                    cls._use_sw_encoder = False
+                    params2 = cls._get_cast_params(device, for_recording=False, quality=cls._cast_quality)
+                    cls._cast_process = subprocess.Popen(
+                        params2, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE
+                    )
+                    logger.info("cast screen retrying with hardware encoder")
+                    cls._cast_process.wait()
+                    if not cls._cast_running:
+                        return
+                    if cls._cast_process.returncode != 0:
+                        logger.warning('hardware encoder also failed (code={})'.format(
+                            cls._cast_process.returncode))
+                    else:
+                        logger.info('cast screen closed normally (hardware encoder)')
+                else:
+                    logger.warning('cast screen exited unexpectedly (code={}): {}'.format(exit_code, stderr))
+            else:
+                logger.info('cast screen closed normally (user closed scrcpy window)')
+        except Exception as e:
+            logger.error('cast monitor error: {}'.format(e))
+        finally:
+            cls._cast_running = False
+            cls._cast_process = None
+
+    @classmethod
+    def cast_screen(cls, device, quality='medium'):
+        logger.info('start cast screen (quality={})'.format(quality))
+        # Stop any existing cast
+        cls._stop_cast_process()
+
+        cls._cast_device = device
+        cls._cast_quality = quality
+        cls._cast_running = True
+        cls._cast_thread = threading.Thread(
+            target=cls._cast_monitor_thread, args=(device,), daemon=True
         )
-        mac_cmd = "nohup {scrcpy_path} -s {deviceId} --stay-awake &".format(
-            scrcpy_path = cls.scrcpy_path(), 
-            deviceId = device
-        )
-        if platform.system().lower().__contains__('windows'):
-            result = os.system(win_cmd)
-        else:
-            result = os.system(mac_cmd)
-        if result == 0:
+        cls._cast_thread.start()
+
+        # Wait briefly to see if it started OK
+        import time as _time
+        _time.sleep(1.5)
+        if cls._cast_process and cls._cast_process.poll() is None:
             logger.info("cast screen success")
-        else:
+            return 0
+        elif not cls._cast_running:
             logger.error("solox's scrcpy is incompatible with your PC")
-            logger.info("Please install the software yourself : brew install scrcpy")    
-        return result
-    
+            logger.info("Please install scrcpy yourself or upgrade to latest version: https://github.com/Genymobile/scrcpy/releases")
+            return 1
+        return 0
+
     @classmethod
     def play_video(cls, video):
         logger.info('start play video : {}'.format(video))
-        cap = cv2.VideoCapture(video)
-        while(cap.isOpened()):
-            ret, frame = cap.read()
-            if ret:
-                gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-                cv2.namedWindow("frame", 0)  
-                cv2.resizeWindow("frame", 430, 900)
-                cv2.imshow('frame', gray)
-                if cv2.waitKey(25) & 0xFF == ord('q') or not cv2.getWindowProperty("frame", cv2.WND_PROP_VISIBLE):
-                    break
+        if not os.path.exists(video):
+            logger.error('Video file not found: {}'.format(video))
+            return
+        try:
+            if platform.system().lower().__contains__('windows'):
+                os.startfile(video)
+            elif platform.system().lower().__contains__('darwin'):
+                subprocess.Popen(['open', video])
             else:
-                break
-        cap.release()
-        cv2.destroyAllWindows()
+                subprocess.Popen(['xdg-open', video])
+        except Exception as e:
+            logger.error('Failed to open video with system player: {}'.format(e))
+
+
+class LogcatManager:
+    """Manages adb logcat process for error log streaming via AJAX polling.
+    Supports severity filtering, tag extraction, and structured log parsing."""
+
+    _instance = None
+    _lock = threading.Lock()
+
+    # Severity levels for logcat
+    SEVERITIES = ['V', 'D', 'I', 'W', 'E', 'F']
+
+    def __init__(self):
+        self._process = None
+        self._lines = []  # list of dicts: {raw, severity, tag, msg, time}
+        self._reader_thread = None
+        self._running = False
+        self._device_id = None
+        self._severity = 'E'  # minimum severity to capture
+
+    @classmethod
+    def get_instance(cls):
+        if cls._instance is None:
+            with cls._lock:
+                if cls._instance is None:
+                    cls._instance = cls()
+        return cls._instance
+
+    @staticmethod
+    def _parse_logcat_line(line):
+        """Parse a logcat line into structured fields.
+        Format: '03-15 20:56:01.780 12345 12346 E Tag    : message'
+        Returns dict with severity, tag, msg, time, or None if unparseable."""
+        import re
+        m = re.match(
+            r'(\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}\.\d+)\s+\d+\s+\d+\s+([VDIWEF])\s+(\S+)\s*:\s*(.*)',
+            line
+        )
+        if m:
+            return {
+                'time': m.group(1),
+                'severity': m.group(2),
+                'tag': m.group(3),
+                'msg': m.group(4),
+                'raw': line
+            }
+        return {'time': '', 'severity': '?', 'tag': '', 'msg': line, 'raw': line}
+
+    def start(self, device_id, severity='E'):
+        """Start logcat capture for a device.
+        severity: minimum severity level (V/D/I/W/E/F). Default 'E' for errors only."""
+        if self._running:
+            self.stop()
+        self._device_id = device_id
+        self._lines = []
+        self._running = True
+        self._severity = severity if severity in self.SEVERITIES else 'E'
+        try:
+            # Capture from the requested severity level and above
+            cmd = '{} -s {} logcat *:{}'.format(adb.adb_path, device_id, self._severity)
+            self._process = subprocess.Popen(
+                cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                shell=True, bufsize=1
+            )
+            self._reader_thread = threading.Thread(target=self._read_output, daemon=True)
+            self._reader_thread.start()
+            logger.info('logcat started for device: {} (severity>={})'.format(device_id, self._severity))
+            return True
+        except Exception as e:
+            logger.exception(e)
+            self._running = False
+            return False
+
+    def _read_output(self):
+        """Background thread that reads logcat output."""
+        try:
+            for line in iter(self._process.stdout.readline, b''):
+                if not self._running:
+                    break
+                try:
+                    decoded = line.decode('utf-8', errors='replace').rstrip('\n\r')
+                except Exception:
+                    decoded = str(line)
+                if decoded:
+                    parsed = self._parse_logcat_line(decoded)
+                    self._lines.append(parsed)
+                    # Keep buffer bounded to 5000 entries
+                    if len(self._lines) > 5000:
+                        self._lines = self._lines[-3000:]
+        except Exception as e:
+            logger.error('logcat reader error: {}'.format(e))
+        finally:
+            self._running = False
+
+    def stop(self):
+        """Stop logcat capture."""
+        self._running = False
+        if self._process:
+            try:
+                self._process.terminate()
+                self._process.wait(timeout=3)
+            except Exception:
+                try:
+                    self._process.kill()
+                except Exception:
+                    pass
+            self._process = None
+        self._reader_thread = None
+        logger.info('logcat stopped')
+
+    def get_lines(self, offset=0, severity=None, tag=None, keyword=None):
+        """Get log lines starting from offset with optional filtering.
+        Returns (lines, new_offset, total_count)."""
+        total = len(self._lines)
+        if offset >= total:
+            return [], total, total
+
+        batch = self._lines[offset:min(offset + 200, total)]
+        new_offset = min(offset + 200, total)
+
+        # Apply client-side filters
+        if severity or tag or keyword:
+            filtered = []
+            sev_set = set(severity.split(',')) if severity else None
+            tag_lower = tag.lower() if tag else None
+            kw_lower = keyword.lower() if keyword else None
+            for item in batch:
+                if sev_set and item['severity'] not in sev_set:
+                    continue
+                if tag_lower and tag_lower not in item['tag'].lower():
+                    continue
+                if kw_lower and kw_lower not in item['raw'].lower():
+                    continue
+                filtered.append(item)
+            batch = filtered
+
+        # Return raw strings for backward compat plus structured data
+        result = []
+        for item in batch:
+            result.append({
+                'raw': item['raw'],
+                'severity': item['severity'],
+                'tag': item['tag'],
+                'time': item['time'],
+                'msg': item['msg']
+            })
+        return result, new_offset, total
+
+    def get_all_lines(self, severity=None, tag=None, keyword=None):
+        """Get all buffered lines with optional filtering. For export."""
+        sev_set = set(severity.split(',')) if severity else None
+        tag_lower = tag.lower() if tag else None
+        kw_lower = keyword.lower() if keyword else None
+        result = []
+        for item in self._lines:
+            if sev_set and item['severity'] not in sev_set:
+                continue
+            if tag_lower and tag_lower not in item['tag'].lower():
+                continue
+            if kw_lower and kw_lower not in item['raw'].lower():
+                continue
+            result.append(item['raw'])
+        return result
+
+    def clear(self):
+        """Clear buffered log lines."""
+        self._lines = []
+
+    @property
+    def is_running(self):
+        return self._running

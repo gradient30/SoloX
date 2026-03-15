@@ -39,32 +39,6 @@ def pk():
 def report():
     lan = request.args.get('lan')
     settings = m._settings(request)
-    report_dir = os.path.join(os.getcwd(), 'report')
-    if not os.path.exists(report_dir):
-        os.mkdir(report_dir)
-    dirs = os.listdir(report_dir)
-    dir_list = reversed(sorted(dirs, key=lambda x: os.path.getmtime(os.path.join(report_dir, x))))
-    apm_data = []
-    for dir in dir_list:
-        if dir.split(".")[-1] not in ['log', 'json', 'mkv']:
-            try:
-                fpath = open(os.path.join(report_dir, dir, 'result.json'))
-                json_data = json.loads(fpath.read())
-                dict_data = {
-                    'scene': dir,
-                    'app': json_data['app'],
-                    'platform': json_data['platform'],
-                    'model': json_data['model'],
-                    'devices': json_data['devices'],
-                    'ctime': json_data['ctime'],
-                    'video': json_data.get('video', 0)
-                }
-                fpath.close()
-                apm_data.append(dict_data)
-            except Exception as e:
-                logger.exception(e)
-                continue
-    apm_data_len = len(apm_data)
     return render_template('report.html', **locals())
 
 @page.route('/analysis', methods=['post', 'get'])
