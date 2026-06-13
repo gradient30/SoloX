@@ -8,7 +8,7 @@
 <svg t="1635085520789" class="icon" viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg" p-id="165732" width="200" height="200"><path d="M360.704 280.746667l45.226667-45.226667 246.570666 246.528a42.666667 42.666667 0 0 1 0 60.330667l-246.528 246.570666-45.22666601-45.269333 231.42400001-231.466667-231.466667-231.424z" p-id="165733"></path></svg>
 {{ app }}
 <svg t="1635085520789" class="icon" viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg" p-id="165732" width="200" height="200"><path d="M360.704 280.746667l45.226667-45.226667 246.570666 246.528a42.666667 42.666667 0 0 1 0 60.330667l-246.528 246.570666-45.22666601-45.269333 231.42400001-231.466667-231.466667-231.424z" p-id="165733"></path></svg>
-{{ scene }}
+{{ scene_display|default(scene) }}
 {% endblock %}
 
 {% block ms_auto %}
@@ -68,7 +68,10 @@
                                 APP
                             </div>
                             <div class="text-muted">
-                                Avg: {{ apm_data.cpuAppRate }}
+                                {% if lan == 'cn' %}均值{% else %}Avg{% endif %}: {{ apm_data.cpuAppRate }}
+                                {% if apm_data.cpuAppRateMax %}
+                                <br><span class="small">Max: {{ apm_data.cpuAppRateMax }} · Min: {{ apm_data.cpuAppRateMin }}</span>
+                                {% endif %}
                             </div>
                         </div>
                     </div>
@@ -89,7 +92,10 @@
                                 {% if lan == 'cn' %} 整机 {% else %} Total {% endif %}
                             </div>
                             <div class="text-muted">
-                                Avg: {{ apm_data.cpuSystemRate }}
+                                {% if lan == 'cn' %}均值{% else %}Avg{% endif %}: {{ apm_data.cpuSystemRate }}
+                                {% if apm_data.cpuSystemRateMax %}
+                                <br><span class="small">Max: {{ apm_data.cpuSystemRateMax }} · Min: {{ apm_data.cpuSystemRateMin }}</span>
+                                {% endif %}
                             </div>
                         </div>
                     </div>
@@ -110,7 +116,10 @@
                                 {% if lan == 'cn' %} 物理内存 {% else %} Total {% endif %}
                             </div>
                             <div class="text-muted">
-                                Avg: {{ apm_data.totalPassAvg }}
+                                {% if lan == 'cn' %}均值{% else %}Avg{% endif %}: {{ apm_data.totalPassAvg }}
+                                {% if apm_data.totalPassMax %}
+                                <br><span class="small">Peak: {{ apm_data.totalPassMax }} · Min: {{ apm_data.totalPassMin }}</span>
+                                {% endif %}
                             </div>
                         </div>
                     </div>
@@ -132,7 +141,10 @@
                                 {% if lan == 'cn' %} 交换内存 {% else %} Swap {% endif %}
                             </div>
                             <div class="text-muted">
-                                Avg: {{ apm_data.swapPassAvg }}
+                                {% if lan == 'cn' %}均值{% else %}Avg{% endif %}: {{ apm_data.swapPassAvg }}
+                                {% if apm_data.swapPassMax %}
+                                <br><span class="small">Peak: {{ apm_data.swapPassMax }} · Min: {{ apm_data.swapPassMin }}</span>
+                                {% endif %}
                             </div>
                         </div>
                     </div>
@@ -154,7 +166,10 @@
                                 {% if lan == 'cn' %} 流畅度 {% else %} FPS {% endif %}
                             </div>
                             <div class="text-muted">
-                                Avg: {{ apm_data.fps }}
+                                {% if lan == 'cn' %}均值{% else %}Avg{% endif %}: {{ apm_data.fps }}
+                                {% if apm_data.fpsMax %}
+                                <br><span class="small">Max: {{ apm_data.fpsMax }} · Min: {{ apm_data.fpsMinActive | default(apm_data.fpsMin, true) }}</span>
+                                {% endif %}
                             </div>
                         </div>
                     </div>
@@ -176,7 +191,13 @@
                                 {% if lan == 'cn' %} 卡顿 {% else %} Jank {% endif %}
                             </div>
                             <div class="text-muted">
-                                All: {{ apm_data.jank }}
+                                {% if lan == 'cn' %}累计{% else %}Total{% endif %}: {{ apm_data.jankTotal or apm_data.jank }}
+                                {% if apm_data.stutterRate %}
+                                <br><span class="small">{% if lan == 'cn' %}卡顿率{% else %}Stutter{% endif %}: {{ apm_data.stutterRate }} · Max/sample: {{ apm_data.jankMax }}</span>
+                                {% endif %}
+                                {% if apm_data.bigJankTotal is defined %}
+                                <br><span class="small">Big Jank: {{ apm_data.bigJankTotal }}{% if apm_data.bigStutterRate %} · {{ apm_data.bigStutterRate }}{% endif %}{% if apm_data.bigJankMax %} · Max/sample: {{ apm_data.bigJankMax }}{% endif %}</span>
+                                {% endif %}
                             </div>
                         </div>
                     </div>
@@ -369,7 +390,10 @@
                                 GPU
                             </div>
                             <div class="text-muted">
-                                Avg: {{ apm_data.gpu }}%
+                                {% if lan == 'cn' %}均值{% else %}Avg{% endif %}: {{ apm_data.gpu }}%
+                                {% if apm_data.gpuMax %}
+                                <br><span class="small">Max: {{ apm_data.gpuMax }} · Min: {{ apm_data.gpuMin }}</span>
+                                {% endif %}
                             </div>
                         </div>
                     </div>
@@ -378,6 +402,47 @@
         </div>
     </div>
 </div>
+
+{% if apm_data.scene_tag_stats and apm_data.scene_tag_stats.scenes %}
+<div class="col-12 mb-3">
+    <div class="card">
+        <div class="card-header">
+            <h3 class="card-title">{% if lan == 'cn' %} 场景标签统计（PerfDog） {% else %} Scene Tag Statistics (PerfDog) {% endif %}</h3>
+        </div>
+        <div class="table-responsive">
+            <table class="table table-vcenter card-table table-sm">
+                <thead>
+                    <tr>
+                        <th>{% if lan == 'cn' %}场景{% else %}Scene{% endif %}</th>
+                        <th>CPU App</th>
+                        <th>{% if lan == 'cn' %}内存 Peak{% else %}MEM Peak{% endif %}</th>
+                        <th>FPS Avg</th>
+                        <th>FPS Min</th>
+                        <th>{% if lan == 'cn' %}卡顿率{% else %}Stutter{% endif %}</th>
+                        <th>Big Jank Σ</th>
+                        <th>{% if lan == 'cn' %}样本{% else %}Samples{% endif %}</th>
+                    </tr>
+                </thead>
+                <tbody>
+                {% for sc in apm_data.scene_tag_stats.scenes %}
+                    <tr>
+                        <td><strong>{{ sc.label }}</strong><br><span class="text-muted small">{{ sc.start or '-' }} → {{ sc.end or '-' }}</span></td>
+                        <td>{{ sc.metrics.cpu_app.avg }}% <span class="text-muted small">({{ sc.metrics.cpu_app.min }}-{{ sc.metrics.cpu_app.max }})</span></td>
+                        <td>{{ sc.metrics.mem_total.max }}MB <span class="text-muted small">avg {{ sc.metrics.mem_total.avg }}</span></td>
+                        <td>{{ sc.metrics.fps.avg }}Hz</td>
+                        <td>{{ sc.metrics.fps.min_active or sc.metrics.fps.min }}Hz</td>
+                        <td>{{ sc.metrics.jank.stutter_rate }}%</td>
+                        <td>{{ (sc.metrics.big_jank.sum if sc.metrics.big_jank is defined else 0) }}</td>
+                        <td>{{ sc.sample_count }}</td>
+                    </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endif %}
+
 {% if platform == 'Android' %}
 <div class="form-selectgroup mb-3">
     <label class="form-selectgroup-item">
@@ -410,7 +475,7 @@
         <div class="card-header">
             <div class='card-title'>{% if lan == 'cn' %} CPU使用率 (%) {% else %} CPU Usage (%) {% endif %}</div>
             <div class="card-actions btn-actions">
-                <a class="btn"  onclick="initCpuCharts()">
+                <a class="btn"  onclick="enqueueChartLoad(initCpuCharts)">
                     <span class="spinner-border spinner-border-sm me-2" id="cpu_spinner" role="status" style="display: none;"></span>
                     <svg id="cpu_refresh_logo" xmlns="http://www.w3.org/2000/svg" class="icon" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M20 11a8.1 8.1 0 0 0 -15.5 -2m-.5 -4v4h4" /><path d="M4 13a8.1 8.1 0 0 0 15.5 2m.5 4v-4h-4" /></svg>
                     {% if lan == 'cn' %} 刷新 {% else %} Refresh {% endif %}
@@ -430,7 +495,7 @@
         <div class="card-header">
             <div class='card-title'>{% if lan == 'cn' %} 内存 (MB) {% else %} Memory Usage (MB) {% endif %}</div>
             <div class="card-actions btn-actions">
-                <a class="btn" onclick="initMemoryCharts()">
+                <a class="btn" onclick="enqueueChartLoad(initMemoryCharts)">
                     <span class="spinner-border spinner-border-sm me-2" id="mem_spinner" role="status" style="display: none;"></span>
                     <svg id="mem_refresh_logo" xmlns="http://www.w3.org/2000/svg" class="icon" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M20 11a8.1 8.1 0 0 0 -15.5 -2m-.5 -4v4h4" /><path d="M4 13a8.1 8.1 0 0 0 15.5 2m.5 4v-4h-4" /></svg>
                     {% if lan == 'cn' %} 刷新 {% else %} Refresh {% endif %}
@@ -451,7 +516,7 @@
         <div class="card-header">
             <div class='card-title'>{% if lan == 'cn' %} 内存细化参数 (MB) {% else %} Memory Detail (MB) {% endif %}</div>
             <div class="card-actions btn-actions">
-                <a class="btn" onclick="initMemoryDetailCharts()">
+                <a class="btn" onclick="enqueueChartLoad(initMemoryDetailCharts)">
                     <span class="spinner-border spinner-border-sm me-2" id="mem_detail_spinner" role="status" style="display: none;"></span>
                     <svg id="mem_detail_refresh_logo" xmlns="http://www.w3.org/2000/svg" class="icon" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M20 11a8.1 8.1 0 0 0 -15.5 -2m-.5 -4v4h4" /><path d="M4 13a8.1 8.1 0 0 0 15.5 2m.5 4v-4h-4" /></svg>
                     {% if lan == 'cn' %} 刷新 {% else %} Refresh {% endif %}
@@ -472,7 +537,7 @@
         <div class="card-header">
             <div class='card-title'>{% if lan == 'cn' %} CPU核心使用率 (%) {% else %} CPU Core Usage (%) {% endif %}</div>
             <div class="card-actions btn-actions">
-                <a class="btn" onclick="initMemoryDetailCharts()">
+                <a class="btn" onclick="enqueueChartLoad(initCpuCoreCharts)">
                     <span class="spinner-border spinner-border-sm me-2" id="cpu_core_spinner" role="status" style="display: none;"></span>
                     <svg id="cpu_core_refresh_logo" xmlns="http://www.w3.org/2000/svg" class="icon" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M20 11a8.1 8.1 0 0 0 -15.5 -2m-.5 -4v4h4" /><path d="M4 13a8.1 8.1 0 0 0 15.5 2m.5 4v-4h-4" /></svg>
                     {% if lan == 'cn' %} 刷新 {% else %} Refresh {% endif %}
@@ -498,7 +563,7 @@
                 {% endif %}
             </div>
             <div class="card-actions btn-actions">
-                <a class="btn"  onclick="initFpsCharts()">
+                <a class="btn"  onclick="enqueueChartLoad(initFpsCharts)">
                     <span class="spinner-border spinner-border-sm me-2" id="fps_spinner" role="status" style="display: none;"></span>
                     <svg id="fps_refresh_logo" xmlns="http://www.w3.org/2000/svg" class="icon" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M20 11a8.1 8.1 0 0 0 -15.5 -2m-.5 -4v4h4" /><path d="M4 13a8.1 8.1 0 0 0 15.5 2m.5 4v-4h-4" /></svg>
                     {% if lan == 'cn' %} 刷新 {% else %} Refresh {% endif %}
@@ -517,7 +582,7 @@
         <div class="card-header">
             <div class='card-title'>{% if lan == 'cn' %} 电池 {% else %} Battery {% endif %}</div>
             <div class="card-actions btn-actions">
-                <a class="btn"  onclick="initBatteryCharts()">
+                <a class="btn"  onclick="enqueueChartLoad(initBatteryCharts)">
                     <span class="spinner-border spinner-border-sm me-2" id="battery_spinner" role="status" style="display: none;"></span>
                     <svg id="battery_refresh_logo" xmlns="http://www.w3.org/2000/svg" class="icon" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M20 11a8.1 8.1 0 0 0 -15.5 -2m-.5 -4v4h4" /><path d="M4 13a8.1 8.1 0 0 0 15.5 2m.5 4v-4h-4" /></svg>
                     {% if lan == 'cn' %} 刷新 {% else %} Refresh {% endif %}
@@ -536,7 +601,7 @@
         <div class="card-header">
             <div class='card-title'>{% if lan == 'cn' %} 流量 (KB) {% else %} Network Usage (KB) {% endif %}</div>
             <div class="card-actions btn-actions">
-                <a class="btn"  onclick="initNetworkCharts()">
+                <a class="btn"  onclick="enqueueChartLoad(initNetworkCharts)">
                     <span class="spinner-border spinner-border-sm me-2" id="networkdata_spinner" role="status" style="display: none;"></span>
                     <svg id="networkdata_refresh_logo" xmlns="http://www.w3.org/2000/svg" class="icon" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M20 11a8.1 8.1 0 0 0 -15.5 -2m-.5 -4v4h4" /><path d="M4 13a8.1 8.1 0 0 0 15.5 2m.5 4v-4h-4" /></svg>
                     {% if lan == 'cn' %} 刷新 {% else %} Refresh {% endif %}
@@ -555,7 +620,7 @@
         <div class="card-header">
             <div class='card-title'>{% if lan == 'cn' %} GPU使用率 (%) {% else %} GPU Usage (%) {% endif %}</div>
             <div class="card-actions btn-actions">
-                <a class="btn"  onclick="initGpuCharts()">
+                <a class="btn"  onclick="enqueueChartLoad(initGpuCharts)">
                     <span class="spinner-border spinner-border-sm me-2" id="gpu_spinner" role="status" style="display: none;"></span>
                     <svg id="gpu_refresh_logo" xmlns="http://www.w3.org/2000/svg" class="icon" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M20 11a8.1 8.1 0 0 0 -15.5 -2m-.5 -4v4h4" /><path d="M4 13a8.1 8.1 0 0 0 15.5 2m.5 4v-4h-4" /></svg>
                     {% if lan == 'cn' %} 刷新 {% else %} Refresh {% endif %}
@@ -575,7 +640,7 @@
         <div class="card-header">
             <div class='card-title'>{% if lan == 'cn' %} 磁盘 (KB) {% else %} Disk Usage (KB) {% endif %}</div>
             <div class="card-actions btn-actions">
-                <a class="btn" onclick="initDiskCharts()">
+                <a class="btn" onclick="enqueueChartLoad(initDiskCharts)">
                     <span class="spinner-border spinner-border-sm me-2" id="disk_spinner" role="status" style="display: none;"></span>
                     <svg id="disk_refresh_logo" xmlns="http://www.w3.org/2000/svg" class="icon" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M20 11a8.1 8.1 0 0 0 -15.5 -2m-.5 -4v4h4" /><path d="M4 13a8.1 8.1 0 0 0 15.5 2m.5 4v-4h-4" /></svg>
                     {% if lan == 'cn' %} 刷新 {% else %} Refresh {% endif %}
@@ -855,24 +920,51 @@
 
 {% block js %}
 <script>
+    var chartMaxPoints = {{ chart_max_points|default(1500) }};
+    var chartLoadQueue = [];
+    var chartLoadsActive = 0;
+    var chartLoadMaxConcurrency = 3;
+
+    function enqueueChartLoad(task) {
+        chartLoadQueue.push(task);
+        drainChartLoadQueue();
+    }
+
+    function drainChartLoadQueue() {
+        while (chartLoadsActive < chartLoadMaxConcurrency && chartLoadQueue.length) {
+            var task = chartLoadQueue.shift();
+            var request;
+            chartLoadsActive += 1;
+            try {
+                request = task();
+            } catch (error) {
+                chartLoadsActive -= 1;
+                console.error(error);
+                continue;
+            }
+            $.when(request).always(function () {
+                chartLoadsActive -= 1;
+                drainChartLoadQueue();
+            });
+        }
+    }
 
     $(document).ready(function() {
-        chartsClick()
-        initCpuCharts()
-        initMemoryCharts()
-        initFpsCharts()
-        initBatteryCharts()
-        initNetworkCharts()
-        initGpuCharts()
+        chartsClick();
+        enqueueChartLoad(initCpuCharts);
+        enqueueChartLoad(initMemoryCharts);
+        enqueueChartLoad(initFpsCharts);
+        enqueueChartLoad(initBatteryCharts);
+        enqueueChartLoad(initNetworkCharts);
+        enqueueChartLoad(initGpuCharts);
         if('{{ apm_data.mem_detail_flag }}' == 'True' ){
-            initMemoryDetailCharts()
+            enqueueChartLoad(initMemoryDetailCharts);
         }
         if('{{ apm_data.cpu_core_flag }}' == 'True' ){
-            console.log('test')
-            initCpuCoreCharts()
+            enqueueChartLoad(initCpuCoreCharts);
         }
         if('{{ apm_data.disk_flag }}' == 'True' ){
-            initDiskCharts()
+            enqueueChartLoad(initDiskCharts);
         }
     });
     
@@ -918,7 +1010,7 @@
     }
 
     function saveAndroidHtml(scene){
-        $.ajax({
+        return $.ajax({
             url: "/apm/export/html/android",
             type: "GET",
             async: true,
@@ -951,7 +1043,7 @@
     }
 
     function saveiOSHtml(scene){
-        $.ajax({
+        return $.ajax({
             url: "/apm/export/html/ios",
             type: "GET",
             async: true,
@@ -1030,7 +1122,7 @@
     function initCpuCharts(){
         var cpu_chart = new ApexCharts(document.querySelector("#chart-cpu"), options('line'));
         cpu_chart.render();
-        $.ajax({
+        return $.ajax({
             url: '/apm/log',
             type: "GET",
             async: true,
@@ -1038,7 +1130,8 @@
             data:{
                 scene:'{{ scene }}',
                 target:'cpu',
-                platform:platform
+                platform:platform,
+                max_points: chartMaxPoints
             },
             beforeSend: function () {
                 $('#cpu_spinner').show()
@@ -1063,7 +1156,7 @@
     function initBatteryCharts(){
         var battery_chart = new ApexCharts(document.querySelector("#chart-battery"), options('line'));
         battery_chart.render();
-        $.ajax({
+        return $.ajax({
             url: '/apm/log',
             type: "GET",
             async: true,
@@ -1071,7 +1164,8 @@
             data:{
                 scene:'{{ scene }}',
                 target:'battery',
-                platform:platform
+                platform:platform,
+                max_points: chartMaxPoints
             },
             beforeSend: function () {
                 $('#battery_spinner').show()
@@ -1112,7 +1206,7 @@
     function initFpsCharts(){
         var fps_chart = new ApexCharts(document.querySelector("#chart-fps"), options('line'));
         fps_chart.render();
-        $.ajax({
+        return $.ajax({
             url: '/apm/log',
             type: "GET",
             async: true,
@@ -1120,7 +1214,8 @@
             data:{
                 scene:'{{ scene }}',
                 target:'fps',
-                platform:platform
+                platform:platform,
+                max_points: chartMaxPoints
             },
             beforeSend: function () {
                 $('#fps_spinner').show()
@@ -1152,7 +1247,7 @@
     function initGpuCharts(){
         var gpu_chart = new ApexCharts(document.querySelector("#chart-gpu"), options('line'));
         gpu_chart.render();
-        $.ajax({
+        return $.ajax({
             url: '/apm/log',
             type: "GET",
             async: true,
@@ -1160,7 +1255,8 @@
             data:{
                 scene:'{{ scene }}',
                 target:'gpu',
-                platform:platform
+                platform:platform,
+                max_points: chartMaxPoints
             },
             beforeSend: function () {
                 $('#gpu_spinner').show()
@@ -1182,7 +1278,7 @@
     function initMemoryCharts(){
         var mem_chart = new ApexCharts(document.querySelector("#chart-mem"), options('line'));
         mem_chart.render();
-        $.ajax({
+        return $.ajax({
             url: '/apm/log',
             type: "GET",
             async: true,
@@ -1190,7 +1286,8 @@
             data:{
                 scene:'{{ scene }}',
                 target:'mem',
-                platform:platform
+                platform:platform,
+                max_points: chartMaxPoints
             },
             beforeSend: function () {
                 $('#mem_spinner').show()
@@ -1222,7 +1319,7 @@
     function initMemoryDetailCharts(){
         var mem_detail_chart = new ApexCharts(document.querySelector("#chart-mem-detail"), options('line'));
         mem_detail_chart.render();
-        $.ajax({
+        return $.ajax({
                 url: '/apm/log',
                 type: "GET",
                 async: true,
@@ -1230,7 +1327,8 @@
                 data:{
                     scene:'{{ scene }}',
                     target:'mem_detail',
-                    platform:platform
+                    platform:platform,
+                max_points: chartMaxPoints
                 },
                 beforeSend: function () {
                     $('#mem_detail_spinner').show()
@@ -1271,7 +1369,7 @@
     function initCpuCoreCharts(){
         var cpu_core_chart = new ApexCharts(document.querySelector("#chart-cpu-core"), options('line'));
         cpu_core_chart.render();
-        $.ajax({
+        return $.ajax({
                 url: '/apm/log',
                 type: "GET",
                 async: true,
@@ -1279,7 +1377,8 @@
                 data:{
                     scene:'{{ scene }}',
                     target:'cpu_core',
-                    platform:platform
+                    platform:platform,
+                max_points: chartMaxPoints
                 },
                 beforeSend: function () {
                     $('#cpu_core_spinner').show()
@@ -1309,7 +1408,7 @@
     function initNetworkCharts(){
         var network_chart = new ApexCharts(document.querySelector("#chart-networkdata"), options('line',false));
         network_chart.render();
-        $.ajax({
+        return $.ajax({
             url: '/apm/log',
             type: "GET",
             async: true,
@@ -1317,7 +1416,8 @@
             data:{
                 scene:'{{ scene }}',
                 target:'flow',
-                platform:platform
+                platform:platform,
+                max_points: chartMaxPoints
             },
             beforeSend: function () {
                 $('#networkdata_spinner').show()
@@ -1342,7 +1442,7 @@
     function initDiskCharts(){
         var disk_chart = new ApexCharts(document.querySelector("#chart-disk"), options('line',false));
         disk_chart.render();
-        $.ajax({
+        return $.ajax({
             url: '/apm/log',
             type: "GET",
             async: true,
@@ -1350,7 +1450,8 @@
             data:{
                 scene:'{{ scene }}',
                 target:'disk',
-                platform:platform
+                platform:platform,
+                max_points: chartMaxPoints
             },
             beforeSend: function () {
                 $('#disk_spinner').show()

@@ -520,4 +520,4 @@ echo "恢复完成"
 
 ---
 
-*相关文档: [Docker配置](./docker-guide.md) • [运维监控](./monitoring-guide.md) • [故障排除](../05-issues/troubleshooting.md)*
+*相关文档: [docker-compose.yml](../../docker-compose.yml) • [故障排除](../05-issues/troubleshooting.md) • [快速启动](../02-development/quick-start.md)*

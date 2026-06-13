@@ -1,0 +1,17 @@
+# -*- coding: utf-8 -*-
+"""Shared pytest fixtures for SoloX API and compatibility tests."""
+
+import pytest
+
+from solox.web import app as flask_app
+
+
+@pytest.fixture
+def app():
+    flask_app.config['TESTING'] = True
+    return flask_app
+
+
+@pytest.fixture
+def client(app):
+    return app.test_client()

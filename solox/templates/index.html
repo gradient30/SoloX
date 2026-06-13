@@ -153,6 +153,11 @@ SoloX - Application Performance Monitoring
                             </a>
                         </li>
                         <li class="nav-item">
+                            <a href="#tabs-scene-tag" class="nav-link" data-bs-toggle="tab">
+                                {% if lan == 'cn' %} 场景标签 {% else %} Scene Tags {% endif %}
+                            </a>
+                        </li>
+                        <li class="nav-item">
                             <a href="#tabs-device-info" class="nav-link" data-bs-toggle="tab">  
                                 {% if lan == 'cn' %} 设备信息 {% else %} DEVICE INFO {% endif %}
                             </a>
@@ -205,6 +210,47 @@ SoloX - Application Performance Monitoring
                                 <svg t="1711359199362" class="icon me-2" viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg" p-id="39454" width="200" height="200"><path d="M819.8 196.9C647.9 25 369.1 25 197.2 196.9s-171.9 450.7 0 622.7c171.9 171.9 450.7 171.9 622.7 0s171.9-450.8-0.1-622.7zM508.5 820.6c-33.6 0-61.1-27.5-61.1-61.1V569.3H257.3c-33.6 0-61.1-27.5-61.1-61.1s27.5-61.1 61.1-61.1h190.1V257c0-33.6 27.5-61.1 61.1-61.1s61.1 27.5 61.1 61.1v190.1h190.1c33.6 0 61.1 27.5 61.1 61.1s-27.5 61.1-61.1 61.1H569.6v190.1c0 33.7-27.5 61.2-61.1 61.2z" fill="#FE801D" p-id="39455"></path></svg>
                                 {% if lan == 'cn' %} 添加更多参数 {% else %} Add More {% endif %}
                             </label>
+                            <div id="live-stats-card" class="border rounded p-2 mt-2 small" style="display:none;">
+                                <strong>{% if lan == 'cn' %}实时统计{% else %}Live Stats{% endif %}</strong>
+                                <table class="table table-sm table-borderless mb-0 mt-1" style="font-size:11px;">
+                                    <thead>
+                                        <tr class="text-muted">
+                                            <th></th>
+                                            <th>{% if lan == 'cn' %}当前{% else %}Now{% endif %}</th>
+                                            <th>Min</th>
+                                            <th>Max</th>
+                                            <th>Avg</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr><td>CPU App</td><td id="ls-cpu-app-now">-</td><td id="ls-cpu-app-min">-</td><td id="ls-cpu-app-max">-</td><td id="ls-cpu-app-avg">-</td></tr>
+                                        <tr><td>CPU Sys</td><td id="ls-cpu-sys-now">-</td><td id="ls-cpu-sys-min">-</td><td id="ls-cpu-sys-max">-</td><td id="ls-cpu-sys-avg">-</td></tr>
+                                        <tr><td>{% if lan == 'cn' %}内存{% else %}MEM{% endif %}</td><td id="ls-mem-now">-</td><td id="ls-mem-min">-</td><td id="ls-mem-max">-</td><td id="ls-mem-avg">-</td></tr>
+                                        <tr><td>FPS</td><td id="ls-fps-now">-</td><td id="ls-fps-min">-</td><td id="ls-fps-max">-</td><td id="ls-fps-avg">-</td></tr>
+                                        {% if platform == 'Android' %}
+                                        <tr><td>Jank Σ</td><td id="ls-jank-now">0</td><td colspan="2" id="ls-jank-max">max 0</td><td id="ls-jank-sum">Σ 0</td></tr>
+                                        <tr><td>Big Jank Σ</td><td id="ls-big-jank-now">0</td><td colspan="2" id="ls-big-jank-max">max 0</td><td id="ls-big-jank-sum">Σ 0</td></tr>
+                                        {% endif %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                        <div class="tab-pane" id="tabs-scene-tag">
+                            <p class="text-muted small mb-2">
+                                {% if lan == 'cn' %}
+                                参考 PerfDog：在测试过程中标记场景切换（如「主城」「战斗」），报告将按场景输出独立统计。
+                                {% else %}
+                                PerfDog-style scene markers (e.g. Lobby, Battle) for per-scene stats in reports.
+                                {% endif %}
+                            </p>
+                            <div class="input-group mb-2">
+                                <input id="scene-tag-input" type="text" class="form-control form-control-sm" maxlength="64"
+                                    placeholder="{% if lan == 'cn' %}场景名称，如：主城/战斗{% else %}Scene name, e.g. Lobby/Battle{% endif %}">
+                                <button id="btn-scene-tag" class="btn btn-sm btn-primary" type="button" disabled>
+                                    {% if lan == 'cn' %} 标记场景 {% else %} Mark {% endif %}
+                                </button>
+                            </div>
+                            <ul id="scene-tag-list" class="list-group list-group-flush small"></ul>
                         </div>
                         <div class="tab-pane" id="tabs-device-info">
                             <div class="row g-1" style="font-size:12px;">
@@ -293,7 +339,14 @@ SoloX - Application Performance Monitoring
                 <svg t="1657093102367" class="icon me-2" viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg" p-id="27860" width="2000" height="2000"><path d="M938.362 256.2V149.626c0-23.576-19.11-42.654-42.652-42.654H43.046C19.502 106.972 0.392 126.05 0.392 149.626V256.2h937.97z" fill="#E6E9ED" p-id="27861"></path><path d="M792.164 831.75H0.392V192.25h937.97v446.306z" fill="#656D78" p-id="27862"></path><path d="M85.67 149.626c0 11.772-9.526 21.296-21.328 21.296-11.74 0-21.294-9.524-21.294-21.296S52.602 128.3 64.342 128.3c11.802 0 21.328 9.556 21.328 21.326z" fill="#ED5564" p-id="27863"></path><path d="M149.62 149.626c0 11.772-9.524 21.296-21.326 21.296-11.742 0-21.296-9.524-21.296-21.296S116.55 128.3 128.292 128.3c11.804 0 21.328 9.556 21.328 21.326z" fill="#FFCE54" p-id="27864"></path><path d="M213.568 149.626c0 11.772-9.524 21.296-21.326 21.296-11.74 0-21.294-9.524-21.294-21.296S180.502 128.3 192.242 128.3c11.802 0 21.326 9.556 21.326 21.326z" fill="#A0D468" p-id="27865"></path><path d="M746.512 277.496H106.996c-11.772 0-21.326 9.554-21.326 21.326s9.554 21.328 21.326 21.328h639.516c11.74 0 21.294-9.556 21.294-21.328s-9.554-21.326-21.294-21.326z" fill="#FC6E51" p-id="27866"></path><path d="M106.996 405.426h341.046c11.802 0 21.326-9.554 21.326-21.328 0-11.772-9.524-21.326-21.326-21.326H106.996c-11.772 0-21.326 9.554-21.326 21.326 0 11.774 9.554 21.328 21.326 21.328z" fill="#AC92EB" p-id="27867"></path><path d="M575.958 448.05H106.996c-11.772 0-21.326 9.556-21.326 21.328s9.554 21.296 21.326 21.296h468.962c11.8 0 21.294-9.524 21.294-21.296s-9.492-21.328-21.294-21.328z" fill="#48CFAD" p-id="27868"></path><path d="M106.996 575.952H405.42c11.772 0 21.326-9.556 21.326-21.328s-9.554-21.296-21.326-21.296H106.996c-11.772 0-21.326 9.526-21.326 21.296s9.554 21.328 21.326 21.328z" fill="#5D9CEC" p-id="27869"></path><path d="M615.678 669.22c8.618 0 16.734-5.278 19.984-13.832 4.122-11.024-1.5-23.326-12.492-27.45-41.03-15.392-47.336-54.708-47.336-55.112a21.332 21.332 0 0 0-24.232-17.956c-11.662 1.716-19.688 12.552-17.97 24.2 0.376 2.624 10.242 64.668 74.55 88.776 2.5 0.938 4.996 1.374 7.496 1.374zM959.534 917.028c1 0 2.06-0.094 3.122-0.25 11.68-1.716 19.674-12.552 17.988-24.2-0.376-2.624-10.242-64.668-74.566-88.776-11.054-4.152-23.296 1.438-27.48 12.458-4.122 11.024 1.5 23.326 12.492 27.448 41.03 15.394 47.336 54.708 47.398 55.114a21.28 21.28 0 0 0 21.046 18.206zM448.042 618.572H106.996c-11.772 0-21.326 9.554-21.326 21.328 0 11.772 9.554 21.326 21.326 21.326h341.046c11.802 0 21.326-9.554 21.326-21.326a21.312 21.312 0 0 0-21.326-21.328z" fill="#FFCE54" p-id="27870"></path><path d="M277.52 703.85H106.996c-11.772 0-21.326 9.554-21.326 21.328 0 11.772 9.554 21.294 21.326 21.294h170.524c11.772 0 21.326-9.524 21.326-21.294 0-11.774-9.554-21.328-21.326-21.328z" fill="#ED5564" p-id="27871"></path><path d="M1002.312 746.472H533.318a21.28 21.28 0 0 1-21.294-21.294c0-11.774 9.524-21.328 21.294-21.328h468.994c11.74 0 21.294 9.554 21.294 21.328 0.002 11.772-9.554 21.294-21.294 21.294zM725.592 555.53a21.332 21.332 0 0 1-18.298-10.368l-64.388-107.478c-5.994-10.086-2.746-23.202 7.372-29.228a21.276 21.276 0 0 1 29.226 7.338l64.324 107.478c6.058 10.086 2.81 23.17-7.306 29.228a21.286 21.286 0 0 1-10.93 3.03zM810.212 555.53c-3.686 0-7.496-0.968-10.93-3.03-10.054-6.058-13.364-19.142-7.306-29.26l64.324-107.446a21.278 21.278 0 0 1 29.228-7.338c10.118 6.026 13.364 19.11 7.368 29.228l-64.324 107.478c-3.996 6.65-11.116 10.368-18.36 10.368zM920.002 669.22c-8.62 0-16.738-5.278-19.922-13.832-4.184-11.024 1.436-23.326 12.426-27.45 41.094-15.392 47.34-54.708 47.402-55.112 1.686-11.648 12.55-19.674 24.168-17.956 11.68 1.716 19.734 12.552 17.986 24.2-0.376 2.624-10.242 64.668-74.568 88.776a20.884 20.884 0 0 1-7.492 1.374zM575.958 917.028c-1 0-2.062-0.094-3.124-0.25-11.616-1.716-19.672-12.552-17.984-24.2 0.438-2.624 10.242-64.668 74.566-88.776 11.054-4.152 23.356 1.438 27.478 12.458 4.124 11.024-1.436 23.326-12.49 27.448-41.032 15.394-47.276 54.708-47.338 55.114-1.56 10.586-10.68 18.206-21.108 18.206z" fill="#FFCE54" p-id="27872"></path><path d="M938.236 682.524c0 129.524-48.71 234.504-170.43 234.504-121.716 0-170.43-104.98-170.43-234.504 0-129.494 63.39-191.85 170.43-191.85 107.044-0.002 170.43 62.356 170.43 191.85z" fill="#ED5564" p-id="27873"></path><path d="M746.512 915.872c6.806 0.75 13.928 1.156 21.294 1.156 7.372 0 14.49-0.406 21.296-1.156v-297.3h-42.592v297.3z" fill="#DA4453" p-id="27874"></path><path d="M603.56 618.572h328.494c-18.298-86.12-76.626-127.9-164.248-127.9-87.616 0-145.946 41.782-164.246 127.9z" fill="#DA4453" p-id="27875"></path></svg>
                 {% if lan == 'cn' %} 错误日志 {% else %} Error Log {% endif %}
                 <span class="ms-auto badge" data-bs-toggle="offcanvas" href="#offcanvasBottom" role="button" aria-controls="offcanvasBottom">
-                    OPEN
+                    {% if lan == 'cn' %}打开{% else %}OPEN{% endif %}
+                </span>
+            </a>
+            <a class="dropdown-item" style="margin-top: 10px;">
+                <svg t="1702629797008" class="icon me-2" viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg" width="20" height="20"><path d="M511.744 930.0992c-232.9088 0-422.4-189.4912-422.4-422.4s189.4912-422.4 422.4-422.4 422.4 189.4912 422.4 422.4-189.4912 422.4-422.4 422.4z" fill="#373E51"/><path d="M436.07 706.66c-10.75 0-21.3-4.25-29.18-12.19L310.78 597.09c-15.87-16.13-15.72-42.04 0.41-57.91 16.08-15.87 42.04-15.72 57.91 0.41l25.96 26.32V348.06c0-22.63 18.33-40.96 40.96-40.96s40.96 18.33 40.96 40.96v317.64c0 16.64-10.04 31.59-25.4 37.89-5.02 2.1-10.29 3.07-15.51 3.07z" fill="#373E51"/><path d="M587.16 706.66c-22.63 0-40.96-18.33-40.96-40.96V348.06c0-16.64 10.04-31.59 25.4-37.89 15.36-6.3 33.02-2.71 44.7 9.11l96.1 97.38c15.87 16.08 15.72 42.04-0.41 57.91-16.13 15.87-42.04 15.72-57.91-0.41l-25.96-26.32v217.8a40.96 40.96 0 0 1-40.96 41.01z" fill="#373E51"/></svg>
+                {% if lan == 'cn' %} 弱网测试 {% else %} Weak Network {% endif %}
+                <span class="ms-auto badge bg-orange-lt" data-bs-toggle="offcanvas" href="#offcanvasWeakNet" role="button" aria-controls="offcanvasWeakNet" onclick="initWeakNetPanel()">
+                    {% if lan == 'cn' %}打开{% else %}OPEN{% endif %}
                 </span>
             </a>
             {% endif %}
@@ -345,7 +398,7 @@ SoloX - Application Performance Monitoring
 </div>
 <div class="offcanvas offcanvas-bottom layout-boxed" tabindex="-1" id="offcanvasBottom" aria-labelledby="offcanvasBottomLabel" style="height: 90%">
     <div class="offcanvas-header">
-      <h2 class="offcanvas-title" id="offcanvasBottomLabel">Error Log</h2>
+      <h2 class="offcanvas-title" id="offcanvasBottomLabel">{% if lan == 'cn' %}错误日志{% else %}Error Log{% endif %}</h2>
       <span id="logcat-counter" class="badge bg-secondary ms-2" style="font-size:0.75rem;"></span>
       <button type="button" class="btn-close text-reset" data-bs-dismiss="offcanvas" aria-label="Close"></button>
     </div>
@@ -403,9 +456,60 @@ SoloX - Application Performance Monitoring
         <div id="logcat-content" style="flex:1;overflow-y:auto;font-family:monospace;font-size:12px;background:#1a1a2e;color:#eee;padding:8px;border-radius:4px;"></div>
     </div>
   </div>
+{% if platform == 'Android' %}
+<div class="offcanvas offcanvas-bottom layout-boxed" tabindex="-1" id="offcanvasWeakNet" aria-labelledby="offcanvasWeakNetLabel" style="height: 70%">
+    <div class="offcanvas-header">
+      <h2 class="offcanvas-title" id="offcanvasWeakNetLabel">{% if lan == 'cn' %}弱网测试{% else %}Weak Network{% endif %}</h2>
+      <span id="weaknet-status-badge" class="badge bg-secondary ms-2">—</span>
+      <button type="button" class="btn-close text-reset" data-bs-dismiss="offcanvas" aria-label="Close"></button>
+    </div>
+    <div class="offcanvas-body">
+        <div id="weaknet-cap-hint" class="alert alert-warning mb-3" style="display:none;font-size:13px;"></div>
+        <div class="row g-3">
+            <div class="col-md-5">
+                <label class="form-label">{% if lan == 'cn' %}网络预设{% else %}Preset{% endif %}</label>
+                <select id="weaknet-preset" class="form-select form-select-sm"></select>
+                <div class="mt-2 text-muted" style="font-size:12px;" id="weaknet-preset-desc"></div>
+                <details class="mt-3">
+                    <summary class="text-muted" style="font-size:12px;cursor:pointer;">{% if lan == 'cn' %}自定义参数{% else %}Custom{% endif %}</summary>
+                    <div class="row g-2 mt-1">
+                        <div class="col-6"><label class="form-label form-label-sm">{% if lan == 'cn' %}延迟(ms){% else %}Delay(ms){% endif %}</label><input type="number" id="weaknet-delay" class="form-control form-control-sm" min="0" value="200"></div>
+                        <div class="col-6"><label class="form-label form-label-sm">{% if lan == 'cn' %}抖动(ms){% else %}Jitter(ms){% endif %}</label><input type="number" id="weaknet-jitter" class="form-control form-control-sm" min="0" value="50"></div>
+                        <div class="col-6"><label class="form-label form-label-sm">{% if lan == 'cn' %}丢包(%){% else %}Loss(%){% endif %}</label><input type="number" id="weaknet-loss" class="form-control form-control-sm" min="0" max="100" step="0.1" value="2"></div>
+                        <div class="col-6"><label class="form-label form-label-sm">{% if lan == 'cn' %}带宽限制{% else %}Rate{% endif %}</label><input type="text" id="weaknet-rate" class="form-control form-control-sm" placeholder="5mbit"></div>
+                    </div>
+                </details>
+                <div class="btn-list mt-3">
+                    <button type="button" class="btn btn-primary btn-sm" id="weaknet-apply-btn" onclick="applyWeakNet()">{% if lan == 'cn' %}应用弱网{% else %}Apply{% endif %}</button>
+                    <button type="button" class="btn btn-default btn-sm" onclick="clearWeakNet()">{% if lan == 'cn' %}恢复网络{% else %}Clear{% endif %}</button>
+                </div>
+                <p class="text-muted mt-2 mb-0" style="font-size:11px;">
+                    {% if lan == 'cn' %}
+                    模拟需在已 Root 设备上通过 tc/netem 生效；无 Root 时可使用右侧网络探测。
+                    {% else %}
+                    Simulation requires rooted device (tc/netem). Without root, use probe only.
+                    {% endif %}
+                </p>
+            </div>
+            <div class="col-md-7">
+                <div class="d-flex align-items-end gap-2 mb-2">
+                    <div class="flex-fill">
+                        <label class="form-label">{% if lan == 'cn' %}探测目标{% else %}Probe Host{% endif %}</label>
+                        <input type="text" id="weaknet-probe-host" class="form-control form-control-sm" value="8.8.8.8">
+                    </div>
+                    <button type="button" class="btn btn-default btn-sm" onclick="probeWeakNet()">{% if lan == 'cn' %}开始探测{% else %}Probe{% endif %}</button>
+                </div>
+                <div id="weaknet-probe-result" class="p-3 rounded" style="background:#1a1a2e;color:#eee;font-family:monospace;font-size:13px;min-height:120px;">
+                    {% if lan == 'cn' %}点击「开始探测」查看 RTT / 丢包 / 抖动{% else %}Click Probe for RTT / loss / jitter{% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
 <div class="offcanvas offcanvas-bottom layout-boxed" tabindex="-1" id="offcanvas-startup-time" aria-labelledby="offcanvasBottomLabel" style="height: 90%">
     <div class="offcanvas-header">
-      <h2 class="offcanvas-title" id="offcanvasBottomLabel">Start-up Time</h2>
+      <h2 class="offcanvas-title" id="offcanvas-startup-time-label">{% if lan == 'cn' %}启动耗时{% else %}Start-up Time{% endif %}</h2>
       <button type="button" class="btn-close text-reset" data-bs-dismiss="offcanvas" aria-label="Close"></button>
     </div>
     <div class="offcanvas-body">
@@ -581,95 +685,123 @@ SoloX - Application Performance Monitoring
             </div>
             <div class="modal-body" style="max-height:70vh; overflow-y:auto;">
                 {% if lan == 'cn' %}
-                <h4>方式一：传统 ADB TCP/IP（Android 10 及以下）</h4>
+                <div class="alert alert-secondary mb-3" style="font-size:13px;">
+                    <strong>前置条件：</strong>SoloX 内置 ADB（platform-tools 34+）；电脑与手机同一 Wi-Fi；已开启 USB 调试并授权；无线调试需 ADB 30.0.0+（Android 11 起）。<br>
+                    <strong>2026 建议：</strong>Android 11–16 优先用<strong>方式二（无线调试配对）</strong>；Android 12+ 多数机型已禁用或未开放 <code>adb tcpip</code>，勿再依赖固定 5555 端口。
+                </div>
+
+                <h4>方式一：传统 ADB TCP/IP（仅 Android 10 及以下，或已通过 USB 临时开启）</h4>
                 <ol>
-                    <li>手机通过 USB 连接电脑，确认 <code>adb devices</code> 能识别设备</li>
-                    <li>切换到 TCP 模式：<br><code>adb tcpip 5555</code></li>
-                    <li>查看手机 IP：<strong>设置 → 关于手机 → 状态 → IP 地址</strong>，或执行：<br><code>adb shell ip addr show wlan0</code></li>
+                    <li>USB 连接电脑，确认 <code>adb devices</code> 显示 <code>device</code></li>
+                    <li>开启 TCP 监听（需 root 或已授权调试）：<br><code>adb tcpip 5555</code></li>
+                    <li>查看手机 IP：<strong>设置 → WLAN → 当前网络详情</strong>，或：<br><code>adb shell ip -4 addr show wlan0</code></li>
                     <li>拔掉 USB，无线连接：<br><code>adb connect &lt;手机IP&gt;:5555</code></li>
-                    <li>验证：<code>adb devices</code> 应显示 <code>&lt;IP&gt;:5555 device</code></li>
+                    <li>验证：<code>adb devices</code> 应出现 <code>&lt;IP&gt;:5555 device</code></li>
                 </ol>
-                <div class="alert alert-info">
-                    <strong>提示：</strong>手机与电脑必须在同一 Wi-Fi 网络。重启手机后需要重新连接。
+                <div class="alert alert-warning">
+                    <strong>限制：</strong>Android 11+ 非 root 设备上 <code>adb tcpip</code> 常返回错误或被 OEM 屏蔽；重启手机后需重新执行。Android 12+ 请改用方式二。
                 </div>
 
                 <hr>
-                <h4>方式二：无线调试配对（Android 11+）</h4>
+                <h4>方式二：无线调试配对（Android 11–16，官方推荐）</h4>
                 <ol>
-                    <li>手机进入 <strong>设置 → 开发者选项 → 无线调试</strong>，开启开关</li>
-                    <li>点击 <strong>使用配对码配对设备</strong>，记录显示的 <strong>配对码</strong> 和 <strong>IP:端口</strong></li>
-                    <li>在电脑上执行配对（端口号是配对页面显示的，不是调试端口）：<br>
-                        <code>adb pair &lt;IP&gt;:&lt;配对端口&gt;</code><br>
-                        输入配对码完成配对</li>
-                    <li>返回无线调试页面，查看 <strong>IP 地址和端口</strong>（这是调试端口，与配对端口不同）</li>
-                    <li>连接设备：<br><code>adb connect &lt;IP&gt;:&lt;调试端口&gt;</code></li>
-                    <li>验证：<code>adb devices</code></li>
+                    <li>手机进入 <strong>设置 → 开发者选项 → 无线调试</strong>，开启开关（Android 13+ 可能需同时开启「USB 调试」）</li>
+                    <li>点击 <strong>使用配对码配对设备</strong>，记录 <strong>6 位配对码</strong> 与 <strong>IP:配对端口</strong>（如 <code>192.168.1.8:37123</code>）</li>
+                    <li>电脑配对（端口为配对端口，非调试端口）：<br>
+                        <code>adb pair 192.168.1.8:37123</code><br>
+                        提示时输入配对码；或使用 Android Studio / SDK 配对对话框</li>
+                    <li>返回无线调试主界面，查看 <strong>IP 地址和端口</strong>（调试端口，每次开关无线调试可能变化，如 <code>192.168.1.8:41567</code>）</li>
+                    <li>连接：<br><code>adb connect 192.168.1.8:41567</code></li>
+                    <li>验证：<code>adb devices</code>；刷新 SoloX 主页设备列表</li>
                 </ol>
-                <div class="alert alert-warning">
-                    <strong>注意：</strong>每次打开无线调试时端口号会变化，需要重新查看。Android 11+ 推荐使用此方式，更安全。
+                <div class="alert alert-info">
+                    <strong>Android 14/15/16 提示：</strong>配对码约 60 秒过期；企业策略可能禁用无线调试；首次 USB 连接仍需点「允许 USB 调试」。
                 </div>
+
+                <hr>
+                <h4>方式三：mDNS 自动发现（Android 12+，ADB 31+，可选）</h4>
+                <ol>
+                    <li>完成方式二配对后，在电脑执行：<br><code>adb mdns services</code></li>
+                    <li>找到 <code>_adb._tcp</code> 条目，按提示连接：<br><code>adb connect &lt;设备名&gt;._adb._tcp.local:&lt;端口&gt;</code><br>或直接 <code>adb connect &lt;IP&gt;:&lt;调试端口&gt;</code></li>
+                </ol>
 
                 <hr>
                 <h4>断开连接</h4>
                 <pre><code>adb disconnect &lt;IP&gt;:&lt;端口&gt;    # 断开指定设备
-adb disconnect                   # 断开所有无线设备</code></pre>
+adb disconnect                   # 断开所有无线设备
+adb kill-server &amp;&amp; adb start-server   # 重置 ADB 服务</code></pre>
 
                 <hr>
                 <h4>常见问题</h4>
                 <table class="table table-bordered table-sm">
                     <thead><tr><th style="width:40%">问题</th><th>解决方法</th></tr></thead>
                     <tbody>
-                        <tr><td><code>unable to connect</code></td><td>确认手机和电脑在同一 Wi-Fi；检查防火墙是否阻止 ADB 端口；尝试 ping 手机 IP</td></tr>
-                        <tr><td><code>cannot connect to daemon</code></td><td><code>adb kill-server && adb start-server</code> 然后重试</td></tr>
-                        <tr><td>连接频繁断开</td><td>Wi-Fi 信号弱或手机进入省电模式；关闭手机电池优化/省电模式</td></tr>
-                        <tr><td>配对码过期 (Android 11+)</td><td>配对码有效期很短，需在弹出后尽快输入；超时重新点击"配对设备"</td></tr>
+                        <tr><td><code>error: protocol fault</code> / 配对失败</td><td>升级 platform-tools；确认配对码未过期；关闭 VPN/代理；Windows 防火墙放行 adb.exe</td></tr>
+                        <tr><td><code>unable to connect</code></td><td>同一 Wi-Fi（勿用访客网络隔离）；ping 手机 IP；核对调试端口非配对端口</td></tr>
+                        <tr><td><code>cannot connect to daemon</code></td><td><code>adb kill-server &amp;&amp; adb start-server</code> 后重试</td></tr>
+                        <tr><td><code>device unauthorized</code></td><td>USB 重新授权；无线调试界面点「撤销授权」后重配</td></tr>
+                        <tr><td>连接频繁断开</td><td>加强 Wi-Fi 信号；关闭省电/休眠断 Wi-Fi；勿与投屏高码率同时占满带宽</td></tr>
+                        <tr><td>SoloX 看不到设备</td><td>终端先确认 <code>adb devices</code> 正常，再刷新浏览器设备下拉框</td></tr>
                     </tbody>
                 </table>
 
                 {% else %}
 
-                <h4>Method 1: Traditional ADB TCP/IP (Android 10 and below)</h4>
+                <div class="alert alert-secondary mb-3" style="font-size:13px;">
+                    <strong>Prerequisites:</strong> Bundled ADB (platform-tools 34+); phone and PC on same Wi-Fi; USB debugging authorized; wireless debugging needs ADB 30.0.0+ (Android 11+).<br>
+                    <strong>2026 recommendation:</strong> Use <strong>Method 2 (wireless debugging)</strong> on Android 11–16; do not rely on fixed port 5555 on Android 12+.
+                </div>
+
+                <h4>Method 1: Legacy ADB TCP/IP (Android 10 and below, or USB-initiated)</h4>
                 <ol>
-                    <li>Connect your phone via USB and verify with <code>adb devices</code></li>
-                    <li>Switch to TCP mode:<br><code>adb tcpip 5555</code></li>
-                    <li>Find your phone's IP: <strong>Settings → About Phone → Status → IP Address</strong>, or run:<br><code>adb shell ip addr show wlan0</code></li>
-                    <li>Unplug USB and connect wirelessly:<br><code>adb connect &lt;PHONE_IP&gt;:5555</code></li>
-                    <li>Verify: <code>adb devices</code> should show <code>&lt;IP&gt;:5555 device</code></li>
+                    <li>Connect via USB; verify <code>adb devices</code> shows <code>device</code></li>
+                    <li>Enable TCP listener:<br><code>adb tcpip 5555</code></li>
+                    <li>Find IP: <strong>Settings → Wi-Fi → network details</strong>, or:<br><code>adb shell ip -4 addr show wlan0</code></li>
+                    <li>Unplug USB and connect:<br><code>adb connect &lt;PHONE_IP&gt;:5555</code></li>
+                    <li>Verify: <code>adb devices</code> shows <code>&lt;IP&gt;:5555 device</code></li>
                 </ol>
-                <div class="alert alert-info">
-                    <strong>Note:</strong> Phone and computer must be on the same Wi-Fi network. Connection resets after phone reboot.
+                <div class="alert alert-warning">
+                    <strong>Limit:</strong> <code>adb tcpip</code> is blocked or restricted on most Android 12+ devices without root. Use Method 2 instead.
                 </div>
 
                 <hr>
-                <h4>Method 2: Wireless Debugging Pairing (Android 11+)</h4>
+                <h4>Method 2: Wireless debugging pairing (Android 11–16, recommended)</h4>
                 <ol>
-                    <li>On your phone go to <strong>Settings → Developer Options → Wireless Debugging</strong> and enable it</li>
-                    <li>Tap <strong>Pair device with pairing code</strong>, note the <strong>pairing code</strong> and <strong>IP:port</strong></li>
-                    <li>On your computer, run (use the pairing port, not the debug port):<br>
-                        <code>adb pair &lt;IP&gt;:&lt;PAIRING_PORT&gt;</code><br>
-                        Enter the pairing code when prompted</li>
-                    <li>Go back to the Wireless Debugging screen, note the <strong>IP address and port</strong> (this is the debug port, different from pairing port)</li>
+                    <li>Enable <strong>Settings → Developer options → Wireless debugging</strong></li>
+                    <li>Tap <strong>Pair device with pairing code</strong>; note the code and <strong>IP:pairing_port</strong></li>
+                    <li>On PC:<br><code>adb pair &lt;IP&gt;:&lt;PAIRING_PORT&gt;</code><br>Enter the pairing code when prompted</li>
+                    <li>On the Wireless debugging screen, note <strong>IP address and port</strong> (debug port, changes when toggling)</li>
                     <li>Connect:<br><code>adb connect &lt;IP&gt;:&lt;DEBUG_PORT&gt;</code></li>
-                    <li>Verify: <code>adb devices</code></li>
+                    <li>Verify with <code>adb devices</code>; refresh SoloX device list</li>
                 </ol>
-                <div class="alert alert-warning">
-                    <strong>Note:</strong> The port number changes each time you toggle Wireless Debugging. Android 11+ recommends this method for better security.
+                <div class="alert alert-info">
+                    <strong>Android 14–16:</strong> Pairing codes expire in ~60s; MDM may disable wireless debugging.
                 </div>
+
+                <hr>
+                <h4>Method 3: mDNS discovery (Android 12+, ADB 31+, optional)</h4>
+                <ol>
+                    <li>After pairing: <code>adb mdns services</code></li>
+                    <li>Connect using the listed <code>_adb._tcp</code> service or <code>adb connect IP:debug_port</code></li>
+                </ol>
 
                 <hr>
                 <h4>Disconnect</h4>
-                <pre><code>adb disconnect &lt;IP&gt;:&lt;PORT&gt;    # Disconnect specific device
-adb disconnect                   # Disconnect all wireless devices</code></pre>
+                <pre><code>adb disconnect &lt;IP&gt;:&lt;PORT&gt;
+adb disconnect
+adb kill-server &amp;&amp; adb start-server</code></pre>
 
                 <hr>
                 <h4>Troubleshooting</h4>
                 <table class="table table-bordered table-sm">
                     <thead><tr><th style="width:40%">Problem</th><th>Solution</th></tr></thead>
                     <tbody>
-                        <tr><td><code>unable to connect</code></td><td>Verify phone and computer are on the same Wi-Fi; check firewall settings; try pinging the phone IP</td></tr>
-                        <tr><td><code>cannot connect to daemon</code></td><td>Run <code>adb kill-server && adb start-server</code> then retry</td></tr>
-                        <tr><td>Frequent disconnections</td><td>Weak Wi-Fi signal or phone entering power-save mode; disable battery optimization</td></tr>
-                        <tr><td>Pairing code expired (Android 11+)</td><td>Pairing codes expire quickly; re-tap "Pair device" to get a new one</td></tr>
+                        <tr><td>Pairing fails / protocol fault</td><td>Update platform-tools; re-generate code; disable VPN; allow adb in firewall</td></tr>
+                        <tr><td><code>unable to connect</code></td><td>Same Wi-Fi (no guest isolation); ping phone; use debug port not pairing port</td></tr>
+                        <tr><td><code>cannot connect to daemon</code></td><td><code>adb kill-server &amp;&amp; adb start-server</code></td></tr>
+                        <tr><td><code>device unauthorized</code></td><td>Re-authorize via USB; revoke wireless debugging auth on phone</td></tr>
+                        <tr><td>Frequent disconnects</td><td>Stronger Wi-Fi; disable aggressive power saving</td></tr>
+                        <tr><td>SoloX empty device list</td><td>Confirm <code>adb devices</code> in terminal first, then refresh browser</td></tr>
                     </tbody>
                 </table>
                 {% endif %}
@@ -682,7 +814,7 @@ adb disconnect                   # Disconnect all wireless devices</code></pre>
     <div class="modal-dialog modal-dialog-centered" role="document">
       <div class="modal-content">
         <div class="modal-header">
-          <h5 class="modal-title">Add More</h5>
+          <h5 class="modal-title">{% if lan == 'cn' %}添加更多指标{% else %}Add More{% endif %}</h5>
           <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
         </div>
         <div class="modal-body">
@@ -943,6 +1075,7 @@ adb disconnect                   # Disconnect all wireless devices</code></pre>
     });
 
     function initializeAPM(){
+        resetLiveStats();
         $.ajax({
             url: Host + "/apm/initialize",
             type: "POST",
@@ -950,9 +1083,56 @@ adb disconnect                   # Disconnect all wireless devices</code></pre>
             cache: false,
             success: function (data) {
                 console.log(data)
+                $('#scene-tag-list').empty();
             }
         });
     }
+
+    function renderSceneTagList(tags) {
+        var $list = $('#scene-tag-list');
+        $list.empty();
+        if (!tags || tags.length === 0) {
+            $list.append('<li class="list-group-item text-muted">' +
+                (lan === 'cn' ? '暂无场景标记' : 'No scene markers yet') + '</li>');
+            return;
+        }
+        tags.forEach(function(t) {
+            $list.append('<li class="list-group-item d-flex justify-content-between">' +
+                '<span>' + $('<div>').text(t.label).html() + '</span>' +
+                '<span class="text-muted">' + t.time + '</span></li>');
+        });
+    }
+
+    function refreshSceneTags() {
+        $.get(Host + '/apm/scene/tags', function(data) {
+            if (data.status === 1) {
+                renderSceneTagList(data.tags);
+            }
+        });
+    }
+
+    function addSceneTag() {
+        var label = $('#scene-tag-input').val().trim();
+        if (!label) return;
+        $.ajax({
+            url: Host + '/apm/scene/tag',
+            type: 'POST',
+            data: { label: label },
+            success: function(data) {
+                if (data.status === 1) {
+                    $('#scene-tag-input').val('');
+                    refreshSceneTags();
+                } else {
+                    SwalFire('error', 'Scene Tag', data.msg || 'failed', 3000);
+                }
+            }
+        });
+    }
+
+    $('#btn-scene-tag').on('click', addSceneTag);
+    $('#scene-tag-input').on('keypress', function(e) {
+        if (e.which === 13) addSceneTag();
+    });
 
     function versionCheck(){
         $.ajax({
@@ -1036,7 +1216,114 @@ adb disconnect                   # Disconnect all wireless devices</code></pre>
         });
     }
 
-    var timerQ = null;
+    var metricTimers = {};
+
+    function clearMetricTimer(name) {
+        if (metricTimers[name]) {
+            window.clearTimeout(metricTimers[name]);
+            delete metricTimers[name];
+        }
+    }
+
+    function clearAllMetricTimers() {
+        Object.keys(metricTimers).forEach(clearMetricTimer);
+    }
+
+    function scheduleMetricPoll(name, callback, delay) {
+        clearMetricTimer(name);
+        metricTimers[name] = window.setTimeout(function () {
+            delete metricTimers[name];
+            if (stop) {
+                return;
+            }
+            if (document.hidden) {
+                scheduleMetricPoll(name, callback, Math.max(delay, 1000));
+                return;
+            }
+            callback();
+        }, delay);
+    }
+
+    var liveStats = {
+        cpu_app: { values: [] },
+        cpu_sys: { values: [] },
+        mem_total: { values: [] },
+        fps: { values: [] },
+        jank: { sum: 0, max: 0, last: 0 },
+        big_jank: { sum: 0, max: 0, last: 0 }
+    };
+
+    function resetLiveStats() {
+        liveStats = {
+            cpu_app: { values: [] },
+            cpu_sys: { values: [] },
+            mem_total: { values: [] },
+            fps: { values: [] },
+            jank: { sum: 0, max: 0, last: 0 },
+            big_jank: { sum: 0, max: 0, last: 0 }
+        };
+        renderLiveStats();
+    }
+
+    function liveMinMaxAvg(values) {
+        if (!values.length) {
+            return { now: '-', min: '-', max: '-', avg: '-' };
+        }
+        var min = Math.min.apply(null, values);
+        var max = Math.max.apply(null, values);
+        var avg = values.reduce(function(a, b) { return a + b; }, 0) / values.length;
+        return {
+            now: values[values.length - 1].toFixed(1),
+            min: min.toFixed(1),
+            max: max.toFixed(1),
+            avg: avg.toFixed(1)
+        };
+    }
+
+    function trackLiveMetric(key, val) {
+        if (val === null || val === undefined || isNaN(val)) return;
+        liveStats[key].values.push(parseFloat(val));
+        renderLiveStats();
+    }
+
+    function trackLiveCounter(key, val) {
+        var n = parseInt(val, 10) || 0;
+        liveStats[key].sum += n;
+        liveStats[key].max = Math.max(liveStats[key].max, n);
+        liveStats[key].last = n;
+        renderLiveStats();
+    }
+
+    function renderLiveStats() {
+        var cpuApp = liveMinMaxAvg(liveStats.cpu_app.values);
+        $('#ls-cpu-app-now').text(cpuApp.now);
+        $('#ls-cpu-app-min').text(cpuApp.min);
+        $('#ls-cpu-app-max').text(cpuApp.max);
+        $('#ls-cpu-app-avg').text(cpuApp.avg);
+        var cpuSys = liveMinMaxAvg(liveStats.cpu_sys.values);
+        $('#ls-cpu-sys-now').text(cpuSys.now);
+        $('#ls-cpu-sys-min').text(cpuSys.min);
+        $('#ls-cpu-sys-max').text(cpuSys.max);
+        $('#ls-cpu-sys-avg').text(cpuSys.avg);
+        var mem = liveMinMaxAvg(liveStats.mem_total.values);
+        $('#ls-mem-now').text(mem.now);
+        $('#ls-mem-min').text(mem.min);
+        $('#ls-mem-max').text(mem.max);
+        $('#ls-mem-avg').text(mem.avg);
+        var fps = liveMinMaxAvg(liveStats.fps.values);
+        $('#ls-fps-now').text(fps.now);
+        $('#ls-fps-min').text(fps.min);
+        $('#ls-fps-max').text(fps.max);
+        $('#ls-fps-avg').text(fps.avg);
+        if (platform === 'Android') {
+            $('#ls-jank-now').text(liveStats.jank.last);
+            $('#ls-jank-max').text('max ' + liveStats.jank.max);
+            $('#ls-jank-sum').text('Σ ' + liveStats.jank.sum);
+            $('#ls-big-jank-now').text(liveStats.big_jank.last);
+            $('#ls-big-jank-max').text('max ' + liveStats.big_jank.max);
+            $('#ls-big-jank-sum').text('Σ ' + liveStats.big_jank.sum);
+        }
+    }
 
     function getCpuRate(pkgname,device){
         var process = '';
@@ -1056,7 +1343,7 @@ adb disconnect                   # Disconnect all wireless devices</code></pre>
                 process:process
             },
             beforeSend: function () {
-               window.clearTimeout(timerQ);
+               clearMetricTimer('cpu');
             },
             success: function (data) {
                 console.log(data)
@@ -1070,10 +1357,12 @@ adb disconnect                   # Disconnect all wireless devices</code></pre>
                                 y_sys = data['systemCpuRate'];
                             app_series.addPoint([x, y_app], true, true);
                             sys_series.addPoint([x, y_sys], true, true);
-                            timerQ = setTimeout(getCpuRate(pkgname,device), 1000);
+                            trackLiveMetric('cpu_app', y_app);
+                            trackLiveMetric('cpu_sys', y_sys);
+                            scheduleMetricPoll('cpu', function () { getCpuRate(pkgname, device); }, 1000);
                         }catch (e) {}
                     }else if(data['status'] == 2){
-                        timerQ = setTimeout(getCpuRate(pkgname,device), 1000);
+                        scheduleMetricPoll('cpu', function () { getCpuRate(pkgname, device); }, 1000);
                     }else{
                         SwalFire('error','Something error',data['msg'],2000);
                     }
@@ -1104,7 +1393,7 @@ adb disconnect                   # Disconnect all wireless devices</code></pre>
                 cores:parseInt($('#cpu_cores').text())
             },
             beforeSend: function () {
-               window.clearTimeout(timerQ);
+               clearMetricTimer('cpu_core');
             },
             success: function (data) {
                 console.log(data)
@@ -1116,10 +1405,10 @@ adb disconnect                   # Disconnect all wireless devices</code></pre>
                                 console.log(element);
                                 cpucore_chart.series[index].addPoint([x, element], true, true)
                             })
-                            timerQ = setTimeout(getCoreCpuRate(pkgname,device), 1000);
+                            scheduleMetricPoll('cpu_core', function () { getCoreCpuRate(pkgname, device); }, 1000);
                         }catch (e) {}
                     }else if(data['status'] == 2){
-                        timerQ = setTimeout(getCoreCpuRate(pkgname,device), 1000);
+                        scheduleMetricPoll('cpu_core', function () { getCoreCpuRate(pkgname, device); }, 1000);
                     }else{
                         SwalFire('error','Something error',data['msg'],2000);
                     }
@@ -1144,7 +1433,7 @@ adb disconnect                   # Disconnect all wireless devices</code></pre>
                 device:device
             },
             beforeSend: function () {
-               window.clearTimeout(timerQ);
+               clearMetricTimer('gpu');
             },
             success: function (data) {
                 if(stop == false){
@@ -1155,10 +1444,10 @@ adb disconnect                   # Disconnect all wireless devices</code></pre>
                             var x = (new Date()).getTime(),
                             y = data['gpu'];
                             series.addPoint([x, y], true, true);
-                            timerQ = setTimeout(getGpu(pkgname, device), 1000);
+                            scheduleMetricPoll('gpu', function () { getGpu(pkgname, device); }, 1000);
                         }catch (e) {}
                     }else if(data['status'] == 2){
-                        timerQ = setTimeout(getGpu(pkgname, device), 1000);
+                        scheduleMetricPoll('gpu', function () { getGpu(pkgname, device); }, 1000);
                     }else{
                         SwalFire('error','Something error',data['msg'],2000);
                     }
@@ -1182,7 +1471,7 @@ adb disconnect                   # Disconnect all wireless devices</code></pre>
                 device:device
             },
             beforeSend: function () {
-               window.clearTimeout(timerQ);
+               clearMetricTimer('battery');
             },
             success: function (data) {
                 if(stop == false){
@@ -1213,10 +1502,10 @@ adb disconnect                   # Disconnect all wireless devices</code></pre>
                                 seriesVoltage.addPoint([x, y_voltage], true, true);
                                 seriesPower.addPoint([x, y_power], true, true);
                             } 
-                            timerQ = setTimeout(getBattery(device), 1000);
+                            scheduleMetricPoll('battery', function () { getBattery(device); }, 1000);
                         }catch (e) {}
                     }else if(data['status'] == 2){
-                        timerQ = setTimeout(getBattery(device), 1000);
+                        scheduleMetricPoll('battery', function () { getBattery(device); }, 1000);
                     }else{
                         SwalFire('error','Something error',data['msg'],2000);
                     }
@@ -1247,7 +1536,7 @@ adb disconnect                   # Disconnect all wireless devices</code></pre>
                 process:process
             },
             beforeSend: function () {
-               window.clearTimeout(timerQ);
+               clearMetricTimer('mem');
             },
             success: function (data) {
                 console.log(data)
@@ -1262,17 +1551,19 @@ adb disconnect                   # Disconnect all wireless devices</code></pre>
                                     y_swap = data['swapPass'];
                                 seriesTotal.addPoint([x, y_total], true, true);
                                 seriesSwap.addPoint([x, y_swap], true, true);
+                                trackLiveMetric('mem_total', y_total);
                             }else{
                                 var series = mem_chart.series[0];
                                 var x = (new Date()).getTime(),
                                     y = data['totalPass'];
                                 series.addPoint([x, y], true, true);
+                                trackLiveMetric('mem_total', y);
                             }
-                            timerQ = setTimeout(getMemPss(pkgname,device), 1000);
+                            scheduleMetricPoll('mem', function () { getMemPss(pkgname, device); }, 1000);
 
                         }catch (e) {}
                     }else if(data['status'] == 2){
-                        timerQ = setTimeout(getMemPss(pkgname,device), 1000);
+                        scheduleMetricPoll('mem', function () { getMemPss(pkgname, device); }, 1000);
                     }else{
                         SwalFire('error','Something error',data['msg'],2000);
                     }
@@ -1299,7 +1590,7 @@ adb disconnect                   # Disconnect all wireless devices</code></pre>
                 process:process
             },
             beforeSend: function () {
-               window.clearTimeout(timerQ);
+               clearMetricTimer('mem_detail');
             },
             success: function (data) {
                 console.log(data)
@@ -1331,11 +1622,11 @@ adb disconnect                   # Disconnect all wireless devices</code></pre>
                             seriesPrivate.addPoint([x, y_private], true, true);
                             seriesSystem.addPoint([x, y_system], true, true);
                             
-                            timerQ = setTimeout(getMemDetailPss(pkgname,device), 1000);
+                            scheduleMetricPoll('mem_detail', function () { getMemDetailPss(pkgname, device); }, 1000);
 
                         }catch (e) {}
                     }else if(data['status'] == 2){
-                        timerQ = setTimeout(getMemDetailPss(pkgname,device), 1000);
+                        scheduleMetricPoll('mem_detail', function () { getMemDetailPss(pkgname, device); }, 1000);
                     }else{
                         SwalFire('error','Something error',data['msg'],2000);
                     }
@@ -1449,7 +1740,7 @@ adb disconnect                   # Disconnect all wireless devices</code></pre>
                 process:process
             },
             beforeSend: function () {
-               window.clearTimeout(timerQ);
+               clearMetricTimer('network');
             },
             success: function (data) {
                 if(stop == false){
@@ -1463,12 +1754,12 @@ adb disconnect                   # Disconnect all wireless devices</code></pre>
                                 y_down = data['downflow'];
                             seriesUpFlow.addPoint([x_up, y_up], true, true);
                             seriesDownFlow.addPoint([x_down, y_down], true, true);
-                            timerQ = setTimeout(getNetWork(pkgname,device,net_switch), 1000);
+                            scheduleMetricPoll('network', function () { getNetWork(pkgname, device, net_switch); }, 1000);
                         }catch (e) {
                             console.log(e)
                         }
                     }else if(data['status'] == 2){
-                        timerQ = setTimeout(getNetWork(pkgname,device,net_switch), 1000);
+                        scheduleMetricPoll('network', function () { getNetWork(pkgname, device, net_switch); }, 1000);
                     }else{
                         SwalFire('error','Something error',data['msg'],2000);
                     }
@@ -1495,7 +1786,7 @@ adb disconnect                   # Disconnect all wireless devices</code></pre>
                 surv:fps_switch
             },
             beforeSend: function () {
-               window.clearTimeout(timerQ);
+               clearMetricTimer('fps');
             },
             success: function (data) {
                 console.log(data)
@@ -1506,16 +1797,24 @@ adb disconnect                   # Disconnect all wireless devices</code></pre>
                             let x_fps = (new Date()).getTime(),
                                 y_fps = data['fps'];
                             seriesFps.addPoint([x_fps, y_fps], true, true);
+                            trackLiveMetric('fps', y_fps);
                             if(platform == 'Android'){
                                 let seriesJank = fps_chart.series[1];
                                 let x_jsnk = (new Date()).getTime(),
                                     y_jank = data['jank'];
                                 seriesJank.addPoint([x_jsnk, y_jank], true, true);
+                                trackLiveCounter('jank', y_jank);
+                                if (fps_chart.series.length > 2) {
+                                    let seriesBigJank = fps_chart.series[2];
+                                    let y_big_jank = data['big_jank'] || 0;
+                                    seriesBigJank.addPoint([(new Date()).getTime(), y_big_jank], true, true);
+                                    trackLiveCounter('big_jank', y_big_jank);
+                                }
                             }
-                            timerQ = setTimeout(getFps(pkgname,device,fps_switch), 1000);
+                            scheduleMetricPoll('fps', function () { getFps(pkgname, device, fps_switch); }, 1000);
                         }catch (e) {}
                     }else if(data['status'] == 2){
-                        timerQ = setTimeout(getFps(pkgname,device,fps_switch), 1000);
+                        scheduleMetricPoll('fps', function () { getFps(pkgname, device, fps_switch); }, 1000);
                     }else{
                         SwalFire('error','Something error',data['msg'],2000);
                     }
@@ -1539,7 +1838,7 @@ adb disconnect                   # Disconnect all wireless devices</code></pre>
                 device:device
             },
             beforeSend: function () {
-               window.clearTimeout(timerQ);
+               clearMetricTimer('disk');
             },
             success: function (data) {
                 if(stop == false){
@@ -1553,12 +1852,12 @@ adb disconnect                   # Disconnect all wireless devices</code></pre>
                                 y_free = data['free'];
                             seriesUsedDisk.addPoint([x_used, y_used], true, true);
                             seriesFreeDisk.addPoint([x_free, y_free], true, true);
-                            timerQ = setTimeout(getDisk(device), 3000);
+                            scheduleMetricPoll('disk', function () { getDisk(device); }, 3000);
                         }catch (e) {
                             console.log(e)
                         }
                     }else if(data['status'] == 2){
-                        timerQ = setTimeout(getDisk(device), 3000);
+                        scheduleMetricPoll('disk', function () { getDisk(device); }, 3000);
                     }else{
                         SwalFire('error','Something error',data['msg'],2000);
                     }
@@ -1583,7 +1882,7 @@ adb disconnect                   # Disconnect all wireless devices</code></pre>
                 pkgname:pkgname
             },
             beforeSend: function () {
-               window.clearTimeout(timerQ);
+               clearMetricTimer('energy');
             },
             success: function (data) {
                 if(stop == false){
@@ -1611,12 +1910,12 @@ adb disconnect                   # Disconnect all wireless devices</code></pre>
                             seriesNetworkCost.addPoint([x, y_NetworkCost], true, true);
                             seriesTotalCost.addPoint([x, y_TotalCost], true, true);
                             seriesTotalOverhead.addPoint([x, y_TotalOverhead], true, true);
-                            timerQ = setTimeout(getEnergy(pkgname,device), 2000);
+                            scheduleMetricPoll('energy', function () { getEnergy(pkgname, device); }, 2000);
                         }catch (e) {
                             console.log(e)
                         }
                     }else if(data['status'] == 2){
-                        timerQ = setTimeout(getEnergy(pkgname,device), 2000);
+                        scheduleMetricPoll('energy', function () { getEnergy(pkgname, device); }, 2000);
                     }else{
                         SwalFire('error','Something error',data['msg'],2000);
                     }
@@ -2005,6 +2304,19 @@ adb disconnect                   # Disconnect all wireless devices</code></pre>
         }())
     },{
         name : 'jank',
+        pointInterval: 120 * 1000,
+        data : (function () {
+            var data = [], time = (new Date()).getTime(), i;
+            for (i = -999; i <= 0; i += 1) {
+                data.push([
+                    time + i * 1000,
+                    Math.round(0)
+                ]);
+            }
+            return data;
+        }())
+    },{
+        name : 'big_jank',
         pointInterval: 120 * 1000,
         data : (function () {
             var data = [], time = (new Date()).getTime(), i;
@@ -2458,7 +2770,7 @@ adb disconnect                   # Disconnect all wireless devices</code></pre>
         if(cpu_checkbox){
             cpuInitialize();
             let type = 'cpu';
-            cpu_chart = collectPers(device,pkgname,type,'CPU Usage (%)',getCpuRate(pkgname,device));
+            cpu_chart = collectPers(device,pkgname,type,'CPU Usage (%)',function () { getCpuRate(pkgname, device); });
         }
     }
 
@@ -2467,7 +2779,7 @@ adb disconnect                   # Disconnect all wireless devices</code></pre>
         if(cpu_core_checkbox){
             cpucoreInitialize();
             let type = 'cpu_core';
-            cpucore_chart = collectPers(device,pkgname,type,'CPU Core Usage (%)',getCoreCpuRate(pkgname,device));
+            cpucore_chart = collectPers(device,pkgname,type,'CPU Core Usage (%)',function () { getCoreCpuRate(pkgname, device); });
         }
     }
 
@@ -2475,7 +2787,7 @@ adb disconnect                   # Disconnect all wireless devices</code></pre>
         var gpu_checkbox = $('#gpu_checkbox').is(':checked');
         if(gpu_checkbox){
             gpuInitialize();
-            gpu_chart = collectPers(device,pkgname,'gpu','GPU Usage (%)',getGpu(pkgname,device));
+            gpu_chart = collectPers(device,pkgname,'gpu','GPU Usage (%)',function () { getGpu(pkgname, device); });
         }
     }
 
@@ -2484,7 +2796,7 @@ adb disconnect                   # Disconnect all wireless devices</code></pre>
         if(battery_checkbox){
             batteryInitialize();
             let type = platform == 'Android' ? 'battery_android' : 'battery_ios';
-            battery_chart = collectPers(device,null,type,'Battery',getBattery(device));
+            battery_chart = collectPers(device,null,type,'Battery',function () { getBattery(device); });
         }
     }
 
@@ -2493,7 +2805,7 @@ adb disconnect                   # Disconnect all wireless devices</code></pre>
         if(mem_checkbox){
             memInitialize();
             let type = platform == 'Android' ? 'mem_android' : 'mem_ios';
-            mem_chart = collectPers(device,pkgname,type,'Memory Usage (MB)',getMemPss(pkgname,device));
+            mem_chart = collectPers(device,pkgname,type,'Memory Usage (MB)',function () { getMemPss(pkgname, device); });
         }
     }
 
@@ -2501,7 +2813,7 @@ adb disconnect                   # Disconnect all wireless devices</code></pre>
         var mem_detail_checkbox = $('#mem_detail_checkbox').is(':checked');
         if(mem_detail_checkbox){
             memDetailInitialize();
-            mem_detail_chart = collectPers(device,pkgname,'mem_detail','Memory Detail (MB)',getMemDetailPss(pkgname,device));
+            mem_detail_chart = collectPers(device,pkgname,'mem_detail','Memory Detail (MB)',function () { getMemDetailPss(pkgname, device); });
         }
     }
 
@@ -2510,7 +2822,7 @@ adb disconnect                   # Disconnect all wireless devices</code></pre>
         var net_switch = $('#net-switch').is(':checked');
         if(flow_checkbox){
             networkInitialize();
-            network_chart = collectPers(device,pkgname,'network','Network Usage (KB)',getNetWork(pkgname,device,net_switch));
+            network_chart = collectPers(device,pkgname,'network','Network Usage (KB)',function () { getNetWork(pkgname, device, net_switch); });
         }
     }
 
@@ -2523,10 +2835,10 @@ adb disconnect                   # Disconnect all wireless devices</code></pre>
             fpsInitialize();
             if(platform == 'Android'){
                 let title = 'FPS(HZ) & Jank(Times)';
-                fps_chart = collectPers(device,pkgname,'fps',title,getFps(pkgname,device,fps_switch));
+                fps_chart = collectPers(device,pkgname,'fps',title,function () { getFps(pkgname, device, fps_switch); });
             }else{
                 let title = 'FPS（HZ）';
-                fps_chart = collectPers(device,pkgname,'fps_ios',title,getFps(pkgname,device,fps_switch));
+                fps_chart = collectPers(device,pkgname,'fps_ios',title,function () { getFps(pkgname, device, fps_switch); });
             }
         }
     }
@@ -2535,7 +2847,7 @@ adb disconnect                   # Disconnect all wireless devices</code></pre>
         var disk_checkbox = $('#disk_checkbox').is(':checked');
         if(disk_checkbox){
             diskInitialize();
-            disk_chart = collectPers(device,null,'disk','Disk Usage (KB)',getDisk(device));
+            disk_chart = collectPers(device,null,'disk','Disk Usage (KB)',function () { getDisk(device); });
         }
     }
 
@@ -2543,7 +2855,7 @@ adb disconnect                   # Disconnect all wireless devices</code></pre>
         var energy_checkbox = $('#energy_checkbox').is(':checked');
         if(energy_checkbox){
             energyInitialize();
-            energy_chart = collectPers(device,pkgname,'energy','Energy Usage',getEnergy(pkgname,device));
+            energy_chart = collectPers(device,pkgname,'energy','Energy Usage',function () { getEnergy(pkgname, device); });
         }
     }
 
@@ -2624,12 +2936,16 @@ adb disconnect                   # Disconnect all wireless devices</code></pre>
     function stopTask(){
         stop = true;
         stopPidRefresh();
+        if(platform == 'Android'){
+            clearWeakNet(true);
+        }
         var wifi_switch = $('#net-switch').is(':checked');
         var record_switch = $('#record-switch').is(':checked');
         var thermal_switch = $('#thermal_checkbox').is(':checked')
         $('#run-apm').show();
         $('#stop-apm').hide();
-        window.clearTimeout(timerQ);
+        $('#btn-scene-tag').prop('disabled', true);
+        clearAllMetricTimers();
         var process = '';
         if(platform == 'Android'){
             process = $('.select-pid').val()
@@ -2670,10 +2986,15 @@ adb disconnect                   # Disconnect all wireless devices</code></pre>
     
     $('#run-apm').click(function () {
         stop = false;
+        clearAllMetricTimers();
         startPidRefresh();
         $('#stop-apm').show();
         $('#run-apm').hide();
+        $('#btn-scene-tag').prop('disabled', false);
+        $('#live-stats-card').show();
+        resetLiveStats();
         initializeAPM();
+        refreshSceneTags();
         let device = $('.select-device').val();
         let pkgname = $('.select-app').val();
         if(device && pkgname){
@@ -3204,6 +3525,134 @@ adb disconnect                   # Disconnect all wireless devices</code></pre>
             error:function (data) {
                 SwalFire('error', 'Install failed !', '', 2000);
             }
+        });
+    }
+
+    var _weakNetPresets = [];
+
+    function weakNetDevice() {
+        return $('.select-device').val();
+    }
+
+    function initWeakNetPanel() {
+        if (platform !== 'Android') return;
+        var device = weakNetDevice();
+        if (!device) {
+            SwalFire('warning', lan === 'cn' ? '请先选择设备' : 'Select device first', '', 2000);
+            return;
+        }
+        $.get('/apm/weaknet/presets', { lan: lan }, function (data) {
+            if (data.status !== 1) return;
+            _weakNetPresets = data.presets || [];
+            var $sel = $('#weaknet-preset').empty();
+            _weakNetPresets.forEach(function (p) {
+                $sel.append($('<option>').val(p.id).text(p.label));
+            });
+            $sel.off('change.weaknet').on('change.weaknet', function () {
+                var id = $(this).val();
+                var p = _weakNetPresets.find(function (x) { return x.id === id; });
+                if (!p) return;
+                $('#weaknet-delay').val(p.delay_ms || 0);
+                $('#weaknet-jitter').val(p.jitter_ms || 0);
+                $('#weaknet-loss').val(p.loss_pct || 0);
+                $('#weaknet-rate').val(p.rate || '');
+                var desc = (p.delay_ms || 0) + 'ms';
+                if (p.jitter_ms) desc += ' ±' + p.jitter_ms + 'ms';
+                if (p.loss_pct) desc += ', ' + p.loss_pct + '% loss';
+                if (p.rate) desc += ', ' + p.rate;
+                $('#weaknet-preset-desc').text(desc);
+            });
+            $sel.trigger('change');
+        });
+        refreshWeakNetStatus();
+    }
+
+    function refreshWeakNetStatus() {
+        var device = weakNetDevice();
+        if (!device || platform !== 'Android') return;
+        $.get('/apm/weaknet/capabilities', { platform: platform, device: device }, function (data) {
+            if (data.status !== 1) return;
+            var $hint = $('#weaknet-cap-hint');
+            var $badge = $('#weaknet-status-badge');
+            var $apply = $('#weaknet-apply-btn');
+            if (data.simulation_supported) {
+                $hint.hide();
+                $apply.prop('disabled', false);
+            } else {
+                var msg = lan === 'cn'
+                    ? '当前设备不支持弱网模拟（需 Root + tc/netem）。仍可使用网络探测。'
+                    : 'Simulation unavailable (needs root + tc/netem). Probe still works.';
+                $hint.text(msg).show();
+                $apply.prop('disabled', true);
+            }
+            if (data.active_preset) {
+                $badge.removeClass('bg-secondary bg-green').addClass('bg-orange').text(data.active_preset);
+            } else {
+                $badge.removeClass('bg-orange bg-green').addClass('bg-secondary').text(lan === 'cn' ? '未启用' : 'Off');
+            }
+        });
+    }
+
+    function applyWeakNet() {
+        var device = weakNetDevice();
+        if (!device) {
+            SwalFire('warning', lan === 'cn' ? '请先选择设备' : 'Select device', '', 2000);
+            return;
+        }
+        var preset = $('#weaknet-preset').val();
+        var params = {
+            platform: platform,
+            device: device,
+            preset: preset,
+            delay_ms: $('#weaknet-delay').val(),
+            jitter_ms: $('#weaknet-jitter').val(),
+            loss_pct: $('#weaknet-loss').val(),
+            rate: $('#weaknet-rate').val()
+        };
+        $.get('/apm/weaknet/apply', params, function (data) {
+            if (data.status === 1) {
+                SwalFire('success', lan === 'cn' ? '弱网已应用' : 'Applied', data.preset || '', 1500);
+                refreshWeakNetStatus();
+            } else {
+                SwalFire('error', lan === 'cn' ? '应用失败' : 'Failed', data.msg || '', 3000);
+            }
+        });
+    }
+
+    function clearWeakNet(silent) {
+        if (platform !== 'Android') return;
+        var device = weakNetDevice();
+        if (!device) return;
+        $.get('/apm/weaknet/clear', { platform: platform, device: device }, function (data) {
+            refreshWeakNetStatus();
+            if (!silent && data.status === 1) {
+                SwalFire('success', lan === 'cn' ? '网络已恢复' : 'Cleared', '', 1500);
+            }
+        });
+    }
+
+    function probeWeakNet() {
+        var device = weakNetDevice();
+        if (!device) {
+            SwalFire('warning', lan === 'cn' ? '请先选择设备' : 'Select device', '', 2000);
+            return;
+        }
+        var host = $('#weaknet-probe-host').val() || '8.8.8.8';
+        $('#weaknet-probe-result').text(lan === 'cn' ? '探测中…' : 'Probing…');
+        $.get('/apm/weaknet/probe', { platform: platform, device: device, host: host, count: 10 }, function (data) {
+            if (data.status !== 1 || !data.probe) {
+                $('#weaknet-probe-result').text(data.msg || 'probe failed');
+                return;
+            }
+            var p = data.probe;
+            var lines = [
+                'Host: ' + p.host,
+                'Sent/Recv: ' + p.sent + '/' + p.received,
+                'Loss: ' + p.loss_pct + '%',
+                'RTT min/avg/max: ' + p.rtt_min_ms + ' / ' + p.rtt_avg_ms + ' / ' + p.rtt_max_ms + ' ms',
+                'Jitter (mdev): ' + p.jitter_ms + ' ms'
+            ];
+            $('#weaknet-probe-result').html(lines.join('<br>'));
         });
     }
 </script>

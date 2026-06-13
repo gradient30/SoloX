@@ -3,18 +3,120 @@ import shutil
 import time
 import requests
 import json
-from flask import request, make_response
+from flask import g, request, make_response, send_file
 from logzero import logger
 from flask import Blueprint
 from solox import __version__
 from solox.public.apm import (CPU, Memory, Network, FPS, Battery, GPU, Energy, Disk,ThermalSensor, Target)
 from solox.public.apm_pk import (CPU_PK, MEM_PK, Flow_PK, FPS_PK)
-from solox.public.common import (Devices, File, Method, Install, Platform, Scrcpy, LogcatManager)
+from solox.public.common import (Devices, File, Method, Install, Platform, Scrcpy, LogcatManager,
+                                 CHART_DEFAULT_MAX_POINTS)
+from solox.public.weak_network import WeakNetworkManager
+from solox.public.performance_telemetry import telemetry
 
 d = Devices()
 f = File()
 api = Blueprint("api", __name__)
 method = Method()
+
+
+@api.before_request
+def _start_api_telemetry():
+    if (
+        request.path.startswith('/apm/')
+        and request.path != '/apm/telemetry'
+    ):
+        g.solox_api_telemetry = (
+            request.path,
+            telemetry.begin_api(request.path),
+        )
+
+
+@api.after_request
+def _finish_api_telemetry(response):
+    request_telemetry = getattr(g, 'solox_api_telemetry', None)
+    if request_telemetry is not None:
+        route, started = request_telemetry
+        duration_ms = telemetry.end_api(route, started)
+        if duration_ms is not None:
+            response.headers['X-SoloX-Response-Time-Ms'] = '{:.3f}'.format(
+                duration_ms,
+            )
+    return response
+
+
+def _safe_report_scene_path(report_dir, scene):
+    if (
+        not scene
+        or scene in ('.', '..')
+        or '/' in scene
+        or '\\' in scene
+        or ':' in scene
+        or os.path.isabs(scene)
+    ):
+        return None
+    report_root = os.path.realpath(report_dir)
+    scene_path = os.path.realpath(os.path.join(report_root, scene))
+    if scene_path == report_root:
+        return None
+    try:
+        if os.path.commonpath((report_root, scene_path)) != report_root:
+            return None
+    except ValueError:
+        return None
+    return scene_path
+
+
+def _positive_int_request_value(name, default, maximum=None):
+    raw_value = request.values.get(name)
+    if raw_value in (None, ''):
+        return default
+    try:
+        value = int(raw_value)
+    except (TypeError, ValueError):
+        return default
+    if value <= 0:
+        return default
+    if maximum is not None:
+        return min(value, maximum)
+    return value
+
+
+def _optional_positive_int_request_value(name, maximum=None):
+    raw_value = request.values.get(name)
+    if raw_value in (None, ''):
+        return None
+    try:
+        value = int(raw_value)
+    except (TypeError, ValueError):
+        return None
+    if value <= 0:
+        return None
+    if maximum is not None:
+        return min(value, maximum)
+    return value
+
+
+@api.route('/health', methods=['get'])
+def health_check():
+    """Liveness probe for Docker, dev.sh status, and load balancers."""
+    return {'status': 1, 'msg': 'ok', 'version': __version__}
+
+
+@api.route('/apm/telemetry', methods=['get'])
+def getPerformanceTelemetry():
+    """Return bounded in-process API and ADB performance statistics."""
+    if request.args.get('reset') == '1':
+        telemetry.reset()
+    result = {'status': 1}
+    result.update(telemetry.snapshot())
+    return result
+
+
+def _fps_big_jank(monitor):
+    val = getattr(monitor, 'big_jank', 0)
+    return int(val) if isinstance(val, (int, float)) else 0
+
 
 @api.route('/apm/cookie', methods=['post', 'get'])
 def setCookie():
@@ -420,12 +522,13 @@ def getFps():
                 fps_monitor = FPS.getObject(pkgName=pkgname, deviceId=deviceId, surfaceview=surfaceview, platform=platform)
                 fps, jank = fps_monitor.getFPS()
                 result = {'status': 1, 'fps': fps, 'jank': jank}
+                result['big_jank'] = _fps_big_jank(fps_monitor)
                 if hasattr(fps_monitor, 'fps_meta') and fps_monitor.fps_meta:
                     result['fps_meta'] = fps_monitor.fps_meta
     except Exception as e:
         logger.error('get fps failed')
         logger.exception(e)
-        result = {'status': 1, 'fps': 0, 'jank': 0}
+        result = {'status': 1, 'fps': 0, 'jank': 0, 'big_jank': 0}
     return result
 def getBattery():
     """get Battery data"""
@@ -537,6 +640,57 @@ def setThermalData():
         logger.exception(e)
         result = {'status': 0, 'msg':'set thermal data failed'}
     return result
+
+@api.route('/apm/scene/tag', methods=['post', 'get'])
+def addSceneTag():
+    """Add PerfDog-style scene label marker during live collection."""
+    label = method._request(request, 'label')
+    try:
+        tag = f.add_scene_tag(label)
+        result = {'status': 1, 'tag': tag}
+    except Exception as e:
+        logger.exception(e)
+        result = {'status': 0, 'msg': str(e)}
+    return result
+
+
+@api.route('/apm/scene/tags', methods=['post', 'get'])
+def listSceneTags():
+    """List scene tags for current session or a saved report."""
+    scene = request.args.get('scene') or request.form.get('scene')
+    try:
+        tags = f.get_scene_tags(scene if scene else None)
+        result = {'status': 1, 'tags': tags}
+    except Exception as e:
+        logger.exception(e)
+        result = {'status': 0, 'msg': str(e)}
+    return result
+
+
+@api.route('/apm/scene/stats', methods=['post', 'get'])
+def getSceneStats():
+    """Get min/max/avg stats and per-scene breakdown for a report."""
+    try:
+        scene = request.args.get('scene') or request.form.get('scene')
+        platform = request.args.get('platform') or request.form.get('platform') or Platform.Android
+        if not scene:
+            return {'status': 0, 'msg': 'scene is required'}
+        perf_stats = f._read_scene_json(scene, 'perf_stats.json')
+        if perf_stats is None:
+            perf_stats = f.build_perf_stats(scene, platform)
+        tag_stats = f._read_scene_json(scene, 'scene_tag_stats.json')
+        if tag_stats is None:
+            tag_stats = f.build_scene_tag_stats(scene, platform)
+        result = {
+            'status': 1,
+            'perf_stats': perf_stats,
+            'scene_tag_stats': tag_stats,
+        }
+    except Exception as e:
+        logger.exception(e)
+        result = {'status': 0, 'msg': str(e)}
+    return result
+
 
 @api.route('/apm/create/report', methods=['post', 'get'])
 def makeReport():
@@ -715,19 +869,30 @@ def getLogData():
     scene = method._request(request, 'scene')
     target = method._request(request, 'target')
     platform = method._request(request, 'platform')
+    max_points = _positive_int_request_value(
+        'max_points',
+        CHART_DEFAULT_MAX_POINTS,
+        CHART_DEFAULT_MAX_POINTS,
+    )
     try:
-        fucDic = {
-            'cpu': f.getCpuLog(platform, scene),
-            'mem': f.getMemLog(platform, scene),
-            'mem_detail': f.getMemDetailLog(platform, scene),
-            'battery': f.getBatteryLog(platform, scene),
-            'flow': f.getFlowLog(platform, scene),
-            'fps': f.getFpsLog(platform, scene),
-            'gpu': f.getGpuLog(platform, scene),
-            'disk': f.getDiskLog(platform, scene),
-            'cpu_core': f.getCpuCoreLog(platform, scene)
+        handlers = {
+            'cpu': f.getCpuLog,
+            'mem': f.getMemLog,
+            'mem_detail': f.getMemDetailLog,
+            'battery': f.getBatteryLog,
+            'flow': f.getFlowLog,
+            'fps': f.getFpsLog,
+            'gpu': f.getGpuLog,
+            'disk': f.getDiskLog,
+            'cpu_core': f.getCpuCoreLog,
         }
-        result = fucDic[target]
+        handler = handlers.get(target)
+        if handler is None:
+            return {'status': 0, 'msg': 'no target found'}
+        result = handler(platform, scene, max_points)
+        if isinstance(result, dict) and max_points is not None:
+            result['downsampled'] = True
+            result['max_points'] = max_points
     except Exception as e:
         logger.exception(e)
         result = {'status': 0, 'msg': str(e)}
@@ -740,24 +905,27 @@ def getLogCompareData():
     scene2 = method._request(request, 'scene2')
     target = method._request(request, 'target')
     platform = method._request(request, 'platform')
+    max_points = _optional_positive_int_request_value(
+        'max_points',
+        CHART_DEFAULT_MAX_POINTS,
+    )
     try:
-        match(target):
-            case Target.CPU:
-                result = f.getCpuLogCompare(platform, scene1, scene2)
-            case Target.Memory:
-                result = f.getMemLogCompare(platform, scene1, scene2)
-            case Target.Battery:
-                result = f.getBatteryLogCompare(platform, scene1, scene2)
-            case Target.FPS:
-                result = f.getFpsLogCompare(platform, scene1, scene2)
-            case Target.GPU:
-                result = f.getGpuLogCompare(platform, scene1, scene2)
-            case 'net_send':
-                result = f.getFlowSendLogCompare(platform, scene1, scene2)
-            case 'net_recv':
-                result = f.getFlowRecvLogCompare(platform, scene1, scene2)
-            case _:
-                result = {'status': 0, 'msg': 'no target found'}
+        handlers = {
+            Target.CPU: f.getCpuLogCompare,
+            Target.Memory: f.getMemLogCompare,
+            Target.Battery: f.getBatteryLogCompare,
+            Target.FPS: f.getFpsLogCompare,
+            Target.GPU: f.getGpuLogCompare,
+            'net_send': f.getFlowSendLogCompare,
+            'net_recv': f.getFlowRecvLogCompare,
+        }
+        handler = handlers.get(target)
+        if handler is None:
+            return {'status': 0, 'msg': 'no target found'}
+        result = handler(platform, scene1, scene2, max_points)
+        if isinstance(result, dict) and max_points is not None:
+            result['downsampled'] = True
+            result['max_points'] = max_points
     except Exception as e:
         logger.exception(e)
         result = {'status': 0, 'msg': str(e)}
@@ -769,10 +937,29 @@ def getpkLogData():
     scene = method._request(request, 'scene')
     target1 = method._request(request, 'target1')
     target2 = method._request(request, 'target2')
+    max_points = _optional_positive_int_request_value(
+        'max_points',
+        CHART_DEFAULT_MAX_POINTS,
+    )
     try:
-        first = f.readLog(scene=scene, filename=f'{target1}.log')[0]
-        second = f.readLog(scene=scene, filename=f'{target2}.log')[0]
-        result = {'status': 1, 'first': first, 'second': second}
+        first = f.readLog(
+            scene=scene,
+            filename=f'{target1}.log',
+            max_points=max_points,
+        )[0]
+        second = f.readLog(
+            scene=scene,
+            filename=f'{target2}.log',
+            max_points=max_points,
+        )[0]
+        result = {
+            'status': 1,
+            'first': first,
+            'second': second,
+        }
+        if max_points is not None:
+            result['downsampled'] = True
+            result['max_points'] = max_points
     except Exception as e:
         logger.exception(e)
         result = {'status': 0, 'msg': str(e)}
@@ -784,7 +971,10 @@ def removeReport():
     scene = method._request(request, 'scene')
     report_dir = os.path.join(os.getcwd(), 'report')
     try:
-        shutil.rmtree(f'{report_dir}/{scene}', True)
+        scene_path = _safe_report_scene_path(report_dir, scene)
+        if scene_path is None:
+            return {'status': 0, 'msg': 'invalid scene'}
+        shutil.rmtree(scene_path, True)
         result = {'status': 1}
     except Exception as e:
         logger.exception(e)
@@ -797,22 +987,40 @@ def getReportList():
     page = request.args.get('page', 1, type=int)
     size = request.args.get('size', 20, type=int)
     report_dir = os.path.join(os.getcwd(), 'report')
-    if not os.path.exists(report_dir):
-        os.mkdir(report_dir)
-    dirs = os.listdir(report_dir)
-    valid_dirs = [d for d in dirs if d.split('.')[-1] not in ['log', 'json', 'mkv', 'mp4']]
-    valid_dirs.sort(key=lambda x: os.path.getmtime(os.path.join(report_dir, x)), reverse=True)
-    total = len(valid_dirs)
+    os.makedirs(report_dir, exist_ok=True)
+    report_entries = []
+    excluded_extensions = {'.log', '.json', '.mkv', '.mp4'}
+    for entry in os.scandir(report_dir):
+        try:
+            if not entry.is_dir():
+                continue
+            if os.path.splitext(entry.name)[1] in excluded_extensions:
+                continue
+            report_entries.append((entry.stat().st_mtime, entry.name))
+        except OSError:
+            continue
+    report_entries.sort(key=lambda item: item[0], reverse=True)
+    total = len(report_entries)
     start = (page - 1) * size
-    page_dirs = valid_dirs[start:start + size]
     items = []
-    for dir_name in page_dirs:
+    valid_index = 0
+    for _, dir_name in report_entries:
         try:
             fpath = os.path.join(report_dir, dir_name, 'result.json')
-            with open(fpath) as fp:
-                json_data = json.loads(fp.read())
-            duration = f.getDuration(dir_name)
-            items.append({
+            with open(fpath, encoding='utf-8') as fp:
+                json_data = json.load(fp)
+            if not isinstance(json_data, dict):
+                continue
+            duration = json_data.get('duration', '')
+            duration_label = json_data.get('duration_label', '')
+            duration_seconds = json_data.get('duration_seconds')
+            if not duration_label:
+                if duration_seconds is None:
+                    duration_seconds = f.getDurationSeconds(dir_name)
+                if not duration:
+                    duration = f.format_duration_hms(duration_seconds)
+                duration_label = f.format_duration_label(duration_seconds)
+            item = {
                 'scene': dir_name,
                 'app': json_data.get('app', ''),
                 'platform': json_data.get('platform', ''),
@@ -820,10 +1028,16 @@ def getReportList():
                 'devices': json_data.get('devices', ''),
                 'ctime': json_data.get('ctime', ''),
                 'video': json_data.get('video', 0),
-                'duration': duration
-            })
+                'duration': duration,
+                'duration_label': duration_label,
+            }
         except Exception:
             continue
+        if valid_index >= start:
+            items.append(item)
+            if len(items) >= size:
+                break
+        valid_index += 1
     return {'status': 1, 'data': items, 'total': total, 'page': page, 'size': size}
 
 @api.route('/apm/collect', methods=['post', 'get'])
@@ -857,7 +1071,8 @@ def apmCollect():
             case Target.FPS:
                 fps_monitor = FPS(pkgName=pkgname, deviceId=deviceid, platform=platform)
                 fps, jank = fps_monitor.getFPS(noLog=True)
-                result = {'status': 1, 'fps': fps, 'jank': jank}
+                result = {'status': 1, 'fps': fps, 'jank': jank,
+                          'big_jank': _fps_big_jank(fps_monitor)}
                 if hasattr(fps_monitor, 'fps_meta') and fps_monitor.fps_meta:
                     result['fps_meta'] = fps_monitor.fps_meta
             case Target.Battery:
@@ -868,8 +1083,8 @@ def apmCollect():
                 else:
                     result = {'status': 1, 'temperature': final[0], 'current': final[1], 'voltage': final[2], 'power': final[3]}
             case Target.GPU:
-                gpu = GPU(pkgname=pkgname)
-                final = gpu.getGPU()
+                gpu = GPU(pkgName=pkgname, deviceId=deviceid, platform=platform)
+                final = gpu.getGPU(noLog=True)
                 result = {'status': 1, 'gpu': final}
             case _:
                 result = {'status': 0, 'msg': 'no this target'}
@@ -989,20 +1204,146 @@ def cast_screen_status():
         result = {'status': 0, 'casting': False, 'recording': False}
     return result
 
+@api.route('/apm/record/info', methods=['post', 'get'])
+def record_info():
+    """Return recording metadata for in-browser vs system player routing."""
+    scene = method._request(request, 'scene')
+    info = f.resolve_record_video(scene)
+    if not info:
+        return {'status': 0, 'msg': 'video not found'}
+    return {
+        'status': 1,
+        'format': info['format'],
+        'browser_playable': info['browser_playable'],
+        'size': info['size'],
+        'size_mb': info['size_mb'],
+    }
+
+
+@api.route('/apm/record/stream', methods=['get'])
+def record_stream():
+    """Stream report recording with HTTP Range support for seeking."""
+    scene = method._request(request, 'scene')
+    info = f.resolve_record_video(scene)
+    if not info:
+        return make_response('video not found', 404)
+    mimetype = 'video/mp4' if info['format'] == 'mp4' else 'video/x-matroska'
+    return send_file(
+        info['path'],
+        mimetype=mimetype,
+        conditional=True,
+        download_name='record.{}'.format(info['format']),
+    )
+
+
 @api.route('/apm/record/play', methods=['post', 'get'])
 def play_record():
+    """Open recording in the OS default video player (fallback for mkv / decode errors)."""
     scene = method._request(request, 'scene')
-    video = os.path.join(f.get_repordir(), scene, 'record.mp4')
-    # Fallback to mkv for old recordings
-    if not os.path.exists(video):
-        video = os.path.join(f.get_repordir(), scene, 'record.mkv')
+    info = f.resolve_record_video(scene)
+    if not info:
+        return {'status': 0, 'msg': 'video not found'}
     try:
-        Scrcpy.play_video(video)
-        result = {'status': 1, 'msg': 'success'}
+        Scrcpy.play_video(info['path'])
+        result = {'status': 1, 'msg': 'success', 'format': info['format']}
     except Exception as e:
         logger.exception(e)
         result = {'status': 0, 'msg': 'play video failed'}
     return result
+
+@api.route('/apm/weaknet/presets', methods=['post', 'get'])
+def weaknet_presets():
+    lan = request.args.get('lan', 'cn')
+    return {'status': 1, 'presets': WeakNetworkManager.list_presets(lan=lan)}
+
+
+@api.route('/apm/weaknet/capabilities', methods=['post', 'get'])
+def weaknet_capabilities():
+    platform = method._request(request, 'platform')
+    device = method._request(request, 'device')
+    try:
+        if platform != Platform.Android:
+            return {'status': 1, 'simulation_supported': False, 'mode': 'unsupported',
+                    'msg': 'weak network simulation is Android-only; iOS use Network Link Conditioner on macOS host'}
+        device_id = d.getIdbyDevice(device, platform)
+        cap = WeakNetworkManager.get_capabilities(device_id)
+        return {'status': 1, **cap}
+    except Exception as e:
+        logger.exception(e)
+        return {'status': 0, 'msg': str(e)}
+
+
+@api.route('/apm/weaknet/status', methods=['post', 'get'])
+def weaknet_status():
+    platform = method._request(request, 'platform')
+    device = method._request(request, 'device')
+    try:
+        device_id = d.getIdbyDevice(device, platform)
+        return {'status': 1, **WeakNetworkManager.get_status(device_id)}
+    except Exception as e:
+        logger.exception(e)
+        return {'status': 0, 'msg': str(e)}
+
+
+@api.route('/apm/weaknet/apply', methods=['post', 'get'])
+def weaknet_apply():
+    platform = method._request(request, 'platform')
+    device = method._request(request, 'device')
+    preset = request.args.get('preset') or request.form.get('preset') or ''
+    try:
+        if platform != Platform.Android:
+            return {'status': 0, 'msg': 'Android only'}
+        device_id = d.getIdbyDevice(device, platform)
+        if preset and preset != 'custom':
+            data = WeakNetworkManager.apply_preset(device_id, preset)
+        else:
+            delay_ms = int(request.args.get('delay_ms', 0) or request.form.get('delay_ms', 0) or 0)
+            jitter_ms = int(request.args.get('jitter_ms', 0) or request.form.get('jitter_ms', 0) or 0)
+            loss_pct = float(request.args.get('loss_pct', 0) or request.form.get('loss_pct', 0) or 0)
+            rate = request.args.get('rate') or request.form.get('rate') or None
+            iface = request.args.get('interface') or request.form.get('interface') or None
+            data = WeakNetworkManager.apply_custom(
+                device_id,
+                preset_id='custom',
+                delay_ms=delay_ms,
+                jitter_ms=jitter_ms,
+                loss_pct=loss_pct,
+                rate=rate,
+                interface=iface,
+            )
+        return {'status': 1, **data}
+    except Exception as e:
+        logger.exception(e)
+        return {'status': 0, 'msg': str(e)}
+
+
+@api.route('/apm/weaknet/clear', methods=['post', 'get'])
+def weaknet_clear():
+    platform = method._request(request, 'platform')
+    device = method._request(request, 'device')
+    try:
+        device_id = d.getIdbyDevice(device, platform)
+        data = WeakNetworkManager.clear(device_id)
+        return data
+    except Exception as e:
+        logger.exception(e)
+        return {'status': 0, 'msg': str(e)}
+
+
+@api.route('/apm/weaknet/probe', methods=['post', 'get'])
+def weaknet_probe():
+    platform = method._request(request, 'platform')
+    device = method._request(request, 'device')
+    host = request.args.get('host') or WeakNetworkManager.DEFAULT_PROBE_HOST
+    count = request.args.get('count', 10)
+    try:
+        device_id = d.getIdbyDevice(device, platform)
+        probe = WeakNetworkManager.probe(device_id, host=host, count=count)
+        return {'status': 1, 'probe': probe.to_dict()}
+    except Exception as e:
+        logger.exception(e)
+        return {'status': 0, 'msg': str(e)}
+
 
 @api.route('/apm/logcat/start', methods=['post', 'get'])
 def startLogcat():

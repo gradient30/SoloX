@@ -319,25 +319,18 @@ open htmlcov/index.html
 
 ```
 docs/
-├── 01-architecture/          # 架构设计
-│   ├── project-overview.md   # 项目概述
-│   ├── technical-architecture.md  # 技术架构
-│   └── system-design.md      # 系统设计
-├── 02-development/           # 开发指南
-│   ├── quick-start.md        # 快速启动
-│   ├── development-guide.md  # 开发指南
-│   └── environment-setup.md  # 环境配置
-├── 03-deployment/            # 部署指南
-│   ├── deployment-guide.md   # 部署指南
-│   └── docker-guide.md       # Docker 指南
-├── 04-user-guides/           # 用户指南
-│   ├── api-documentation.md  # API 文档
-│   └── performance-monitoring.md  # 性能监控
-└── 05-issues/                # 问题解决
-    ├── troubleshooting.md    # 故障排除
-    ├── contribution-guide.md # 贡献指南
-    └── faq.md                # 常见问题
+├── README.md                 # 文档唯一入口
+├── compatibility-matrix.md
+├── acceptance/               # 联合验收、L3 清单
+├── 06-engineering/           # 目录、日志、脚本索引
+├── 01-architecture/          # 概述、技术架构、系统设计
+├── 02-development/           # 快速启动、开发指南、Git
+├── 03-deployment/
+├── 04-user-guides/
+└── 05-issues/
 ```
+
+详见 [docs/README.md](../README.md) 与 [工程化目录](../06-engineering/project-layout.md)。
 
 ### 2. 文档规范
 

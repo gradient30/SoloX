@@ -725,4 +725,4 @@ def stability_test(device_id, package_name, duration=3600):
 
 ---
 
-*相关文档: [API文档](./api-documentation.md) • [Web界面使用](./web-interface-guide.md)*
+*相关文档: [API文档](./api-documentation.md) • [快速启动](../02-development/quick-start.md)*

@@ -180,6 +180,47 @@
         </div>
     </div>
 </div>
+
+<div class="modal modal-blur fade" id="modal-video-player" tabindex="-1" role="dialog" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="video-player-title">{% if lan == 'cn' %}录屏回放{% else %}Screen Recording{% endif %}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <video id="report-video" style="width:100%;max-height:65vh;background:#000;border-radius:4px;" preload="metadata" playsinline></video>
+                <div class="mt-3">
+                    <div class="d-flex align-items-center flex-wrap gap-2">
+                        <button type="button" class="btn btn-primary btn-sm" id="video-btn-play">
+                            {% if lan == 'cn' %}播放{% else %}Play{% endif %}
+                        </button>
+                        <button type="button" class="btn btn-secondary btn-sm" id="video-btn-pause">
+                            {% if lan == 'cn' %}暂停{% else %}Pause{% endif %}
+                        </button>
+                        <button type="button" class="btn btn-secondary btn-sm" id="video-btn-stop">
+                            {% if lan == 'cn' %}停止{% else %}Stop{% endif %}
+                        </button>
+                        <label class="mb-0 ms-1" style="font-size:13px;">{% if lan == 'cn' %}倍速{% else %}Speed{% endif %}</label>
+                        <select id="video-playback-rate" class="form-select form-select-sm" style="width:auto;">
+                            <option value="0.5">0.5x</option>
+                            <option value="0.75">0.75x</option>
+                            <option value="1" selected>1.0x</option>
+                            <option value="1.25">1.25x</option>
+                            <option value="1.5">1.5x</option>
+                            <option value="2">2.0x</option>
+                        </select>
+                        <span id="video-time-display" class="text-muted ms-auto" style="font-size:13px;font-variant-numeric:tabular-nums;">00:00 / 00:00</span>
+                        <button type="button" class="btn btn-outline-secondary btn-sm" id="video-btn-system">
+                            {% if lan == 'cn' %}系统播放器{% else %}System Player{% endif %}
+                        </button>
+                    </div>
+                    <input type="range" class="form-range mt-2 mb-0" id="video-seek" min="0" max="1000" value="0" step="1">
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
 {% endblock %}
 
 {% block js %}
@@ -188,6 +229,10 @@
     var pageSize = 20;
     var reportLan = '{{ lan }}';
     var isCn = reportLan === 'cn';
+
+    function apiBase() {
+        return (typeof Host !== 'undefined') ? Host : '';
+    }
 
     // SVG icon strings
     var svgAnalyse = '<svg t="1644299572694" class="icon" viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg" p-id="6190" width="300" height="300"><path d="M836.36703 796.383677H971.170424V11.636364H836.36703v784.747313z m-240.716283 0H730.452848V363.085576H595.650747v433.298101z m-240.722747 0h134.803394v-544.025859H354.928v544.025859z m-240.717576 0H249.013818V512.333576H114.210424v284.050101z m0 0" fill="#706EE7" p-id="6191"></path><path d="M932.655354 131.993859c4.813576 0 9.63103 4.818747 14.444606 4.818747 14.444606 9.625859 19.258182 28.88404 9.625858 43.328647L942.286384 194.585859c-62.590707 28.882747-129.989818 48.140929-192.575354 72.211394-28.889212 14.444606-48.146101 33.702788-62.590707 57.773252-24.070465 48.146101-48.140929 101.105778-72.212687 154.060283-9.63103 19.258182-24.075636 38.516364-38.51507 52.959677-43.332525 38.515071-101.105778 57.773253-158.879031 52.959676-19.256889 0-43.327354-9.63103-62.585535-14.444606-9.625859-4.813576-19.256889-9.625859-33.701495-14.444606-62.586828-28.88404-134.803394 0-168.499717 62.590707-14.444606 24.070465-24.076929 52.954505-33.702788 77.030142 0 4.813576-4.813576 9.625859-9.63103 14.439434-9.625859 4.818747-19.258182 9.63103-28.884041 4.818748-9.63103 0-19.256889-9.63103-24.070464-19.258182-4.818747-9.63103-4.818747-19.258182 0-24.075637 9.625859-24.070465 24.070465-52.954505 33.696323-77.030141 9.632323-19.258182 24.075636-38.515071 38.515071-52.954505 43.333818-43.333818 96.288323-62.592 158.87903-57.773253 24.070465 0 43.328646 9.625859 67.399111 19.256889 9.63103 4.813576 19.258182 9.627152 33.702788 14.439435 14.443313 4.818747 28.882747 9.63103 43.327353 9.63103 38.515071 4.813576 72.217859-9.63103 101.101899-33.701495 9.63103-9.625859 19.256889-24.070465 28.88792-38.515071 24.070465-48.142222 48.140929-101.100606 72.216565-154.060283 14.439434-28.88404 38.515071-57.773253 67.399111-77.031434 9.63103-4.812283 24.070465-14.443313 33.701495-19.256889l187.763071-72.217858h9.627152" fill="#29C287" p-id="6192"></path></svg>';
@@ -202,8 +247,138 @@
         return div.innerHTML;
     }
 
+    function play(scene){
+        $.ajax({
+            url: apiBase() + "/apm/record/info",
+            type: "GET",
+            async: true,
+            cache: false,
+            data:{scene: scene},
+            success: function (data) {
+                if(data['status'] != 1 ){
+                    SwalFire('error', isCn ? '无法播放' : 'Play failed', data['msg'] || '', 2000);
+                    return;
+                }
+                if(!data['browser_playable']){
+                    playWithSystem(scene);
+                    return;
+                }
+                openVideoModal(scene, data);
+            },
+            error: function(){
+                SwalFire('error', isCn ? '无法播放' : 'Play failed', '', 2000);
+            }
+        });
+    }
+
+    var currentPlayScene = '';
+
+    function formatVideoTime(sec) {
+        if (!isFinite(sec) || sec < 0) sec = 0;
+        var h = Math.floor(sec / 3600);
+        var m = Math.floor((sec % 3600) / 60);
+        var s = Math.floor(sec % 60);
+        var mm = (m < 10 ? '0' : '') + m;
+        var ss = (s < 10 ? '0' : '') + s;
+        if (h > 0) {
+            return h + ':' + mm + ':' + ss;
+        }
+        return mm + ':' + ss;
+    }
+
+    function updateVideoTimeDisplay() {
+        var video = document.getElementById('report-video');
+        if (!video) return;
+        var cur = formatVideoTime(video.currentTime);
+        var total = video.duration && isFinite(video.duration) ? formatVideoTime(video.duration) : '--:--';
+        $('#video-time-display').text(cur + ' / ' + total);
+        if (video.duration && isFinite(video.duration) && video.duration > 0) {
+            $('#video-seek').val(Math.round((video.currentTime / video.duration) * 1000));
+        }
+    }
+
+    function openVideoModal(scene, info) {
+        currentPlayScene = scene;
+        var video = document.getElementById('report-video');
+        video.pause();
+        video.removeAttribute('src');
+        video.load();
+        var base = apiBase();
+        video.src = base + '/apm/record/stream?scene=' + encodeURIComponent(scene);
+        video.playbackRate = 1;
+        $('#video-playback-rate').val('1');
+        $('#video-seek').val(0);
+        var title = scene;
+        if (info && info.size_mb) {
+            title += ' (' + info.size_mb + ' MB)';
+        }
+        $('#video-player-title').text(title);
+        var modalEl = document.getElementById('modal-video-player');
+        var modal = bootstrap.Modal.getOrCreateInstance(modalEl);
+        modal.show();
+        video.play().catch(function(){});
+    }
+
+    function playWithSystem(scene) {
+        $.ajax({
+            url: apiBase() + "/apm/record/play",
+            type: "GET",
+            async: true,
+            cache: false,
+            data:{scene: scene},
+            success: function (data) {
+                if(data['status'] != 1 ){
+                    SwalFire('error', isCn ? '系统播放器打开失败' : 'System player failed', data['msg'] || '', 2000);
+                }
+            }
+        });
+    }
+
     $(document).ready(function() {
         loadReports(1);
+
+        var video = document.getElementById('report-video');
+        if (!video) return;
+
+        video.addEventListener('timeupdate', updateVideoTimeDisplay);
+        video.addEventListener('loadedmetadata', updateVideoTimeDisplay);
+        video.addEventListener('error', function() {
+            if (!currentPlayScene) return;
+            SwalFire('warning',
+                isCn ? '浏览器无法解码' : 'Browser decode failed',
+                isCn ? '正在尝试系统播放器…' : 'Trying system player…', 1500);
+            playWithSystem(currentPlayScene);
+            var modalInst = bootstrap.Modal.getInstance(document.getElementById('modal-video-player'));
+            if (modalInst) modalInst.hide();
+        });
+
+        $('#video-btn-play').on('click', function(){ video.play().catch(function(){}); });
+        $('#video-btn-pause').on('click', function(){ video.pause(); });
+        $('#video-btn-stop').on('click', function(){
+            video.pause();
+            video.currentTime = 0;
+            updateVideoTimeDisplay();
+        });
+        $('#video-playback-rate').on('change', function(){
+            video.playbackRate = parseFloat($(this).val()) || 1;
+        });
+        $('#video-seek').on('input', function(){
+            if (video.duration && isFinite(video.duration)) {
+                video.currentTime = (parseInt($(this).val(), 10) / 1000) * video.duration;
+                updateVideoTimeDisplay();
+            }
+        });
+        $('#video-btn-system').on('click', function(){
+            if (currentPlayScene) playWithSystem(currentPlayScene);
+        });
+        $('#modal-video-player').on('hidden.bs.modal', function(){
+            video.pause();
+            video.removeAttribute('src');
+            video.load();
+            currentPlayScene = '';
+            $('#video-time-display').text('00:00 / 00:00');
+            $('#video-seek').val(0);
+        });
     });
 
     function loadReports(page) {
@@ -212,7 +387,7 @@
         $('#report-card').hide();
         $('#report-empty').hide();
         $.ajax({
-            url: '/apm/report/list',
+            url: apiBase() + '/apm/report/list',
             type: 'GET',
             data: { page: page, size: pageSize },
             success: function(resp) {
@@ -250,7 +425,8 @@
             var devices = escHtml(apm.devices);
             var model = escHtml(apm.model);
             var ctime = escHtml(apm.ctime);
-            var duration = apm.duration ? escHtml(apm.duration) : '--';
+            var durationLabel = apm.duration_label ? escHtml(apm.duration_label) :
+                (apm.duration ? escHtml('apm_' + apm.duration) : '--');
 
             var analyseUrl, analyseLabel;
             if (model === 'normal') {
@@ -281,7 +457,7 @@
                 '<td>' + app + '</td>' +
                 '<td>' + platform + '</td>' +
                 '<td>' + devices + '</td>' +
-                '<td title="' + scene + '">' + duration + '</td>' +
+                '<td title="' + scene + '">' + durationLabel + '</td>' +
                 '<td>' + model + '</td>' +
                 '<td>' + ctime + '</td>' +
                 '<td><div class="btn-list flex-nowrap">' + btns + '</div></td>' +
@@ -321,21 +497,6 @@
 
         // Next button
         pag.append('<button class="btn btn-sm' + (page >= totalPages ? ' disabled' : '') + '" onclick="loadReports(' + (page + 1) + ')">&raquo;</button>');
-    }
-
-    function play(scene){
-        $.ajax({
-            url: "/apm/record/play",
-            type: "GET",
-            async: true,
-            cache: false,
-            data:{scene: scene},
-            success: function (data) {
-                if(data['status'] != 1 ){
-                    SwalFire('error', 'Play failed !', data['msg'], 2000);
-                }
-            }
-        });
     }
 
     function checkboxHandle(){
@@ -385,7 +546,7 @@
     function exportData(platform, scene){
         if(window.event) window.event.preventDefault();
         $.ajax({
-            url: "/apm/export/report",
+            url: apiBase() + "/apm/export/report",
             type: "GET",
             async: true,
             cache: false,
@@ -394,11 +555,16 @@
                 SwalLoading('Exporting',scene)
             },
             success: function (data) {
+                SwalCloseLoading();
                 if(data['status'] != 1 ){
                     SwalFire('error', 'Export failed !', data['msg'], 2000);
                 }else{
                     SwalFire('success', 'Export success', data['path'], 5000);
                 }
+            },
+            error: function () {
+                SwalCloseLoading();
+                SwalFire('error', 'Export failed !', '', 2000);
             }
         });
     }
@@ -423,7 +589,7 @@
 
     function removeReport(scenename, callback){
         $.ajax({
-            url: "/apm/remove/report",
+            url: apiBase() + "/apm/remove/report",
             type: "GET",
             async: true,
             cache: false,
@@ -432,12 +598,15 @@
                 SwalLoading('Deleting',scenename)
             },
             success: function (data) {
+                SwalCloseLoading();
                 if(data['status'] != 1 ){
-                    SwalFire('error','Delete failed',data['msg'])
+                    SwalFire('error','Delete failed',data['msg'] || '')
                 }
                 if(callback) callback();
             },
             error: function(){
+                SwalCloseLoading();
+                SwalFire('error','Delete failed','')
                 if(callback) callback();
             }
         })
@@ -449,7 +618,7 @@
         $('#remove_confirm').off('click').on('click', function () {
             $('#cancel_remove_confirm').click();
             $.ajax({
-                url: "/apm/remove/report",
+                url: apiBase() + "/apm/remove/report",
                 type: "GET",
                 async: true,
                 cache: false,
@@ -458,11 +627,16 @@
                     SwalLoading('Deleting',scenename)
                 },
                 success: function (data) {
+                    SwalCloseLoading();
                     if(data['status'] != 1 ){
-                        SwalFire('error','Delete failed',data['msg'])
+                        SwalFire('error','Delete failed',data['msg'] || '')
                     }else{
                         loadReports(currentPage);
                     }
+                },
+                error: function () {
+                    SwalCloseLoading();
+                    SwalFire('error','Delete failed','')
                 }
             });
         });
@@ -483,7 +657,7 @@
             }
             $('#cancel_edit_confirm').click();
             $.ajax({
-                url: "/apm/edit/report",
+                url: apiBase() + "/apm/edit/report",
                 type: "GET",
                 async: true,
                 cache: false,
@@ -492,11 +666,16 @@
                     SwalLoading('Updating', new_scene);
                 },
                 success: function (data) {
+                    SwalCloseLoading();
                     if(data['status'] != 1 ){
                         SwalFire('error', 'update failed !', data['msg'], 2000);
                     }else{
                         loadReports(currentPage);
                     }
+                },
+                error: function () {
+                    SwalCloseLoading();
+                    SwalFire('error', 'update failed !', '', 2000);
                 }
             });
         });

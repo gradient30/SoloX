@@ -25,6 +25,15 @@ cd solox && python debug.py
 # Run tests
 python -m pytest tests/ -v --cov=solox
 
+# Release gate (matrix + full pytest)
+bash scripts/release_gate.sh
+
+# Dev server (background)
+bash scripts/dev.sh start   # logs → runtime/logs/
+
+# Health probe
+curl http://127.0.0.1:50003/health
+
 # Lint
 flake8 solox/ --count --select=E9,F63,F7,F82 --show-source --statistics
 
@@ -92,6 +101,20 @@ API request → `FPS.getObject()` (singleton) → `FPSMonitor.start()` → `Surf
 - Default: software encoder (`c2.android.avc.encoder`) to avoid Qualcomm OMX hardware encoder crashes
 - Auto-retry: if software encoder fails, falls back to hardware encoder
 - Quality presets: high (1920/60fps/6M), medium (1024/60fps/3M), low (720/30fps/1M)
+
+### Weak Network Testing
+`WeakNetworkManager` in `solox/public/weak_network.py`:
+- Presets: WiFi/LTE/3G/2G/high latency/high loss (PerfDog-style)
+- Simulation: root + `tc qdisc replace dev IFACE root netem` on device
+- Probe: `ping` on device for RTT/loss/jitter (no root)
+- APIs: `/apm/weaknet/presets|capabilities|apply|clear|probe`
+- Cleared automatically on collection stop (`stopTask` → `clearWeakNet`)
+
+### Project Layout
+- `scripts/` — dev, release gate, packaging (see `scripts/README.md`)
+- `runtime/` — dev log/PID (`runtime/logs`, `runtime/pids`); gitignored
+- `report/` — APM session logs and recordings; gitignored
+- `docs/06-engineering/` — directory, dev vs release, pre-publish checklist
 
 ### Device Communication
 All Android commands go through `adb.shell()`. The `Devices` class provides:

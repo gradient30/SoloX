@@ -107,6 +107,7 @@ battery = apm.collectBattery()  # 电池信息
 
 - 📐 [**架构设计**](./docs/01-architecture/) - 技术架构和系统设计
 - 🛠️ [**开发指南**](./docs/02-development/) - 开发环境和编码规范  
+- 🏗️ [**工程化 / 发布规范**](./docs/06-engineering/release-and-dev-standards.md) · [预发布审核](./docs/06-engineering/pre-publish-checklist.md)
 - 🚀 [**部署运维**](./docs/03-deployment/) - 生产部署和 Docker 配置
 - 📖 [**用户指南**](./docs/04-user-guides/) - API 文档和监控指南
 - ❓ [**问题解决**](./docs/05-issues/) - 故障排除和常见问题
@@ -115,6 +116,8 @@ battery = apm.collectBattery()  # 电池信息
 
 - 🚀 [快速启动指南](./docs/02-development/quick-start.md)
 - 📊 [API 接口文档](./docs/04-user-guides/api-documentation.md)
+- ✅ [联合验收报告](./docs/acceptance/joint-review-2026-compatibility.md)
+- 🔧 [脚本与发版门禁](./scripts/README.md)
 - 🔧 [故障排除指南](./docs/05-issues/troubleshooting.md)
 - ❓ [常见问题 FAQ](./docs/05-issues/faq.md)
 

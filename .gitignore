@@ -138,3 +138,12 @@ report/
 .log
 .xls
 adblog/
+runtime/logs/
+runtime/pids/
+.solox.pid
+.solox.log
+.solox-*.log
+.solox-*.err.log
+.solox-*.out.log
+err.txt
+.claude/

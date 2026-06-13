@@ -1,0 +1,132 @@
+# SoloX 2026 手游兼容矩阵 — 发版门禁与实验室测试依据
+# 与 docs/compatibility-matrix.md 保持一致；CI 通过 tests/test_compatibility_matrix.py 校验
+
+schema_version: 1
+release_gate: P0_all_pass
+
+# Google Play 2026：新应用 targetSdk >= API 35 (Android 15)
+google_play:
+  target_api_min: 35
+  target_release: "15"
+
+android:
+  P0:
+    description: "发版门禁 — 3D 全指标 60s 真机回归"
+    cadence: every_release
+    entries:
+      - { api: 33, release: "13", tier: "3d", note: "存量主力" }
+      - { api: 34, release: "14", tier: "3d", note: "存量主力" }
+      - { api: 35, release: "15", tier: "3d", note: "Google Play 2026 target 基准" }
+      - { api: 36, release: "16", tier: "3d", note: "2026 新系统" }
+  P1:
+    description: "每周抽测 — 3D 保底 + 12 代际重点"
+    cadence: weekly
+    entries:
+      - { api: 30, release: "11", tier: "3d_baseline", note: "3D 最低保底" }
+      - { api: 31, release: "12", tier: "3d", note: "BLAST Surface 起点" }
+      - { api: 32, release: "12L", tier: "3d", note: "12L 变体" }
+  P2:
+    description: "月度 smoke — 2D 轻量补测"
+    cadence: monthly
+    entries:
+      - { api: 28, release: "9", tier: "2d", note: "2D 轻量下限" }
+      - { api: 29, release: "10", tier: "2d", note: "2D 轻量" }
+  P3:
+    description: "文档降级 — page_flip 兜底，不测 3D 门禁"
+    cadence: best_effort
+    entries:
+      - { api: 26, release: "8.0", tier: "degraded", fps_strategy: page_flip_only }
+      - { api: 27, release: "8.1", tier: "degraded", fps_strategy: page_flip_only }
+
+ios:
+  P0:
+    description: "发版门禁 — 3D 全指标 60s 真机回归"
+    cadence: every_release
+    entries:
+      - { version: "18", device: "iPhone 15 Pro", tier: "3d", chip: "A17" }
+      - { version: "26", device: "iPhone 16", tier: "3d", chip: "A18", note: "2026 主线" }
+  P1:
+    description: "每周抽测"
+    cadence: weekly
+    entries:
+      - { version: "17", device: "iPhone 14", tier: "3d", chip: "A15" }
+  P2:
+    description: "月度 smoke — 存量补测"
+    cadence: monthly
+    entries:
+      - { version: "16", device: "iPhone 12", tier: "2d", chip: "A14" }
+  P3:
+    description: "2D smoke — 不阻断发版"
+    cadence: best_effort
+    entries:
+      - { version: "15", device: "iPhone XS", tier: "2d_smoke", chip: "A12" }
+
+# 指标 × 版本敏感度（L1 单测 / L2 集成 / L3 真机 覆盖要求）
+metrics:
+  fps:
+    sensitivity: high
+    l1_mock_apis: [28, 30, 31, 34, 36]
+    l3_p0_required: true
+  cpu:
+    sensitivity: low
+    l1_mock_apis: [28, 30, 35]
+    l3_p0_required: true
+  memory:
+    sensitivity: low
+    l1_mock_apis: [30, 34, 35]
+    l3_p0_required: true
+  network:
+    sensitivity: medium
+    l3_p0_required: true
+  gpu:
+    sensitivity: medium
+    android_only: true
+    min_api: 31
+    l3_p0_required: false
+  battery:
+    sensitivity: low
+    l3_p0_required: false
+  scrcpy:
+    sensitivity: medium
+    android_only: true
+    l3_p0_apis: [34, 35]
+    l3_p0_required: false
+  jank:
+    sensitivity: high
+    android_only: true
+    l1_mock_apis: [34, 36]
+    l3_p0_required: true
+  big_jank:
+    sensitivity: high
+    android_only: true
+    l1_mock_apis: [34, 36]
+    l3_p0_required: true
+  scene_tags:
+    sensitivity: medium
+    l1_mock_apis: []
+    l3_p0_required: false
+    notes: "PerfDog-style scene markers; L2 API + Excel export covered in automation"
+  weak_network:
+    sensitivity: medium
+    android_only: true
+    l1_mock_apis: []
+    l3_p0_required: false
+    notes: "tc/netem simulation (root); ping probe all Android; iOS probe-only via host NLC"
+
+# Surface 命名 fixture — 与 android_fps.py 实现一致
+surface_fixtures:
+  api_28_30:
+    sdk: 30
+    surfaces:
+      - "SurfaceView - com.test.game/com.unity3d.player.UnityPlayerActivity#0"
+      - "SurfaceView - com.test.game/com.test.game.MainActivity#1"
+  api_31_33:
+    sdk: 31
+    surfaces:
+      - "SurfaceView[com.test.game](BLAST)#0"
+      - "SurfaceView - com.test.game/com.unity3d.player.UnityPlayerActivity#0"
+  api_34_36:
+    sdk: 34
+    surfaces:
+      - "com.test.game/com.unity3d.player.UnityPlayerActivity#0"
+      - "SurfaceView[com.test.game](BLAST)#0"

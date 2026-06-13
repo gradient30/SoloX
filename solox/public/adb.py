@@ -11,6 +11,7 @@ import os
 import platform
 import stat
 import subprocess
+from solox.public.performance_telemetry import telemetry
 
 STATICPATH = os.path.dirname(os.path.realpath(__file__))
 DEFAULT_ADB_PATH = {
@@ -76,20 +77,58 @@ class ADB(object):
         self.adb_path = builtin_adb_path()
 
     def shell(self, cmd, deviceId):
-        run_cmd = f'{self.adb_path} -s {deviceId} shell {cmd}'
-        result = subprocess.Popen(run_cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE).communicate()[
-            0].decode("utf-8").strip()
-        return result
+        started = telemetry.begin_adb()
+        try:
+            run_cmd = f'{self.adb_path} -s {deviceId} shell {cmd}'
+            result = subprocess.Popen(
+                run_cmd,
+                shell=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+            ).communicate()[0].decode("utf-8").strip()
+            return result
+        finally:
+            telemetry.end_adb(started)
     
     def tcp_shell(self, deviceId, cmd):
-        run_cmd = f'{self.adb_path} -s {deviceId} {cmd}'
-        result = os.system(run_cmd)
-        return result
+        started = telemetry.begin_adb()
+        try:
+            run_cmd = f'{self.adb_path} -s {deviceId} {cmd}'
+            result = os.system(run_cmd)
+            return result
+        finally:
+            telemetry.end_adb(started)
 
     def shell_noDevice(self, cmd):
-        run_cmd = f'{self.adb_path} {cmd}'
-        result = os.system(run_cmd)
-        return result    
+        started = telemetry.begin_adb()
+        try:
+            run_cmd = f'{self.adb_path} {cmd}'
+            result = os.system(run_cmd)
+            return result
+        finally:
+            telemetry.end_adb(started)
+
+    def popen_readlines(self, cmd):
+        started = telemetry.begin_adb()
+        pipe = None
+        try:
+            pipe = os.popen(cmd)
+            return pipe.readlines()
+        finally:
+            if pipe is not None:
+                pipe.close()
+            telemetry.end_adb(started)
+
+    def popen_read(self, cmd):
+        started = telemetry.begin_adb()
+        pipe = None
+        try:
+            pipe = os.popen(cmd)
+            return pipe.read()
+        finally:
+            if pipe is not None:
+                pipe.close()
+            telemetry.end_adb(started)
 
 
 

@@ -11,6 +11,7 @@
 - **📈 实时分析**: 提供美观的实时数据可视化界面
 - **⚙️ 灵活配置**: 支持告警阈值设置、监控时长配置等
 - **🔄 对比测试**: 支持双设备同时测试和对比分析
+- **🏷️ PerfDog 风格分析**: Min/Max/Avg 汇总、场景标签分场景统计、Jank/Big Jank 独立计数、Excel 导出
 - **🐍 Python API**: 提供完整的 Python API，便于集成到自动化测试流程
 
 ## 🎯 应用场景
@@ -104,6 +105,19 @@
 | 磁盘 I/O | ✅ | ❌ | MB/s | 磁盘读写速度 |
 | 设备温度 | ✅ | ❌ | °C | 设备温度传感器 |
 
+## 📱 系统版本覆盖策略（2026 手游）
+
+SoloX 采用 **P0–P3 分层覆盖**，发版门禁为 P0 全绿。详见 [兼容矩阵与发版门禁](../compatibility-matrix.md)。
+
+| 层级 | Android | iOS | 说明 |
+|------|---------|-----|------|
+| **P0 发版门禁** | API 33–36（Android 13–16） | iOS 18、iOS 26 | 每版必测，3D 全指标 |
+| **P1 每周抽测** | API 30–32（Android 11–12L） | iOS 17 | 3D 保底 / 12 代际重点 |
+| **P2 月度 smoke** | API 28–29（Android 9–10） | iOS 16 | 2D 轻量补测 |
+| **P3 文档降级** | API 26–27（Android 8.x） | iOS 15 及以下 | page_flip 兜底，不阻断发版 |
+
+> Google Play 2026 新应用 targetSdk ≥ API 35；SoloX P0 必须包含 API 35/36 真机验证。
+
 ---
 
-*相关文档: [技术架构](./technical-architecture.md) • [系统设计](./system-design.md)*
+*相关文档: [技术架构](./technical-architecture.md) • [兼容矩阵](../compatibility-matrix.md) • [发布规范](../06-engineering/release-and-dev-standards.md)*

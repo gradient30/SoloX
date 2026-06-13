@@ -207,10 +207,10 @@
                   <tbody>
                     <tr>
                       <td><strong>CPU</strong></td>
-                      <td><code>dumpsys cpuinfo</code> / <code>top</code></td>
-                      <td>按核心采集进程CPU占用率，总值=各核心之和/核心数</td>
+                      <td><code>/proc/&lt;pid&gt;/stat</code> + <code>/proc/stat</code></td>
+                      <td>1 秒差分：进程 utime+stime 占整机 CPU 时间比例；可选各核独立曲线</td>
                       <td>平均 &lt;60%，单核 &lt;90%</td>
-                      <td>多核求和可能超过100%</td>
+                      <td>多核场景单核之和可能超过 100%</td>
                     </tr>
                     <tr>
                       <td><strong>Memory (PSS)</strong></td>
@@ -235,17 +235,17 @@
                     </tr>
                     <tr>
                       <td><strong>GPU</strong></td>
-                      <td><code>dumpsys gfxinfo</code></td>
-                      <td>GPU渲染时间</td>
-                      <td>每帧 &lt;16ms (60fps)</td>
-                      <td>并非所有设备都支持</td>
+                      <td><code>/sys/class/kgsl/kgsl-3d0/gpubusy</code>（高通 Adreno）</td>
+                      <td>busy/total 比值 × 100%，表示 GPU 占用率</td>
+                      <td>因场景而异</td>
+                      <td>Mali / 天玑 / 部分机型无 kgsl 节点，读数为 0 或不可用</td>
                     </tr>
                     <tr>
                       <td><strong>Network</strong></td>
-                      <td><code>/proc/net/xt_qtaguid/stats</code></td>
-                      <td>基于UID的发送/接收字节数差值</td>
+                      <td><code>/proc/&lt;pid&gt;/net/dev</code></td>
+                      <td>0.5 秒内 wlan0（WiFi）或 rmnet_ipa0（蜂窝）收发字节差值，单位 KB</td>
                       <td>因应用而异</td>
-                      <td>某些设备可能需要Root权限</td>
+                      <td>Android 10+ 已移除 xt_qtaguid；需进程存活且网卡名因厂商而异</td>
                     </tr>
                     <tr>
                       <td><strong>Battery</strong></td>
@@ -256,17 +256,17 @@
                     </tr>
                     <tr>
                       <td><strong>Disk</strong></td>
-                      <td><code>dumpsys diskstats</code></td>
-                      <td>读写统计</td>
+                      <td><code>df</code></td>
+                      <td>汇总各分区容量、已用、可用（KB）</td>
                       <td>-</td>
-                      <td>-</td>
+                      <td>非 I/O 速率，仅为存储空间快照</td>
                     </tr>
                     <tr>
                       <td><strong>Thermal</strong></td>
-                      <td><code>dumpsys thermalservice</code></td>
-                      <td>CPU/GPU/电池温度传感器</td>
+                      <td><code>/sys/class/thermal/thermal_zone*/type</code> + <code>temp</code></td>
+                      <td>读取各 thermal zone 温度（毫摄氏度，展示时除以 1000）</td>
                       <td>CPU &lt;50°C</td>
-                      <td>传感器名称因厂商而异</td>
+                      <td>zone 数量 ≤3 时视为无权限；传感器命名因 OEM 而异</td>
                     </tr>
                   </tbody>
                 </table>
@@ -302,9 +302,9 @@
                       <tr><td><strong>支持版本</strong></td><td>Android 8.0（API 26）~ Android 16（API 36），代码中已针对各版本做适配</td></tr>
                       <tr><td><strong>基础指标</strong></td><td>CPU / Memory / Battery / Network / Disk — 基于 <code>dumpsys</code>、<code>/proc</code> 文件系统，Android 8.0+ 全支持</td></tr>
                       <tr><td><strong>FPS 采集</strong></td><td>Android 8.x（API 26-27）：SurfaceFlinger latency 不稳定，游戏引擎应用自动切换为 page flip count 方案<br>Android 9+（API 28+）：优先 SurfaceFlinger <code>--latency</code>，标准View使用 <code>gfxinfo framestats</code></td></tr>
-                      <tr><td><strong>进程获取</strong></td><td>API &lt;26 使用 <code>ps</code>，API &ge;26 使用 <code>ps -ef</code></td></tr>
-                      <tr><td><strong>投屏/录屏</strong></td><td>基于 scrcpy v2.4，需要 ADB 调试授权。内置自动重连（最多5次）。投屏+录屏同时运行时自动降低码率/分辨率以减少USB带宽压力。<br><strong>升级建议</strong>：如投屏频繁断开，建议升级scrcpy至 <a href="https://github.com/Genymobile/scrcpy/releases" target="_blank">最新版本(v3.x)</a>，Android 14+ 兼容性更好</td></tr>
-                      <tr><td><strong>连接方式</strong></td><td>USB 调试 或 ADB WiFi（<code>adb connect IP:PORT</code>）</td></tr>
+                      <tr><td><strong>进程获取</strong></td><td>API &lt;26：<code>adb shell ps | grep 包名</code>；API &ge;26：<code>adb shell ps -ef | grep 包名</code>（Android 15/16 仍适用，部分 OEM 可改用 <code>ps -A</code>）</td></tr>
+                      <tr><td><strong>投屏/录屏</strong></td><td>内置 scrcpy v2.4，默认软件编码器避免高通 OMX 崩溃。Android 14–16 建议升级至 <a href="https://github.com/Genymobile/scrcpy/releases" target="_blank">scrcpy v3.x</a> 以获得更好稳定性</td></tr>
+                      <tr><td><strong>连接方式</strong></td><td><strong>USB</strong>（推荐）| <strong>无线调试</strong>（Android 11+：<code>adb pair</code> + <code>adb connect</code>，见主页 WiFi 图标）| <strong>传统 TCP</strong>（Android 10 及以下：<code>adb tcpip 5555</code>；Android 12+ 多数机型已限制，勿依赖）</td></tr>
                     </tbody>
                   </table>
                 </div>
@@ -313,23 +313,44 @@
                   <table class="table table-vcenter table-bordered table-sm mb-0">
                     <thead><tr><th>项目</th><th>说明</th></tr></thead>
                     <tbody>
-                      <tr><td><strong>支持版本</strong></td><td>iOS 13.0 及以上（需 USB 连接，通过 usbmuxd 协议通信）</td></tr>
-                      <tr><td><strong>采集方式</strong></td><td>基于 tidevice v0.9.7，通过 Apple Instruments 协议采集 CPU / Memory / FPS / GPU / Network / Energy</td></tr>
-                      <tr><td><strong>iOS 14.0+</strong></td><td>使用 DVTSecureSocketProxy 安全通道连接 Instruments 服务</td></tr>
+                      <tr><td><strong>支持版本</strong></td><td>iOS 15 ~ iOS 26（2026 发版门禁：iOS 18 / 26）；最低 tidevice 协议兼容 iOS 13+</td></tr>
+                      <tr><td><strong>采集方式</strong></td><td>tidevice v0.9.7 + Apple Instruments 协议：CPU / Memory / FPS / GPU / Network / Energy</td></tr>
+                      <tr><td><strong>iOS 14+</strong></td><td>DVTSecureSocketProxy 安全通道；iOS 17+ 需匹配对应 DeveloperDiskImage / 设备支持文件</td></tr>
                       <tr>
                         <td><strong>支持硬件</strong></td>
                         <td>
-                          <strong>iPhone：</strong>iPhone 5 ~ iPhone 13 系列（含 SE 1/2代）<br>
-                          <strong>iPad：</strong>iPad 1 ~ iPad 8代、iPad mini ~ mini 5代、iPad Air ~ Air 4代<br>
-                          <strong>iPad Pro：</strong>9.7" / 10.5" / 11"（1~2代）/ 12.9"（1~4代）<br>
-                          <em>注：更新机型（iPhone 14+、iPad 10代+）协议兼容，但未列入内置型号表，显示为产品标识符</em>
+                          <strong>2026 主线：</strong>iPhone 15 / 16 系列、iPad Pro M 系列（A17 / A18 及更新芯片）<br>
+                          <strong>存量：</strong>iPhone XS ~ 14 系列、iPad 8 代及更新机型<br>
+                          <em>内置型号表可能未收录最新机型，界面会显示 Apple 产品标识符（如 iPhone17,x），不影响采集</em>
                         </td>
                       </tr>
-                      <tr><td><strong>连接方式</strong></td><td>仅 USB 有线连接（需在设备上信任此电脑）</td></tr>
-                      <tr><td><strong>系统要求</strong></td><td>Windows / macOS / Linux，macOS 可自动获取 DeveloperDiskImage</td></tr>
+                      <tr><td><strong>连接方式</strong></td><td>仅 USB 有线（设备需「信任此电脑」）；<strong>不支持</strong> WiFi 调试或无线 ADB</td></tr>
+                      <tr><td><strong>系统要求</strong></td><td>Windows / macOS / Linux；macOS 可自动拉取 DeveloperDiskImage，Windows 需预装 iTunes 驱动或 usbmuxd</td></tr>
                     </tbody>
                   </table>
                 </div>
+              </div>
+
+              <h4 class="mt-4">弱网测试（Android）</h4>
+              <div class="card card-body mb-3">
+                <p class="mb-2">主页下拉菜单 → <strong>弱网测试</strong>。参考 PerfDog 弱网能力：预设场景（WiFi/4G/3G/2G/高延迟/高丢包）+ 网络质量探测（RTT/丢包/抖动）。</p>
+                <ul class="mb-2">
+                  <li><strong>网络探测</strong>：所有 Android 设备可用，设备端执行 <code>ping</code>，无需 Root。</li>
+                  <li><strong>弱网模拟</strong>：需 Root + 内核 <code>tc netem</code>，在设备默认网卡（wlan0 / rmnet*）上注入延迟、抖动、丢包、带宽限制。</li>
+                  <li><strong>生命周期</strong>：停止采集时自动清除 tc 规则，避免弱网残留。</li>
+                  <li><strong>iOS</strong>：暂不支持设备侧模拟；请在 macOS 使用 Apple Network Link Conditioner。</li>
+                </ul>
+                <p class="mb-0 text-muted"><small>API：<code>/apm/weaknet/presets</code> · <code>capabilities</code> · <code>apply</code> · <code>clear</code> · <code>probe</code></small></p>
+              </div>
+
+              <h4 class="mt-4">高级设置（右上角齿轮）</h4>
+              <div class="card card-body mb-3">
+                <h5>告警值</h5>
+                <p class="mb-2">为 CPU、内存、FPS、流量、电量、GPU 设置图表参考线。超出阈值时图表上显示告警，<strong>不会</strong>自动停止采集。保存至浏览器 Cookie，刷新后仍生效。</p>
+                <h5>定时器</h5>
+                <p class="mb-2"><strong>已实现。</strong>填写分钟数并保存后，点击主页「开始」采集时，前端会启动定时器，到时间自动调用停止并生成报告。设为 0 表示仅手动停止。仅对<strong>当前浏览器标签页</strong>生效；关闭页面后定时器失效。</p>
+                <h5>远程访问</h5>
+                <p class="mb-0"><strong>已实现（前端代理模式）。</strong>在连接了真机的从机运行 <code>python -m solox --host=0.0.0.0 --port=50003</code>，本机填入从机 <code>IP:端口</code> 并打开开关。此后本页所有 API 请求会发往远程 SoloX，由从机执行 ADB。限制：主从机须同局域网；端口勿冲突；保存后若仍连本地请刷新页面；无加密，仅限内网调试。</p>
               </div>
               {% else %}
               <h4>Performance Metrics Collection</h4>
@@ -347,10 +368,10 @@
                   <tbody>
                     <tr>
                       <td><strong>CPU</strong></td>
-                      <td><code>dumpsys cpuinfo</code> / <code>top</code></td>
-                      <td>Process CPU% per core, total = sum / cores</td>
+                      <td><code>/proc/&lt;pid&gt;/stat</code> + <code>/proc/stat</code></td>
+                      <td>1s delta: process utime+stime vs total CPU time; optional per-core series</td>
                       <td>Avg &lt;60%, single core &lt;90%</td>
-                      <td>Multi-core sum can exceed 100%</td>
+                      <td>Per-core sum can exceed 100% on multi-core devices</td>
                     </tr>
                     <tr>
                       <td><strong>Memory (PSS)</strong></td>
@@ -375,17 +396,17 @@
                     </tr>
                     <tr>
                       <td><strong>GPU</strong></td>
-                      <td><code>dumpsys gfxinfo</code></td>
-                      <td>GPU rendering time</td>
-                      <td>&lt;16ms per frame (60fps)</td>
-                      <td>Not available on all devices</td>
+                      <td><code>/sys/class/kgsl/kgsl-3d0/gpubusy</code> (Qualcomm Adreno)</td>
+                      <td>busy/total ratio × 100% as GPU utilization</td>
+                      <td>Varies by scene</td>
+                      <td>Mali/MediaTek devices may lack kgsl node — returns 0 or N/A</td>
                     </tr>
                     <tr>
                       <td><strong>Network</strong></td>
-                      <td><code>/proc/net/xt_qtaguid/stats</code></td>
-                      <td>UID-based tx/rx bytes delta</td>
+                      <td><code>/proc/&lt;pid&gt;/net/dev</code></td>
+                      <td>0.5s delta on wlan0 (WiFi) or rmnet_ipa0 (cellular), unit KB</td>
                       <td>Depends on app</td>
-                      <td>Root may be required on some devices</td>
+                      <td>xt_qtaguid removed on Android 10+; interface names vary by OEM</td>
                     </tr>
                     <tr>
                       <td><strong>Battery</strong></td>
@@ -396,17 +417,17 @@
                     </tr>
                     <tr>
                       <td><strong>Disk</strong></td>
-                      <td><code>dumpsys diskstats</code></td>
-                      <td>Read/write stats</td>
+                      <td><code>df</code></td>
+                      <td>Aggregated partition size / used / free (KB)</td>
                       <td>-</td>
-                      <td>-</td>
+                      <td>Storage snapshot, not I/O throughput</td>
                     </tr>
                     <tr>
                       <td><strong>Thermal</strong></td>
-                      <td><code>dumpsys thermalservice</code></td>
-                      <td>CPU/GPU/Battery temp sensors</td>
+                      <td><code>/sys/class/thermal/thermal_zone*/type</code> + <code>temp</code></td>
+                      <td>Per-zone temperature (millidegrees C)</td>
                       <td>CPU &lt;50°C</td>
-                      <td>Sensor names vary by manufacturer</td>
+                      <td>≤3 zones treated as no permission; sensor names vary by OEM</td>
                     </tr>
                   </tbody>
                 </table>
@@ -442,9 +463,9 @@
                       <tr><td><strong>Supported Versions</strong></td><td>Android 8.0 (API 26) ~ Android 16 (API 36), with version-specific adaptations in code</td></tr>
                       <tr><td><strong>Basic Metrics</strong></td><td>CPU / Memory / Battery / Network / Disk — via <code>dumpsys</code>, <code>/proc</code> filesystem, fully supported on Android 8.0+</td></tr>
                       <tr><td><strong>FPS Collection</strong></td><td>Android 8.x (API 26-27): SurfaceFlinger latency is unreliable, auto-switches to page flip count for game engines<br>Android 9+ (API 28+): Prefers SurfaceFlinger <code>--latency</code>; standard View apps use <code>gfxinfo framestats</code></td></tr>
-                      <tr><td><strong>Process Detection</strong></td><td>API &lt;26 uses <code>ps</code>, API &ge;26 uses <code>ps -ef</code></td></tr>
-                      <tr><td><strong>Screen Cast/Record</strong></td><td>Based on scrcpy v2.4, requires ADB debugging authorization. Built-in auto-reconnect (up to 5 retries). When casting + recording run simultaneously, bitrate/resolution are automatically reduced to save USB bandwidth.<br><strong>Upgrade tip</strong>: If casting disconnects frequently, upgrade scrcpy to the <a href="https://github.com/Genymobile/scrcpy/releases" target="_blank">latest version (v3.x)</a> for better Android 14+ compatibility</td></tr>
-                      <tr><td><strong>Connection</strong></td><td>USB debugging or ADB WiFi (<code>adb connect IP:PORT</code>)</td></tr>
+                      <tr><td><strong>Process Detection</strong></td><td>API &lt;26: <code>adb shell ps | grep pkg</code>; API &ge;26: <code>adb shell ps -ef | grep pkg</code> (still valid on Android 15/16)</td></tr>
+                      <tr><td><strong>Screen Cast/Record</strong></td><td>Bundled scrcpy v2.4 with software encoder fallback. For Android 14–16, upgrade to <a href="https://github.com/Genymobile/scrcpy/releases" target="_blank">scrcpy v3.x</a> if unstable</td></tr>
+                      <tr><td><strong>Connection</strong></td><td><strong>USB</strong> (recommended) | <strong>Wireless debugging</strong> (Android 11+: <code>adb pair</code> + <code>adb connect</code>) | <strong>Legacy TCP</strong> (Android 10−: <code>adb tcpip 5555</code>; restricted on most Android 12+ devices)</td></tr>
                     </tbody>
                   </table>
                 </div>
@@ -453,23 +474,44 @@
                   <table class="table table-vcenter table-bordered table-sm mb-0">
                     <thead><tr><th>Item</th><th>Details</th></tr></thead>
                     <tbody>
-                      <tr><td><strong>Supported Versions</strong></td><td>iOS 13.0 and above (USB connection required, communicates via usbmuxd protocol)</td></tr>
-                      <tr><td><strong>Collection Method</strong></td><td>Based on tidevice v0.9.7, collects CPU / Memory / FPS / GPU / Network / Energy via Apple Instruments protocol</td></tr>
-                      <tr><td><strong>iOS 14.0+</strong></td><td>Uses DVTSecureSocketProxy secure channel for Instruments service connection</td></tr>
+                      <tr><td><strong>Supported Versions</strong></td><td>iOS 15 ~ iOS 26 (2026 release gate: iOS 18 / 26); tidevice protocol compatible back to iOS 13+</td></tr>
+                      <tr><td><strong>Collection Method</strong></td><td>tidevice v0.9.7 + Apple Instruments: CPU / Memory / FPS / GPU / Network / Energy</td></tr>
+                      <tr><td><strong>iOS 14+</strong></td><td>DVTSecureSocketProxy; iOS 17+ requires matching DeveloperDiskImage / device support files</td></tr>
                       <tr>
                         <td><strong>Supported Hardware</strong></td>
                         <td>
-                          <strong>iPhone:</strong> iPhone 5 ~ iPhone 13 series (incl. SE 1st/2nd gen)<br>
-                          <strong>iPad:</strong> iPad 1 ~ iPad 8th gen, iPad mini ~ mini 5th gen, iPad Air ~ Air 4th gen<br>
-                          <strong>iPad Pro:</strong> 9.7" / 10.5" / 11" (1st~2nd gen) / 12.9" (1st~4th gen)<br>
-                          <em>Note: Newer models (iPhone 14+, iPad 10th gen+) are protocol-compatible but not in the built-in model table — they display as product identifiers</em>
+                          <strong>2026 primary:</strong> iPhone 15 / 16 series, iPad Pro M-series (A17/A18+)<br>
+                          <strong>Legacy:</strong> iPhone XS ~ 14, iPad 8th gen and newer<br>
+                          <em>Newer models may show product identifiers (e.g. iPhone17,x) instead of marketing names — collection still works</em>
                         </td>
                       </tr>
-                      <tr><td><strong>Connection</strong></td><td>USB wired connection only (device must trust the computer)</td></tr>
-                      <tr><td><strong>Host OS</strong></td><td>Windows / macOS / Linux; macOS can auto-fetch DeveloperDiskImage</td></tr>
+                      <tr><td><strong>Connection</strong></td><td>USB wired only (trust this computer on device); <strong>no</strong> WiFi debugging</td></tr>
+                      <tr><td><strong>Host OS</strong></td><td>Windows / macOS / Linux; macOS auto-fetches DeveloperDiskImage; Windows needs iTunes driver or usbmuxd</td></tr>
                     </tbody>
                   </table>
                 </div>
+              </div>
+
+              <h4 class="mt-4">Weak Network Testing (Android)</h4>
+              <div class="card card-body mb-3">
+                <p class="mb-2">Main menu → <strong>Weak Network</strong>. PerfDog-style presets (WiFi/LTE/3G/2G/high latency/high loss) plus ping probe (RTT/loss/jitter).</p>
+                <ul class="mb-2">
+                  <li><strong>Probe</strong>: all Android devices, device-side <code>ping</code>, no root required.</li>
+                  <li><strong>Simulation</strong>: requires root + kernel <code>tc netem</code> on default iface (wlan0 / rmnet*).</li>
+                  <li><strong>Lifecycle</strong>: tc rules cleared automatically when collection stops.</li>
+                  <li><strong>iOS</strong>: no device-side simulation; use Apple Network Link Conditioner on macOS.</li>
+                </ul>
+                <p class="mb-0 text-muted"><small>API: <code>/apm/weaknet/presets</code> · <code>capabilities</code> · <code>apply</code> · <code>clear</code> · <code>probe</code></small></p>
+              </div>
+
+              <h4 class="mt-4">Advanced Settings (gear icon, top-right)</h4>
+              <div class="card card-body mb-3">
+                <h5>Warning Values</h5>
+                <p class="mb-2">Chart reference lines for CPU, memory, FPS, network, battery, GPU. Exceeding threshold highlights the chart only — <strong>does not</strong> auto-stop collection. Stored in browser cookies.</p>
+                <h5>Timer</h5>
+                <p class="mb-2"><strong>Implemented.</strong> After saving minutes and clicking Start, the frontend timer auto-stops collection and finalizes the report. Set 0 for manual stop only. Applies to the <strong>current browser tab</strong>; lost if tab is closed.</p>
+                <h5>Remote Access</h5>
+                <p class="mb-0"><strong>Implemented (frontend proxy).</strong> Run SoloX on slave with device: <code>python -m solox --host=0.0.0.0 --port=50003</code>. Enter slave <code>IP:port</code> and enable switch — all API calls go to remote SoloX. Same LAN required; refresh if still hitting localhost; no encryption — lab use only.</p>
               </div>
               {% endif %}
             </div>
@@ -710,11 +752,10 @@
                 <li class="nav-item active"><a href="#tab-top-2" class="nav-link active" data-bs-toggle="tab">{% if lan == 'cn' %} 告警值 {% else %} Warning Value {% endif %}</a></li>
                 <li class="nav-item"><a href="#tab-top-3" class="nav-link" data-bs-toggle="tab">{% if lan == 'cn' %} 定时器 {% else %} Timer {% endif %}</a></li>
                 <li class="nav-item"><a href="#tab-top-4" class="nav-link" data-bs-toggle="tab">{% if lan == 'cn' %} 远程访问 {% else %} Remote {% endif %} &nbsp;
-                    {% if lan == 'en' %}
-                    <span class="form-help" data-bs-toggle="popover" data-bs-placement="top" data-bs-html="true" data-bs-content="
-                    Start solox on the Slave machine first, and then configure the Host here.</p>Note: The port number cannot be the same as the Master machine</p>">?</span>
+                    {% if lan == 'cn' %}
+                    <span class="form-help" data-bs-toggle="popover" data-bs-placement="top" data-bs-html="true" data-bs-content="从机在真机旁运行 SoloX 并监听 0.0.0.0；本机填入 IP:端口 后开启开关，API 将转发至从机。<br><strong>注意：</strong>端口勿与主机器冲突；保存后建议刷新页面。">?</span>
                     {% else %}
-                    <span class="form-help" data-bs-toggle="popover" data-bs-placement="top" data-bs-html="true" data-bs-content="先在其他机器启动solox,然后将Host配置在这里</p>注意：端口号不能和主机器一样</p> ">?</span>
+                    <span class="form-help" data-bs-toggle="popover" data-bs-placement="top" data-bs-html="true" data-bs-content="Run SoloX on the slave machine first, then enter its IP:port here and enable the switch.<br><strong>Note:</strong> Port must differ from the master; refresh the page after saving.</p>">?</span>
                     {% endif %}</a>
                 </li>
             </ul>
@@ -725,31 +766,31 @@
                         <div class="col-md-6 col-xl-12">
                             <div class="mb-3">
                                 <label class="form-label">{% if lan == 'cn' %} CPU告警值 {% else %} CPU warning value {% endif %}</label>
-                                <input id="cpu_warning_value" type="text" class="form-control"  placeholder="Input placeholder" value="{{ settings.cpuWarning }}">
+                                <input id="cpu_warning_value" type="text" class="form-control"  placeholder="{% if lan == 'cn' %}例如 80{% else %}e.g. 80{% endif %}" value="{{ settings.cpuWarning }}">
                             </div>
                             <div class="mb-3">
                                 <label class="form-label">{% if lan == 'cn' %} 内存告警值 {% else %} Memory warning value {% endif %}</label>
-                                <input id="mem_warning_value" type="text" class="form-control"  placeholder="Input placeholder" value="{{ settings.memWarning }}">
+                                <input id="mem_warning_value" type="text" class="form-control"  placeholder="{% if lan == 'cn' %}例如 500{% else %}e.g. 500{% endif %}" value="{{ settings.memWarning }}">
                             </div>
                             <div class="mb-3">
                                 <label class="form-label">{% if lan == 'cn' %} FPS告警值 {% else %} FPS warning value {% endif %}</label>
-                                <input id="fps_warning_value" type="text" class="form-control"  placeholder="Input placeholder" value="{{ settings.fpsWarning }}">
+                                <input id="fps_warning_value" type="text" class="form-control"  placeholder="{% if lan == 'cn' %}例如 55{% else %}e.g. 55{% endif %}" value="{{ settings.fpsWarning }}">
                             </div>
                             <div class="mb-3">
                                 <label class="form-label">{% if lan == 'cn' %} 电量告警值 {% else %} Battery warning value {% endif %}</label>
-                                <input id="battery_warning_value" type="text" class="form-control"  placeholder="Input placeholder" value="{{ settings.betteryWarning }}">
+                                <input id="battery_warning_value" type="text" class="form-control"  placeholder="{% if lan == 'cn' %}例如 20{% else %}e.g. 20{% endif %}" value="{{ settings.betteryWarning }}">
                             </div>
                             <div class="mb-3">
                                 <label class="form-label">{% if lan == 'cn' %} 上行流量告警值 {% else %} Send network data warning value {% endif %}</label>
-                                <input id="upflow_warning_value" type="text" class="form-control"  placeholder="Input placeholder" value="{{ settings.netdataSendWarning }}">
+                                <input id="upflow_warning_value" type="text" class="form-control"  placeholder="{% if lan == 'cn' %}例如 1024{% else %}e.g. 1024{% endif %}" value="{{ settings.netdataSendWarning }}">
                             </div>
                             <div class="mb-3">
                                 <label class="form-label">{% if lan == 'cn' %} 下行流量告警值 {% else %} Recv network data warning value {% endif %}</label>
-                                <input id="downflow_warning_value" type="text" class="form-control"  placeholder="Input placeholder" value="{{ settings.netdataRecvWarning }}">
+                                <input id="downflow_warning_value" type="text" class="form-control"  placeholder="{% if lan == 'cn' %}例如 1024{% else %}e.g. 1024{% endif %}" value="{{ settings.netdataRecvWarning }}">
                             </div>
                             <div class="mb-3">
                                 <label class="form-label">{% if lan == 'cn' %} GPU告警值 {% else %} GPU warning value {% endif %}</label>
-                                <input id="gpu_warning_value" type="text" class="form-control"  placeholder="Input placeholder" value="{{ settings.gpuWarning }}">
+                                <input id="gpu_warning_value" type="text" class="form-control"  placeholder="{% if lan == 'cn' %}例如 90{% else %}e.g. 90{% endif %}" value="{{ settings.gpuWarning }}">
                             </div>
                         </div>
                     </div>
@@ -760,16 +801,18 @@
                 <div class="card-body">
                     <div class="alert alert-info mb-3" style="font-size:13px;">
                         {% if lan == 'cn' %}
-                        设置采集持续时间（分钟）。点击"开始"后，系统将在指定时间后自动停止采集。设为 0 或留空表示手动停止。
+                        <strong>功能：</strong>设置采集持续时间（分钟），保存后点击主页「开始」生效。<br>
+                        <strong>实现：</strong>前端 JavaScript 定时器，到期自动停止采集（真实可用）。设为 0 或留空 = 仅手动点「停止」。关闭浏览器标签页后定时器失效。
                         {% else %}
-                        Set the data collection duration (minutes). After clicking "Start", collection will auto-stop after the specified time. Set to 0 or leave empty for manual stop.
+                        <strong>Function:</strong> Collection duration in minutes; takes effect when you click Start on the home page.<br>
+                        <strong>Implementation:</strong> Frontend JS timer auto-stops collection (fully functional). 0 or empty = manual stop only. Timer is lost if the tab is closed.
                         {% endif %}
                     </div>
                     <div class="row mb-3">
                         <div class="col-md-6 col-xl-12">
                             <div class="mb-3">
                                 <label class="form-label">{% if lan == 'cn' %} 持续执行时间（分钟） {% else %} Duration（minutes） {% endif %}</label>
-                                <input id="duration" type="text" class="form-control"  placeholder="Input placeholder" value="{{ settings.duration }}">
+                                <input id="duration" type="text" class="form-control"  placeholder="{% if lan == 'cn' %}0 = 手动停止{% else %}0 = manual stop{% endif %}" value="{{ settings.duration }}">
                             </div>
                         </div>
                     </div>
@@ -779,9 +822,11 @@
                 <div class="card-body">
                     <div class="alert alert-info mb-3" style="font-size:13px;">
                         {% if lan == 'cn' %}
-                        远程访问模式：在另一台机器上启动 SoloX 并连接设备，将其 IP:端口 填入下方，打开开关后本机将远程控制该设备进行采集。两台机器必须在同一局域网，且从机 SoloX 需监听 <code>0.0.0.0</code>（如 <code>python -m solox --host=0.0.0.0</code>）。
+                        <strong>功能：</strong>本机浏览器远程操控另一台已连设备的 SoloX 实例进行采集、投屏等。<br>
+                        <strong>实现：</strong>开启开关后，页面内所有请求改发 <code>http://从机IP:端口/apm/...</code>（前端代理，真实可用）。从机需 <code>python -m solox --host=0.0.0.0</code>，两台电脑同局域网。保存后若设备列表仍为空，请<strong>刷新页面</strong>。
                         {% else %}
-                        Remote mode: Start SoloX on another machine with a connected device, enter its IP:Port below and enable the switch. This machine will remotely control that device for data collection. Both machines must be on the same LAN, and the remote SoloX must listen on <code>0.0.0.0</code> (e.g. <code>python -m solox --host=0.0.0.0</code>).
+                        <strong>Function:</strong> Control a remote SoloX instance (with device attached) from this browser for collection, casting, etc.<br>
+                        <strong>Implementation:</strong> When enabled, all requests go to <code>http://slave-IP:port/apm/...</code> (frontend proxy, fully functional). Slave needs <code>python -m solox --host=0.0.0.0</code>, same LAN. <strong>Refresh the page</strong> if device list stays empty after saving.
                         {% endif %}
                     </div>
                     <div class="table">
@@ -799,7 +844,7 @@
                                         <svg t="1680252875419" class="icon" viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg" p-id="19154" width="50" height="50"><path d="M471.04 727.04h81.92v184.32h-81.92z" p-id="19155"></path><path d="M307.2 911.36m30.72 0l348.16 0q30.72 0 30.72 30.72l0 0q0 30.72-30.72 30.72l-348.16 0q-30.72 0-30.72-30.72l0 0q0-30.72 30.72-30.72Z" p-id="19156"></path><path d="M20.48 51.2m51.2 0l880.64 0q51.2 0 51.2 51.2l0 573.44q0 51.2-51.2 51.2l-880.64 0q-51.2 0-51.2-51.2l0-573.44q0-51.2 51.2-51.2Z" p-id="19157"></path><path d="M122.88 645.12m20.48 0l737.28 0q20.48 0 20.48 20.48l0 0q0 20.48-20.48 20.48l-737.28 0q-20.48 0-20.48-20.48l0 0q0-20.48 20.48-20.48Z" fill="#EBBA50" p-id="19158"></path></svg>
                                     </td>
                                     <td>
-                                        <input id="host" type="text" class="form-control form-control-sm" placeholder="ex : 192.168.10.10:6006" value="{{ settings.solox_host }}">
+                                        <input id="host" type="text" class="form-control form-control-sm" placeholder="{% if lan == 'cn' %}例：192.168.1.100:50003{% else %}e.g. 192.168.1.100:50003{% endif %}" value="{{ settings.solox_host }}">
                                     </td>
                                     <td>
                                         <label class="form-check  form-switch">
@@ -882,19 +927,27 @@
         return year
     };
 
-    function SwalLoading(title,html){
+    function SwalCloseLoading() {
+        if (typeof Swal !== 'undefined' && Swal.isVisible && Swal.isVisible()) {
+            Swal.close();
+        }
+    }
+
+    function SwalLoading(title, html) {
         Swal.fire({
             title: title,
             html: html,
-            timerProgressBar: true,
-            allowOutsideClick: () => false,
-            didOpen: () => {
-                Swal.showLoading()
+            allowOutsideClick: false,
+            allowEscapeKey: false,
+            showConfirmButton: false,
+            backdrop: true,
+            didOpen: function () {
+                Swal.showLoading();
             },
-        })
+        });
     }
 
-    function SwalFire(icon,title,text,timer=null) {
+    function SwalFire(icon, title, text, timer=null) {
         Swal.fire({
             icon: icon,
             title: title,
@@ -902,9 +955,10 @@
             showLoaderOnConfirm: true,
             showCloseButton: true,
             showConfirmButton: false,
-            timer:timer,
-            allowOutsideClick: () => true
-        })
+            timer: timer,
+            backdrop: true,
+            allowOutsideClick: true,
+        });
     }
 
     Highcharts.setOptions({
@@ -945,11 +999,13 @@
                 host_switch:host_switch
             },
             beforeSend: function () {
-                SwalLoading('Save data','Saving warning data.')
+                SwalLoading(lan == 'cn' ? '保存中' : 'Saving', lan == 'cn' ? '正在保存设置…' : 'Saving settings…')
             },
             success: function (data) {
                 console.log(data)
-                SwalFire('success', 'Save successuly !', '', 2000);
+                domain = $('.host_switch').is(':checked') == true ? $('#host').val().trim() : window.location.host;
+                Host = 'http://' + domain;
+                SwalFire('success', lan == 'cn' ? '保存成功' : 'Saved successfully', lan == 'cn' ? '远程模式已更新 Host 变量' : 'Remote Host variable updated', 2000);
             }
         });
     }

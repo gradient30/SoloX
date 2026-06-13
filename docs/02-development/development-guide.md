@@ -492,4 +492,4 @@ stats.print_stats()
 
 ---
 
-*相关文档: [快速启动](./quick-start.md) • [环境配置](./environment-setup.md) • [贡献指南](../05-issues/contribution-guide.md)*
+*相关文档: [快速启动](./quick-start.md) • [工程化目录](../06-engineering/project-layout.md) • [贡献指南](../05-issues/contribution-guide.md)*

@@ -458,6 +458,7 @@
 
 {% block js %}
 <script>
+    var chartMaxPoints = {{ chart_max_points|default(1500) }};
 
     const model = '{{ model }}';
 
@@ -523,7 +524,8 @@
             data:{
                 scene:'{{ scene }}',
                 target1:'cpu_app1',
-                target2:'cpu_app2'
+                target2:'cpu_app2',
+                max_points: chartMaxPoints
             },
             beforeSend: function () {
                 SwalLoading('Loading','')
@@ -565,7 +567,8 @@
             data:{
                 scene:'{{ scene }}',
                 target1:'fps1',
-                target2:'fps2'
+                target2:'fps2',
+                max_points: chartMaxPoints
             },
             beforeSend: function () {
                 SwalLoading('Loading','')
@@ -606,7 +609,8 @@
             data:{
                 scene:'{{ scene }}',
                 target1:'mem1',
-                target2:'mem2'
+                target2:'mem2',
+                max_points: chartMaxPoints
             },
             beforeSend: function () {
                 SwalLoading('Loading','')
@@ -647,7 +651,8 @@
             data:{
                 scene:'{{ scene }}',
                 target1:'network1',
-                target2:'network2'
+                target2:'network2',
+                max_points: chartMaxPoints
             },
             beforeSend: function () {
                 SwalLoading('Loading','')

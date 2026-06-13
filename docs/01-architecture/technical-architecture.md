@@ -37,7 +37,7 @@ SoloX 采用分层架构设计，主要包含以下几个层次：
 | 技术 | 版本 | 用途 |
 |------|------|------|
 | **Python** | 3.10+ | 主要开发语言 |
-| **Flask** | 2.0.1+ | Web 框架 |
+| **Flask** | 2.0.3 | Web 框架（与 Werkzeug 成对锁定） |
 | **Flask-SocketIO** | 4.3.1 | WebSocket 实时通信 |
 | **Werkzeug** | 2.0.3 | WSGI 工具库 |
 | **Jinja2** | 3.0.1 | 模板引擎 |
@@ -78,9 +78,11 @@ solox/
 │   ├── __init__.py
 │   ├── apm.py              # 性能监控核心模块
 │   ├── apm_pk.py           # 对比测试模块
-│   ├── android_fps.py      # Android FPS 采集引擎 (含游戏引擎支持)
-│   ├── common.py           # 公共工具类
-│   └── scrcpy/             # 屏幕录制工具
+│   ├── android_fps.py      # Android FPS / 游戏 Surface
+│   ├── weak_network.py     # 弱网 tc/netem + ping 探测
+│   ├── metric_stats.py     # 报告统计 / 场景标签
+│   ├── common.py           # 设备、报告、Scrcpy、Logcat
+│   └── scrcpy/             # 屏幕录制
 ├── view/                    # Web 视图层
 │   ├── apis.py             # API 路由
 │   └── pages.py            # 页面路由
@@ -252,6 +254,28 @@ graph TD
 - **JSON 格式**: 标准化的数据交换格式
 - **报告模板**: 可定制的报告生成模板
 
+### 3. API 扩展（2026）
+
+| 模块 | 路由前缀 | 说明 |
+|------|----------|------|
+| 报告管理 | `/apm/report/*` | 分页列表、导出、时长 |
+| 录屏回放 | `/apm/record/*` | info / stream(Range) / play |
+| 弱网测试 | `/apm/weaknet/*` | 预设、apply、probe |
+| Logcat | `/apm/logcat/*` | 结构化日志流 |
+| 健康检查 | `GET /health` | Docker / 运维探活 |
+
+## 📊 模块职责划分
+
+| 层次 | 实际模块 | 职责 |
+|------|----------|------|
+| 表现层 | `templates/` · `view/pages.py` | Web UI、报告/分析页 |
+| API 层 | `view/apis.py` | REST 采集、报告、弱网、录屏 |
+| 采集层 | `public/apm.py` · `android_fps.py` · `weak_network.py` | 指标与 FPS、弱网 |
+| 基础设施 | `public/common.py` · `adb.py` | 设备、报告 I/O、Scrcpy、Logcat |
+| 数据 | `report/` · `*.log` | 时序 log、result.json、录屏文件 |
+
+实现细节与采集流程以 [CLAUDE.md](../../CLAUDE.md) 与 [工程化目录](../06-engineering/project-layout.md) 为准（避免文档与代码类名不一致）。
+
 ## 🔌 扩展性设计
 
 ### 1. 插件化架构
@@ -265,10 +289,10 @@ graph TD
 - **其他平台**: 预留接口支持其他移动平台
 
 ### 3. API 扩展
-- **RESTful API**: 标准化的接口设计
-- **WebSocket API**: 实时数据推送接口
-- **SDK 封装**: 多语言 SDK 支持
+- **RESTful API**: `/apm/*` 与 `GET /health`
+- **WebSocket**: Flask-SocketIO（按需启用）
+- **Python SDK**: `AppPerformanceMonitor` 直接调用 `public/apm.py`
 
 ---
 
-*相关文档: [项目概述](./project-overview.md) • [系统设计](./system-design.md) • [模块结构](./module-structure.md)*
+*相关文档: [项目概述](./project-overview.md) • [工程化目录](../06-engineering/project-layout.md) • [发布与开发规范](../06-engineering/release-and-dev-standards.md)*

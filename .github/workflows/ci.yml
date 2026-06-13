@@ -37,7 +37,7 @@ jobs:
       run: |
         python -m pip install --upgrade pip
         pip install -r requirements.txt
-        pip install pytest pytest-cov pytest-mock
+        pip install pytest pytest-cov pytest-mock pyyaml
     
     - name: Verify setup.py dependencies
       run: python scripts/verify_setup.py
@@ -50,10 +50,12 @@ jobs:
         # exit-zero treats all errors as warnings
         flake8 solox/ --count --exit-zero --max-complexity=10 --max-line-length=88 --statistics
     
+    - name: Validate compatibility matrix
+      run: python scripts/validate_compatibility_matrix.py
+
     - name: Test with pytest
       run: |
         pytest tests/ -v --cov=solox --cov-report=xml --cov-report=term
-      continue-on-error: true  # 允许测试失败，因为可能需要设备连接
     
     - name: Upload coverage to Codecov
       uses: codecov/codecov-action@v3
@@ -174,8 +176,16 @@ jobs:
           "README.md"
           "docs/README.md"
           "docs/DEPENDENCIES.md"
-          "docs/03-快速启动.md"
-          "docs/08-故障排除.md"
+          "docs/compatibility-matrix.md"
+          "docs/06-engineering/project-layout.md"
+          "docs/06-engineering/release-and-dev-standards.md"
+          "docs/06-engineering/pre-publish-checklist.md"
+          "docs/acceptance/joint-review-2026-compatibility.md"
+          "docs/acceptance/l3-device-lab-checklist.md"
+          "docs/02-development/quick-start.md"
+          "docs/05-issues/troubleshooting.md"
+          "scripts/README.md"
+          "runtime/README.md"
         )
         
         for doc in "${required_docs[@]}"; do
@@ -197,6 +207,10 @@ jobs:
           "scripts/install_dependencies.sh"
           "scripts/install_dependencies.ps1"
           "scripts/verify_setup.py"
+          "scripts/validate_compatibility_matrix.py"
+          "scripts/release_gate.sh"
+          "scripts/release_gate.ps1"
+          "scripts/dev.sh"
         )
         
         for script in "${required_scripts[@]}"; do

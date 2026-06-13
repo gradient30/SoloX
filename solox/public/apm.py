@@ -436,6 +436,7 @@ class FPS(object):
         self.apm_time = datetime.datetime.now().strftime('%H:%M:%S.%f')
         self.monitors = None
         self.fps_meta = None  # credibility metadata from last FPS collection
+        self.big_jank = 0
 
     def getAndroidFps(self, noLog=False):
         """get Android Fps, unit:HZ
@@ -457,12 +458,16 @@ class FPS(object):
             )
             fps, jank = collector.collect_oneshot()
             self.fps_meta = collector.last_collection_meta
+            big_jank = int((self.fps_meta or {}).get('big_jank', 0) or 0)
+            self.big_jank = big_jank
             if noLog is False:
                 apm_time = datetime.datetime.now().strftime('%H:%M:%S.%f')
                 f.add_log(os.path.join(f.report_dir,'fps.log'), apm_time, fps)
                 f.add_log(os.path.join(f.report_dir,'jank.log'), apm_time, jank)
+                f.add_log(os.path.join(f.report_dir,'big_jank.log'), apm_time, big_jank)
         except Exception as e:
             fps, jank = 0, 0
+            self.big_jank = 0
             self.fps_meta = {'source': 'error', 'fps': 0, 'confidence': 'low',
                              'fresh_frame_count': 0, 'verified': False}
             if len(d.getPid(self.deviceId, self.pkgName)) == 0:
@@ -475,13 +480,14 @@ class FPS(object):
         """get iOS Fps"""
         apm = iosPerformance(self.pkgName, self.deviceId)
         fps = int(apm.getPerformance(apm.fps))
+        self.big_jank = 0
         if noLog is False:
             apm_time = datetime.datetime.now().strftime('%H:%M:%S.%f')
             f.add_log(os.path.join(f.report_dir,'fps.log'), apm_time, fps)
         return fps, 0
 
     def getFPS(self, noLog=False):
-        """get fps、jank"""
+        """get fps、jank (big_jank available via self.big_jank)"""
         fps, jank = self.getAndroidFps(noLog) if self.platform == Platform.Android else self.getiOSFps(noLog)
         return fps, jank
 

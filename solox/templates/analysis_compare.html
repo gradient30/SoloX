@@ -306,6 +306,7 @@
 
 {% block js %}
 <script>
+    var chartMaxPoints = {{ chart_max_points|default(1500) }};
 
     $(document).ready(function() {
         $('#cpu_loading').click();
@@ -383,7 +384,8 @@
                 scene1:'{{ scene1 }}',
                 scene2:'{{ scene2 }}',
                 target:'cpu',
-                platform:platform
+                platform:platform,
+                max_points: chartMaxPoints
             },
             beforeSend: function () {
                 SwalLoading('Loading','')
@@ -415,7 +417,8 @@
                     scene1:'{{ scene1 }}',
                     scene2:'{{ scene2 }}',
                     target:'battery',
-                    platform:platform
+                    platform:platform,
+                    max_points: chartMaxPoints
                 },
                 beforeSend: function () {
                     SwalLoading('Loading','')
@@ -447,7 +450,8 @@
                     scene1:'{{ scene1 }}',
                     scene2:'{{ scene2 }}',
                     target:'gpu',
-                    platform:platform
+                    platform:platform,
+                    max_points: chartMaxPoints
                 },
                 beforeSend: function () {
                     SwalLoading('Loading','')
@@ -480,7 +484,8 @@
                 scene1:'{{ scene1 }}',
                 scene2:'{{ scene2 }}',
                 target:'fps',
-                platform:platform
+                platform:platform,
+                max_points: chartMaxPoints
             },
             beforeSend: function () {
                 SwalLoading('Loading','')
@@ -512,7 +517,8 @@
                 scene1:'{{ scene1 }}',
                 scene2:'{{ scene2 }}',
                 target:'memory',
-                platform:platform
+                platform:platform,
+                max_points: chartMaxPoints
             },
             beforeSend: function () {
                 SwalLoading('Loading','')
@@ -544,7 +550,8 @@
                 scene1:'{{ scene1 }}',
                 scene2:'{{ scene2 }}',
                 target:'net_recv',
-                platform:platform
+                platform:platform,
+                max_points: chartMaxPoints
             },
             beforeSend: function () {
                 SwalLoading('Loading','')
@@ -576,7 +583,8 @@
                 scene1:'{{ scene1 }}',
                 scene2:'{{ scene2 }}',
                 target:'net_send',
-                platform:platform
+                platform:platform,
+                max_points: chartMaxPoints
             },
             beforeSend: function () {
                 SwalLoading('Loading','')

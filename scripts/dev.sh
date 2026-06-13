@@ -8,11 +8,14 @@ set -euo pipefail
 
 # ---- defaults ---------------------------------------------------------------
 HOST="${SOLOX_HOST:-0.0.0.0}"
-PORT="${SOLOX_PORT:-50008}"
+PORT="${SOLOX_PORT:-50003}"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
-PID_FILE="$PROJECT_DIR/.solox.pid"
-LOG_FILE="$PROJECT_DIR/.solox.log"
+RUNTIME_DIR="$PROJECT_DIR/runtime"
+PID_FILE="$RUNTIME_DIR/pids/solox.pid"
+LOG_FILE="$RUNTIME_DIR/logs/solox-dev.log"
+LEGACY_PID_FILE="$PROJECT_DIR/.solox.pid"
+LEGACY_LOG_FILE="$PROJECT_DIR/.solox.log"
 PYTHON="${SOLOX_PYTHON:-python}"
 
 # ---- color helpers (degrade gracefully on dumb terminals) -------------------
@@ -32,7 +35,13 @@ err()   { echo "${C_RED}[ERROR]${C_RESET} $*" >&2; }
 
 # ---- pid helpers ------------------------------------------------------------
 _read_pid() {
-    [[ -f "$PID_FILE" ]] && cat "$PID_FILE" 2>/dev/null || echo ""
+    for f in "$PID_FILE" "$LEGACY_PID_FILE"; do
+        if [[ -f "$f" ]]; then
+            cat "$f" 2>/dev/null
+            return 0
+        fi
+    done
+    echo ""
 }
 
 _is_running() {
@@ -60,7 +69,9 @@ _find_solox_pids() {
             elif command -v lsof &>/dev/null; then
                 lsof -ti ":${PORT}" -sTCP:LISTEN 2>/dev/null | sort -u
             else
-                cat "$PID_FILE" 2>/dev/null
+                for pf in "$PID_FILE" "$LEGACY_PID_FILE"; do
+                    [[ -f "$pf" ]] && cat "$pf" 2>/dev/null && break
+                done
             fi
         fi
     ) 2>/dev/null || true
@@ -117,6 +128,8 @@ do_start() {
 
     # If port is still occupied (by us or anyone), kill the occupant
     _kill_port_occupants
+
+    mkdir -p "$RUNTIME_DIR/logs" "$RUNTIME_DIR/pids"
 
     info "Starting SoloX on ${HOST}:${PORT} ..."
     info "Python: $($PYTHON --version 2>&1)"

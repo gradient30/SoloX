@@ -20,6 +20,13 @@ from jinja2 import Environment, FileSystemLoader
 from tidevice._device import Device
 from tidevice import Usbmux
 from solox.public.adb import adb
+from solox.public.metric_stats import (
+    build_scene_tag_stats,
+    compute_fps_stats,
+    compute_jank_stats,
+    compute_metric_stats,
+)
+from solox.public.performance_telemetry import telemetry
 
 
 class Platform:
@@ -27,6 +34,10 @@ class Platform:
     iOS = 'iOS'
     Mac = 'MacOS'
     Windows = 'Windows'
+
+
+# Chart API default cap — keeps ApexCharts responsive on long sessions
+CHART_DEFAULT_MAX_POINTS = 1500
 
 class Devices:
 
@@ -52,7 +63,7 @@ class Devices:
 
     def getDeviceIds(self):
         """Get all connected device ids"""
-        Ids = list(os.popen(f"{self.adb} devices").readlines())
+        Ids = list(adb.popen_readlines(f"{self.adb} devices"))
         deviceIds = []
         for i in range(1, len(Ids) - 1):
             id, state = Ids[i].strip().split()
@@ -63,9 +74,11 @@ class Devices:
     def getDevicesName(self, deviceId):
         """Get the device name of the Android corresponding device ID"""
         try:
-            devices_name = os.popen(f'{self.adb} -s {deviceId} shell getprop ro.product.model').readlines()[0].strip()
+            devices_name = adb.popen_readlines(
+                f'{self.adb} -s {deviceId} shell getprop ro.product.model'
+            )[0].strip()
         except Exception:
-            devices_name = os.popen(f'{self.adb} -s {deviceId} shell getprop ro.product.model').buffer.readlines()[0].decode("utf-8").strip()
+            devices_name = ''
         return devices_name
 
     def getDevices(self):
@@ -104,10 +117,14 @@ class Devices:
         try:
             sdkversion = self.getSdkVersion(deviceId)
             if sdkversion and int(sdkversion) < 26:
-                result = os.popen(f"{self.adb} -s {deviceId} shell ps | {self.filterType()} {pkgName}").readlines()
+                result = adb.popen_readlines(
+                    f"{self.adb} -s {deviceId} shell ps | {self.filterType()} {pkgName}"
+                )
                 processList = ['{}:{}'.format(process.split()[1],process.split()[8]) for process in result]
             else:
-                result = os.popen(f"{self.adb} -s {deviceId} shell ps -ef | {self.filterType()} {pkgName}").readlines()
+                result = adb.popen_readlines(
+                    f"{self.adb} -s {deviceId} shell ps -ef | {self.filterType()} {pkgName}"
+                )
                 processList = ['{}:{}'.format(process.split()[1],process.split()[7]) for process in result]
             for i in range(len(processList)):
                 if processList[i].count(':') == 1:
@@ -131,12 +148,12 @@ class Devices:
 
     def getPkgname(self, deviceId):
         """Get all package names of Android devices"""
-        pkginfo = os.popen(f"{self.adb} -s {deviceId} shell pm list packages --user 0")
+        pkginfo = adb.popen_readlines(f"{self.adb} -s {deviceId} shell pm list packages --user 0")
         pkglist = [p.lstrip('package').lstrip(":").strip() for p in pkginfo]
         if pkglist.__len__() > 0:
             return pkglist
         else:
-            pkginfo = os.popen(f"{self.adb} -s {deviceId} shell pm list packages")
+            pkginfo = adb.popen_readlines(f"{self.adb} -s {deviceId} shell pm list packages")
             pkglist = [p.lstrip('package').lstrip(":").strip() for p in pkginfo]
             return pkglist
 
@@ -165,7 +182,7 @@ class Devices:
         return ip
     
     def get_device_ip(self, deviceId):
-        content = os.popen(f"{self.adb} -s {deviceId} shell ip addr show wlan0").read()
+        content = adb.popen_read(f"{self.adb} -s {deviceId} shell ip addr show wlan0")
         logger.info(content)
         math_obj = re.search(r'inet\s(\d+\.\d+\.\d+\.\d+).*?wlan0', content)
         if math_obj and math_obj.group(1):
@@ -534,6 +551,7 @@ class Devices:
     def _adb_shell_timeout(self, cmd, deviceId, timeout=10):
         """Run adb shell command with timeout, return stdout string."""
         run_cmd = '{} -s {} shell {}'.format(adb.adb_path, deviceId, cmd)
+        started = telemetry.begin_adb()
         try:
             proc = subprocess.Popen(run_cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
             stdout, stderr = proc.communicate(timeout=timeout)
@@ -543,6 +561,8 @@ class Devices:
             return ''
         except Exception:
             return ''
+        finally:
+            telemetry.end_adb(started)
 
     def sendHomeKey(self, deviceId):
         """Send HOME key (keyevent 3) to background the current app."""
@@ -551,6 +571,7 @@ class Devices:
     def _run_am_start(self, cmd, deviceId, timeout=30):
         """Run am start command capturing both stdout and stderr, return combined output."""
         run_cmd = '{} -s {} shell {}'.format(adb.adb_path, deviceId, cmd)
+        started = telemetry.begin_adb()
         try:
             proc = subprocess.Popen(
                 run_cmd, shell=True,
@@ -565,6 +586,8 @@ class Devices:
             return 'Error: Command timed out after {} seconds'.format(timeout)
         except Exception as e:
             return 'Error: {}'.format(str(e))
+        finally:
+            telemetry.end_adb(started)
 
     def _parse_am_output(self, combined, launch_type):
         """Parse am start -W output into structured result."""
@@ -699,33 +722,88 @@ class File:
 
     def export_excel(self, platform, scene):
         logger.info('Exporting excel ...')
-        android_log_file_list = ['cpu_app','cpu_sys','mem_total','mem_swap',
-                                 'battery_level', 'battery_tem','upflow','downflow','fps','gpu']
-        ios_log_file_list = ['cpu_app','cpu_sys', 'mem_total', 'battery_tem', 'battery_current', 
-                             'battery_voltage', 'battery_power','upflow','downflow','fps','gpu']
+        android_log_file_list = ['cpu_app', 'cpu_sys', 'mem_total', 'mem_swap',
+                                 'battery_level', 'battery_tem', 'upflow', 'downflow',
+                                 'fps', 'jank', 'big_jank', 'gpu']
+        ios_log_file_list = ['cpu_app', 'cpu_sys', 'mem_total', 'battery_tem', 'battery_current',
+                             'battery_voltage', 'battery_power', 'upflow', 'downflow', 'fps', 'gpu']
         log_file_list = android_log_file_list if platform == 'Android' else ios_log_file_list
-        wb = xlwt.Workbook(encoding = 'utf-8')
-        k = 1
+        wb = xlwt.Workbook(encoding='utf-8')
         for name in log_file_list:
-            ws1 = wb.add_sheet(name)
-            ws1.write(0,0,'Time') 
-            ws1.write(0,1,'Value')
-            row = 1 #start row
-            col = 0 #start col
-            if os.path.exists(f'{self.report_dir}/{scene}/{name}.log'):
-                f = open(f'{self.report_dir}/{scene}/{name}.log','r',encoding='utf-8')
-                for lines in f: 
-                    target = lines.split('=')
-                    k += 1
-                    for i in range(len(target)):
-                        ws1.write(row, col ,target[i])
-                        col += 1
-                    row += 1
-                    col = 0
-        xls_path = os.path.join(self.report_dir, scene, f'{scene}.xls')            
+            self._write_log_sheet(wb, scene, name)
+        self._export_scene_sheets(wb, scene, platform)
+        xls_path = os.path.join(self.report_dir, scene, f'{scene}.xls')
         wb.save(xls_path)
         logger.info('Exporting excel success : {}'.format(xls_path))
-        return xls_path   
+        return xls_path
+
+    def _write_log_sheet(self, wb, scene, name):
+        ws = wb.add_sheet(name)
+        ws.write(0, 0, 'Time')
+        ws.write(0, 1, 'Value')
+        log_path = f'{self.report_dir}/{scene}/{name}.log'
+        if not os.path.exists(log_path):
+            return
+        row = 1
+        with open(log_path, 'r', encoding='utf-8') as fh:
+            for lines in fh:
+                target = lines.split('=')
+                for col, val in enumerate(target):
+                    ws.write(row, col, val)
+                row += 1
+
+    def _export_scene_sheets(self, wb, scene, platform):
+        tags = self.get_scene_tags(scene)
+        if tags:
+            ws = wb.add_sheet('scene_tags')
+            ws.write(0, 0, 'Time')
+            ws.write(0, 1, 'Label')
+            for i, tag in enumerate(tags, 1):
+                ws.write(i, 0, tag.get('time', ''))
+                ws.write(i, 1, tag.get('label', ''))
+
+        tag_stats = self._read_scene_json(scene, 'scene_tag_stats.json')
+        if tag_stats is None and tags:
+            plat = Platform.Android if platform == 'Android' else Platform.iOS
+            tag_stats = self.build_scene_tag_stats(scene, plat)
+        if not tag_stats or not tag_stats.get('scenes'):
+            return
+
+        ws = wb.add_sheet('scene_stats')
+        headers = [
+            'Scene', 'Start', 'End', 'Samples',
+            'CPU App Avg', 'CPU App Min', 'CPU App Max',
+            'MEM Avg', 'MEM Peak',
+            'FPS Avg', 'FPS Min',
+            'Jank Sum', 'Jank Stutter%',
+            'BigJank Sum', 'BigJank Stutter%',
+        ]
+        for col, h in enumerate(headers):
+            ws.write(0, col, h)
+        row = 1
+        for sc in tag_stats['scenes']:
+            m = sc.get('metrics', {})
+            cpu = m.get('cpu_app', {})
+            mem = m.get('mem_total', {})
+            fps = m.get('fps', {})
+            jank = m.get('jank', {})
+            big_jank = m.get('big_jank', {})
+            ws.write(row, 0, sc.get('label', ''))
+            ws.write(row, 1, sc.get('start') or '')
+            ws.write(row, 2, sc.get('end') or '')
+            ws.write(row, 3, sc.get('sample_count', 0))
+            ws.write(row, 4, cpu.get('avg', 0))
+            ws.write(row, 5, cpu.get('min', 0))
+            ws.write(row, 6, cpu.get('max', 0))
+            ws.write(row, 7, mem.get('avg', 0))
+            ws.write(row, 8, mem.get('max', 0))
+            ws.write(row, 9, fps.get('avg', 0))
+            ws.write(row, 10, fps.get('min_active') or fps.get('min', 0))
+            ws.write(row, 11, jank.get('sum', 0))
+            ws.write(row, 12, jank.get('stutter_rate', 0))
+            ws.write(row, 13, big_jank.get('sum', 0))
+            ws.write(row, 14, big_jank.get('stutter_rate', 0))
+            row += 1
     
     def make_android_html(self, scene, summary : dict, report_path=None):
         logger.info('Generating HTML ...')
@@ -791,12 +869,38 @@ class File:
             os.mkdir(report_dir)
         return report_dir
 
-    def getDuration(self, scene):
-        """Calculate test duration from first/last log timestamps."""
+    def resolve_record_video(self, scene):
+        """Locate screen recording for a report scene; None if missing or unsafe path."""
+        if not scene or '..' in scene or '/' in scene or '\\' in scene or os.path.isabs(scene):
+            return None
+        report_root = os.path.realpath(self.report_dir)
+        scene_dir = os.path.realpath(os.path.join(report_root, scene))
+        if not scene_dir.startswith(report_root + os.sep):
+            return None
+        if not os.path.isdir(scene_dir):
+            return None
+        for name, fmt, browser_playable in (
+            ('record.mp4', 'mp4', True),
+            ('record.mkv', 'mkv', False),
+        ):
+            path = os.path.join(scene_dir, name)
+            if os.path.isfile(path):
+                size = os.path.getsize(path)
+                return {
+                    'path': path,
+                    'format': fmt,
+                    'browser_playable': browser_playable,
+                    'size': size,
+                    'size_mb': round(size / 1024 / 1024, 2),
+                }
+        return None
+
+    def getDurationSeconds(self, scene):
+        """Return test duration in seconds from log timestamps."""
         from datetime import datetime
         scene_dir = os.path.join(self.report_dir, scene)
         if not os.path.isdir(scene_dir):
-            return ''
+            return 0
         first_ts, last_ts = None, None
         for fname in os.listdir(scene_dir):
             if not fname.endswith('.log'):
@@ -831,15 +935,44 @@ class File:
                 fmt = '%H:%M:%S.%f'
                 delta = datetime.strptime(last_ts, fmt) - datetime.strptime(first_ts, fmt)
                 total_sec = int(delta.total_seconds())
-                if total_sec < 0:
-                    return ''
-                h, m, s = total_sec // 3600, (total_sec % 3600) // 60, total_sec % 60
-                if h > 0:
-                    return f'{h:02d}:{m:02d}:{s:02d}'
-                return f'{m:02d}:{s:02d}'
+                return max(total_sec, 0)
             except Exception:
-                return ''
-        return ''
+                return 0
+        return 0
+
+    @staticmethod
+    def format_duration_hms(total_sec: int) -> str:
+        if total_sec <= 0:
+            return ''
+        h, m, s = total_sec // 3600, (total_sec % 3600) // 60, total_sec % 60
+        if h > 0:
+            return f'{h:02d}:{m:02d}:{s:02d}'
+        return f'{m:02d}:{s:02d}'
+
+    @staticmethod
+    def format_duration_label(total_sec: int) -> str:
+        hms = File.format_duration_hms(total_sec)
+        return f'apm_{hms}' if hms else ''
+
+    def getDuration(self, scene):
+        """Calculate test duration from first/last log timestamps."""
+        return self.format_duration_hms(self.getDurationSeconds(scene))
+
+    def persist_report_duration(self, scene):
+        """Write duration fields into result.json for fast report list / analysis."""
+        path = os.path.join(self.report_dir, scene, 'result.json')
+        if not os.path.exists(path):
+            return
+        seconds = self.getDurationSeconds(scene)
+        duration = self.format_duration_hms(seconds)
+        label = self.format_duration_label(seconds)
+        with open(path, encoding='utf-8') as fh:
+            meta = json.loads(fh.read())
+        meta['duration'] = duration
+        meta['duration_seconds'] = seconds
+        meta['duration_label'] = label
+        with open(path, 'w', encoding='utf-8') as fh:
+            json.dump(meta, fh, ensure_ascii=False, indent=2)
 
     def create_file(self, filename, content=''):
         if not os.path.exists(self.report_dir):
@@ -892,6 +1025,7 @@ class File:
             if f.split(".")[-1] in ['log', 'json', 'mkv', 'mp4']:
                 shutil.move(filename, report_new_dir)        
         logger.info('Generating test results success: {}'.format(report_new_dir))
+        self.finalize_report_stats(f'apm_{current_time}', platform)
         return f'apm_{current_time}'        
 
     def instance_type(self, data):
@@ -913,162 +1047,180 @@ class File:
         result_dict = json.loads(result_json)
         return result_dict
 
-    def readLog(self, scene, filename):
-        """Read apmlog file data"""
+    @staticmethod
+    def _downsample_chart(data: list, max_points: int | None) -> list:
+        if not max_points or not data or len(data) <= max_points:
+            return data
+        n = len(data)
+        step = (n - 1) / (max_points - 1) if max_points > 1 else 0
+        out = [data[int(i * step)] for i in range(max_points)]
+        out[-1] = data[-1]
+        return out
+
+    def readLog(self, scene, filename, max_points=None):
+        """Read apmlog file data; optional max_points downsample for charts."""
         log_data_list = list()
         target_data_list = list()
-        if os.path.exists(os.path.join(self.report_dir,scene,filename)):
-            lines = self.open_file(os.path.join(self.report_dir,scene,filename), "r")
+        if os.path.exists(os.path.join(self.report_dir, scene, filename)):
+            lines = self.open_file(os.path.join(self.report_dir, scene, filename), "r")
             for line in lines:
-                if isinstance(line.split('=')[1].strip(), int):
-                    log_data_list.append({
-                        "x": line.split('=')[0].strip(),
-                        "y": int(line.split('=')[1].strip())
-                    })
-                    target_data_list.append(int(line.split('=')[1].strip()))
-                else:
-                    log_data_list.append({
-                        "x": line.split('=')[0].strip(),
-                        "y": float(line.split('=')[1].strip())
-                    })
-                    target_data_list.append(float(line.split('=')[1].strip()))
+                if '=' not in line:
+                    continue
+                raw_val = line.split('=')[1].strip()
+                try:
+                    y_val = int(raw_val)
+                except ValueError:
+                    y_val = float(raw_val)
+                log_data_list.append({
+                    "x": line.split('=')[0].strip(),
+                    "y": y_val,
+                })
+                target_data_list.append(y_val)
+        if max_points:
+            log_data_list = self._downsample_chart(log_data_list, max_points)
+            target_data_list = [p['y'] for p in log_data_list]
         return log_data_list, target_data_list
+
+    def _read_log_last_value(self, scene, filename):
+        _, values = self.readLog(scene, filename)
+        return values[-1] if values else None
         
-    def getCpuLog(self, platform, scene):
+    def getCpuLog(self, platform, scene, max_points=None):
         targetDic = dict()
-        targetDic['cpuAppData'] = self.readLog(scene=scene, filename='cpu_app.log')[0]
-        targetDic['cpuSysData'] = self.readLog(scene=scene, filename='cpu_sys.log')[0]
+        targetDic['cpuAppData'] = self.readLog(scene=scene, filename='cpu_app.log', max_points=max_points)[0]
+        targetDic['cpuSysData'] = self.readLog(scene=scene, filename='cpu_sys.log', max_points=max_points)[0]
         result = {'status': 1, 'cpuAppData': targetDic['cpuAppData'], 'cpuSysData': targetDic['cpuSysData']}
         return result
     
-    def getCpuLogCompare(self, platform, scene1, scene2):
+    def getCpuLogCompare(self, platform, scene1, scene2, max_points=None):
         targetDic = dict()
-        targetDic['scene1'] = self.readLog(scene=scene1, filename='cpu_app.log')[0]
-        targetDic['scene2'] = self.readLog(scene=scene2, filename='cpu_app.log')[0]
+        targetDic['scene1'] = self.readLog(scene=scene1, filename='cpu_app.log', max_points=max_points)[0]
+        targetDic['scene2'] = self.readLog(scene=scene2, filename='cpu_app.log', max_points=max_points)[0]
         result = {'status': 1, 'scene1': targetDic['scene1'], 'scene2': targetDic['scene2']}
         return result
     
-    def getGpuLog(self, platform, scene):
+    def getGpuLog(self, platform, scene, max_points=None):
         targetDic = dict()
-        targetDic['gpu'] = self.readLog(scene=scene, filename='gpu.log')[0]
+        targetDic['gpu'] = self.readLog(scene=scene, filename='gpu.log', max_points=max_points)[0]
         result = {'status': 1, 'gpu': targetDic['gpu']}
         return result
     
-    def getGpuLogCompare(self, platform, scene1, scene2):
+    def getGpuLogCompare(self, platform, scene1, scene2, max_points=None):
         targetDic = dict()
-        targetDic['scene1'] = self.readLog(scene=scene1, filename='gpu.log')[0]
-        targetDic['scene2'] = self.readLog(scene=scene2, filename='gpu.log')[0]
+        targetDic['scene1'] = self.readLog(scene=scene1, filename='gpu.log', max_points=max_points)[0]
+        targetDic['scene2'] = self.readLog(scene=scene2, filename='gpu.log', max_points=max_points)[0]
         result = {'status': 1, 'scene1': targetDic['scene1'], 'scene2': targetDic['scene2']}
         return result
     
-    def getMemLog(self, platform, scene):
+    def getMemLog(self, platform, scene, max_points=None):
         targetDic = dict()
-        targetDic['memTotalData'] = self.readLog(scene=scene, filename='mem_total.log')[0]
+        targetDic['memTotalData'] = self.readLog(scene=scene, filename='mem_total.log', max_points=max_points)[0]
         if platform == Platform.Android:
-            targetDic['memSwapData']  = self.readLog(scene=scene, filename='mem_swap.log')[0]
-            result = {'status': 1, 
-                      'memTotalData': targetDic['memTotalData'], 
+            targetDic['memSwapData'] = self.readLog(scene=scene, filename='mem_swap.log', max_points=max_points)[0]
+            result = {'status': 1,
+                      'memTotalData': targetDic['memTotalData'],
                       'memSwapData': targetDic['memSwapData']}
         else:
             result = {'status': 1, 'memTotalData': targetDic['memTotalData']}
         return result
-    
-    def getMemDetailLog(self, platform, scene):
+
+    def getMemDetailLog(self, platform, scene, max_points=None):
         targetDic = dict()
-        targetDic['java_heap'] = self.readLog(scene=scene, filename='mem_java_heap.log')[0]
-        targetDic['native_heap'] = self.readLog(scene=scene, filename='mem_native_heap.log')[0]
-        targetDic['code_pss'] = self.readLog(scene=scene, filename='mem_code_pss.log')[0]
-        targetDic['stack_pss'] = self.readLog(scene=scene, filename='mem_stack_pss.log')[0]
-        targetDic['graphics_pss'] = self.readLog(scene=scene, filename='mem_graphics_pss.log')[0]
-        targetDic['private_pss'] = self.readLog(scene=scene, filename='mem_private_pss.log')[0]
-        targetDic['system_pss'] = self.readLog(scene=scene, filename='mem_system_pss.log')[0]
+        targetDic['java_heap'] = self.readLog(scene=scene, filename='mem_java_heap.log', max_points=max_points)[0]
+        targetDic['native_heap'] = self.readLog(scene=scene, filename='mem_native_heap.log', max_points=max_points)[0]
+        targetDic['code_pss'] = self.readLog(scene=scene, filename='mem_code_pss.log', max_points=max_points)[0]
+        targetDic['stack_pss'] = self.readLog(scene=scene, filename='mem_stack_pss.log', max_points=max_points)[0]
+        targetDic['graphics_pss'] = self.readLog(scene=scene, filename='mem_graphics_pss.log', max_points=max_points)[0]
+        targetDic['private_pss'] = self.readLog(scene=scene, filename='mem_private_pss.log', max_points=max_points)[0]
+        targetDic['system_pss'] = self.readLog(scene=scene, filename='mem_system_pss.log', max_points=max_points)[0]
         result = {'status': 1, 'memory_detail': targetDic}
         return result
-    
-    def getCpuCoreLog(self, platform, scene):
+
+    def getCpuCoreLog(self, platform, scene, max_points=None):
         targetDic = dict()
-        cores =self.readJson(scene=scene).get('cores', 0)
+        cores = self.readJson(scene=scene).get('cores', 0)
         if int(cores) > 0:
             for i in range(int(cores)):
-                targetDic['cpu{}'.format(i)] = self.readLog(scene=scene, filename='cpu{}.log'.format(i))[0]
-        result = {'status': 1, 'cores':cores, 'cpu_core': targetDic}
+                targetDic['cpu{}'.format(i)] = self.readLog(
+                    scene=scene, filename='cpu{}.log'.format(i), max_points=max_points)[0]
+        result = {'status': 1, 'cores': cores, 'cpu_core': targetDic}
         return result
     
-    def getMemLogCompare(self, platform, scene1, scene2):
+    def getMemLogCompare(self, platform, scene1, scene2, max_points=None):
         targetDic = dict()
-        targetDic['scene1'] = self.readLog(scene=scene1, filename='mem_total.log')[0]
-        targetDic['scene2'] = self.readLog(scene=scene2, filename='mem_total.log')[0]
+        targetDic['scene1'] = self.readLog(scene=scene1, filename='mem_total.log', max_points=max_points)[0]
+        targetDic['scene2'] = self.readLog(scene=scene2, filename='mem_total.log', max_points=max_points)[0]
         result = {'status': 1, 'scene1': targetDic['scene1'], 'scene2': targetDic['scene2']}
         return result
     
-    def getBatteryLog(self, platform, scene):
+    def getBatteryLog(self, platform, scene, max_points=None):
         targetDic = dict()
         if platform == Platform.Android:
-            targetDic['batteryLevel'] = self.readLog(scene=scene, filename='battery_level.log')[0]
-            targetDic['batteryTem'] = self.readLog(scene=scene, filename='battery_tem.log')[0]
-            result = {'status': 1, 
-                      'batteryLevel': targetDic['batteryLevel'], 
+            targetDic['batteryLevel'] = self.readLog(scene=scene, filename='battery_level.log', max_points=max_points)[0]
+            targetDic['batteryTem'] = self.readLog(scene=scene, filename='battery_tem.log', max_points=max_points)[0]
+            result = {'status': 1,
+                      'batteryLevel': targetDic['batteryLevel'],
                       'batteryTem': targetDic['batteryTem']}
         else:
-            targetDic['batteryTem'] = self.readLog(scene=scene, filename='battery_tem.log')[0]
-            targetDic['batteryCurrent'] = self.readLog(scene=scene, filename='battery_current.log')[0]
-            targetDic['batteryVoltage'] = self.readLog(scene=scene, filename='battery_voltage.log')[0]
-            targetDic['batteryPower'] = self.readLog(scene=scene, filename='battery_power.log')[0]
-            result = {'status': 1, 
-                      'batteryTem': targetDic['batteryTem'], 
+            targetDic['batteryTem'] = self.readLog(scene=scene, filename='battery_tem.log', max_points=max_points)[0]
+            targetDic['batteryCurrent'] = self.readLog(scene=scene, filename='battery_current.log', max_points=max_points)[0]
+            targetDic['batteryVoltage'] = self.readLog(scene=scene, filename='battery_voltage.log', max_points=max_points)[0]
+            targetDic['batteryPower'] = self.readLog(scene=scene, filename='battery_power.log', max_points=max_points)[0]
+            result = {'status': 1,
+                      'batteryTem': targetDic['batteryTem'],
                       'batteryCurrent': targetDic['batteryCurrent'],
-                      'batteryVoltage': targetDic['batteryVoltage'], 
-                      'batteryPower': targetDic['batteryPower']}    
+                      'batteryVoltage': targetDic['batteryVoltage'],
+                      'batteryPower': targetDic['batteryPower']}
         return result
     
-    def getBatteryLogCompare(self, platform, scene1, scene2):
+    def getBatteryLogCompare(self, platform, scene1, scene2, max_points=None):
         targetDic = dict()
         if platform == Platform.Android:
-            targetDic['scene1'] = self.readLog(scene=scene1, filename='battery_level.log')[0]
-            targetDic['scene2'] = self.readLog(scene=scene2, filename='battery_level.log')[0]
+            targetDic['scene1'] = self.readLog(scene=scene1, filename='battery_level.log', max_points=max_points)[0]
+            targetDic['scene2'] = self.readLog(scene=scene2, filename='battery_level.log', max_points=max_points)[0]
             result = {'status': 1, 'scene1': targetDic['scene1'], 'scene2': targetDic['scene2']}
         else:
-            targetDic['scene1'] = self.readLog(scene=scene1, filename='batteryPower.log')[0]
-            targetDic['scene2'] = self.readLog(scene=scene2, filename='batteryPower.log')[0]
+            targetDic['scene1'] = self.readLog(scene=scene1, filename='batteryPower.log', max_points=max_points)[0]
+            targetDic['scene2'] = self.readLog(scene=scene2, filename='batteryPower.log', max_points=max_points)[0]
             result = {'status': 1, 'scene1': targetDic['scene1'], 'scene2': targetDic['scene2']}    
         return result
     
-    def getFlowLog(self, platform, scene):
+    def getFlowLog(self, platform, scene, max_points=None):
         targetDic = dict()
-        targetDic['upFlow'] = self.readLog(scene=scene, filename='upflow.log')[0]
-        targetDic['downFlow'] = self.readLog(scene=scene, filename='downflow.log')[0]
+        targetDic['upFlow'] = self.readLog(scene=scene, filename='upflow.log', max_points=max_points)[0]
+        targetDic['downFlow'] = self.readLog(scene=scene, filename='downflow.log', max_points=max_points)[0]
         result = {'status': 1, 'upFlow': targetDic['upFlow'], 'downFlow': targetDic['downFlow']}
         return result
     
-    def getFlowSendLogCompare(self, platform, scene1, scene2):
+    def getFlowSendLogCompare(self, platform, scene1, scene2, max_points=None):
         targetDic = dict()
-        targetDic['scene1'] = self.readLog(scene=scene1, filename='upflow.log')[0]
-        targetDic['scene2'] = self.readLog(scene=scene2, filename='upflow.log')[0]
+        targetDic['scene1'] = self.readLog(scene=scene1, filename='upflow.log', max_points=max_points)[0]
+        targetDic['scene2'] = self.readLog(scene=scene2, filename='upflow.log', max_points=max_points)[0]
         result = {'status': 1, 'scene1': targetDic['scene1'], 'scene2': targetDic['scene2']}
         return result
     
-    def getFlowRecvLogCompare(self, platform, scene1, scene2):
+    def getFlowRecvLogCompare(self, platform, scene1, scene2, max_points=None):
         targetDic = dict()
-        targetDic['scene1'] = self.readLog(scene=scene1, filename='downflow.log')[0]
-        targetDic['scene2'] = self.readLog(scene=scene2, filename='downflow.log')[0]
+        targetDic['scene1'] = self.readLog(scene=scene1, filename='downflow.log', max_points=max_points)[0]
+        targetDic['scene2'] = self.readLog(scene=scene2, filename='downflow.log', max_points=max_points)[0]
         result = {'status': 1, 'scene1': targetDic['scene1'], 'scene2': targetDic['scene2']}
         return result
     
-    def getFpsLog(self, platform, scene):
+    def getFpsLog(self, platform, scene, max_points=None):
         targetDic = dict()
-        targetDic['fps'] = self.readLog(scene=scene, filename='fps.log')[0]
+        targetDic['fps'] = self.readLog(scene=scene, filename='fps.log', max_points=max_points)[0]
         if platform == Platform.Android:
-            targetDic['jank'] = self.readLog(scene=scene, filename='jank.log')[0]
+            targetDic['jank'] = self.readLog(scene=scene, filename='jank.log', max_points=max_points)[0]
             result = {'status': 1, 'fps': targetDic['fps'], 'jank': targetDic['jank']}
         else:
             result = {'status': 1, 'fps': targetDic['fps']}     
         return result
     
-    def getDiskLog(self, platform, scene):
+    def getDiskLog(self, platform, scene, max_points=None):
         targetDic = dict()
-        targetDic['used'] = self.readLog(scene=scene, filename='disk_used.log')[0]
-        targetDic['free'] = self.readLog(scene=scene, filename='disk_free.log')[0]
-        result = {'status': 1, 'used': targetDic['used'], 'free':targetDic['free']}
+        targetDic['used'] = self.readLog(scene=scene, filename='disk_used.log', max_points=max_points)[0]
+        targetDic['free'] = self.readLog(scene=scene, filename='disk_free.log', max_points=max_points)[0]
+        result = {'status': 1, 'used': targetDic['used'], 'free': targetDic['free']}
         return result
 
     def analysisDisk(self, scene):
@@ -1126,12 +1278,156 @@ class File:
                  
         return initail_disk_list, current_disk_list, sum_init_disk, sum_current_disk
 
-    def getFpsLogCompare(self, platform, scene1, scene2):
+    def getFpsLogCompare(self, platform, scene1, scene2, max_points=None):
         targetDic = dict()
-        targetDic['scene1'] = self.readLog(scene=scene1, filename='fps.log')[0]
-        targetDic['scene2'] = self.readLog(scene=scene2, filename='fps.log')[0]
+        targetDic['scene1'] = self.readLog(scene=scene1, filename='fps.log', max_points=max_points)[0]
+        targetDic['scene2'] = self.readLog(scene=scene2, filename='fps.log', max_points=max_points)[0]
         result = {'status': 1, 'scene1': targetDic['scene1'], 'scene2': targetDic['scene2']}
         return result
+
+    # --- PerfDog-style stats & scene tags ---
+
+    def add_scene_tag(self, label: str) -> dict:
+        """Record a scene marker during live collection (PerfDog scene label)."""
+        import datetime
+        label = (label or '').strip().replace('/', '_').replace('\\', '_')[:64]
+        if not label:
+            raise ValueError('scene label is empty')
+        tag = {
+            'time': datetime.datetime.now().strftime('%H:%M:%S.%f'),
+            'label': label,
+            'epoch': time.time(),
+        }
+        path = os.path.join(self.report_dir, 'scene_tags.json')
+        tags = []
+        if os.path.exists(path):
+            with open(path, encoding='utf-8') as fh:
+                tags = json.loads(fh.read())
+        tags.append(tag)
+        with open(path, 'w', encoding='utf-8') as fh:
+            json.dump(tags, fh, ensure_ascii=False, indent=2)
+        return tag
+
+    def get_scene_tags(self, scene=None) -> list:
+        if scene:
+            path = os.path.join(self.report_dir, scene, 'scene_tags.json')
+        else:
+            path = os.path.join(self.report_dir, 'scene_tags.json')
+        if not os.path.exists(path):
+            return []
+        with open(path, encoding='utf-8') as fh:
+            return json.loads(fh.read())
+
+    def _write_scene_json(self, scene, filename, data):
+        path = os.path.join(self.report_dir, scene, filename)
+        with open(path, 'w', encoding='utf-8') as fh:
+            json.dump(data, fh, ensure_ascii=False, indent=2)
+
+    def _read_scene_json(self, scene, filename):
+        path = os.path.join(self.report_dir, scene, filename)
+        if not os.path.exists(path):
+            return None
+        with open(path, encoding='utf-8') as fh:
+            return json.loads(fh.read())
+
+    def _collect_metric_charts(self, scene, platform=Platform.Android) -> dict:
+        charts = {
+            'cpu_app': self.readLog(scene=scene, filename='cpu_app.log')[0],
+            'cpu_sys': self.readLog(scene=scene, filename='cpu_sys.log')[0],
+            'mem_total': self.readLog(scene=scene, filename='mem_total.log')[0],
+            'fps': self.readLog(scene=scene, filename='fps.log')[0],
+            'jank': self.readLog(scene=scene, filename='jank.log')[0],
+            'big_jank': self.readLog(scene=scene, filename='big_jank.log')[0],
+            'gpu': self.readLog(scene=scene, filename='gpu.log')[0],
+        }
+        if platform == Platform.Android:
+            charts['mem_swap'] = self.readLog(scene=scene, filename='mem_swap.log')[0]
+        charts['upflow'] = self.readLog(scene=scene, filename='upflow.log')[0]
+        charts['downflow'] = self.readLog(scene=scene, filename='downflow.log')[0]
+        return charts
+
+    def build_perf_stats(self, scene, platform=Platform.Android) -> dict:
+        """Build full-session min/max/avg stats (PerfDog summary)."""
+        charts = self._collect_metric_charts(scene, platform)
+        stats = {}
+        for name, chart in charts.items():
+            values = [p['y'] for p in chart]
+            if name == 'jank' or name == 'big_jank':
+                stats[name] = compute_jank_stats(values)
+            elif name == 'fps':
+                stats[name] = compute_fps_stats(values)
+            else:
+                stats[name] = compute_metric_stats(values)
+        return stats
+
+    def build_scene_tag_stats(self, scene, platform=Platform.Android) -> dict:
+        tags = self.get_scene_tags(scene)
+        if not tags:
+            return {'tags': [], 'scenes': []}
+        charts = self._collect_metric_charts(scene, platform)
+        return build_scene_tag_stats(tags, charts)
+
+    def finalize_report_stats(self, scene, platform=Platform.Android):
+        """Persist perf_stats.json and scene_tag_stats.json after report creation."""
+        meta = self.readJson(scene)
+        platform = meta.get('platform', platform)
+        perf = self.build_perf_stats(scene, platform)
+        self._write_scene_json(scene, 'perf_stats.json', perf)
+        tag_stats = self.build_scene_tag_stats(scene, platform)
+        if tag_stats.get('scenes'):
+            self._write_scene_json(scene, 'scene_tag_stats.json', tag_stats)
+        self.persist_report_duration(scene)
+        logger.info('Report stats finalized: {}'.format(scene))
+
+    def _merge_stats_into_apm_dict(self, apm_dict, stats, platform, scene=''):
+        """Attach min/max/avg summary fields for templates and API."""
+        apm_dict['perf_stats'] = stats
+
+        def _fmt_pct(s):
+            return f"{s['min']}%", f"{s['max']}%", f"{s['avg']}%"
+
+        if stats.get('cpu_app'):
+            mn, mx, av = _fmt_pct(stats['cpu_app'])
+            apm_dict['cpuAppRateMin'] = mn
+            apm_dict['cpuAppRateMax'] = mx
+        if stats.get('cpu_sys'):
+            mn, mx, av = _fmt_pct(stats['cpu_sys'])
+            apm_dict['cpuSystemRateMin'] = mn
+            apm_dict['cpuSystemRateMax'] = mx
+        if stats.get('mem_total'):
+            s = stats['mem_total']
+            apm_dict['totalPassMin'] = f"{s['min']}MB"
+            apm_dict['totalPassMax'] = f"{s['max']}MB"
+        if platform == Platform.Android and stats.get('mem_swap'):
+            s = stats['mem_swap']
+            apm_dict['swapPassMin'] = f"{s['min']}MB"
+            apm_dict['swapPassMax'] = f"{s['max']}MB"
+        if stats.get('fps'):
+            s = stats['fps']
+            apm_dict['fpsMin'] = f"{int(s['min'])}Hz"
+            apm_dict['fpsMax'] = f"{int(s['max'])}Hz"
+            if s.get('min_active'):
+                apm_dict['fpsMinActive'] = f"{int(s['min_active'])}Hz"
+        if stats.get('jank'):
+            s = stats['jank']
+            apm_dict['jankTotal'] = int(s.get('sum', 0))
+            apm_dict['jankMax'] = int(s.get('max', 0))
+            apm_dict['stutterRate'] = f"{s.get('stutter_rate', 0)}%"
+        if stats.get('big_jank'):
+            s = stats['big_jank']
+            apm_dict['bigJankTotal'] = int(s.get('sum', 0))
+            apm_dict['bigJankMax'] = int(s.get('max', 0))
+            apm_dict['bigStutterRate'] = f"{s.get('stutter_rate', 0)}%"
+        if stats.get('gpu'):
+            s = stats['gpu']
+            apm_dict['gpuMin'] = f"{s['min']}%"
+            apm_dict['gpuMax'] = f"{s['max']}%"
+
+        tag_stats = self._read_scene_json(scene, 'scene_tag_stats.json')
+        if tag_stats is None:
+            tag_stats = {'tags': [], 'scenes': []}
+        apm_dict['scene_tag_stats'] = tag_stats
+        return apm_dict
         
     def approximateSize(self, size, a_kilobyte_is_1024_bytes=True):
         '''
@@ -1157,80 +1453,94 @@ class File:
                 return '{0:.2f} {1}'.format(size, suffix)
     
     def _setAndroidPerfs(self, scene):
-        """Aggregate APM data for Android"""
-        
-        app = self.readJson(scene=scene).get('app')
-        devices = self.readJson(scene=scene).get('devices')
-        platform = self.readJson(scene=scene).get('platform')
-        ctime = self.readJson(scene=scene).get('ctime')
+        """Aggregate APM data for Android (uses perf_stats.json when available)."""
+        meta = self.readJson(scene=scene)
+        app = meta.get('app')
+        devices = meta.get('devices')
+        platform = meta.get('platform')
+        ctime = meta.get('ctime')
+        duration_label = meta.get('duration_label', '')
+        duration = meta.get('duration', '')
 
-        cpuAppData = self.readLog(scene=scene, filename=f'cpu_app.log')[1]
-        cpuSystemData = self.readLog(scene=scene, filename=f'cpu_sys.log')[1]
-        if cpuAppData.__len__() > 0 and cpuSystemData.__len__() > 0:
-            cpuAppRate = f'{round(sum(cpuAppData) / len(cpuAppData), 2)}%'
-            cpuSystemRate = f'{round(sum(cpuSystemData) / len(cpuSystemData), 2)}%'
+        stats = self._read_scene_json(scene, 'perf_stats.json')
+        if stats:
+            cpuAppRate = f"{stats.get('cpu_app', {}).get('avg', 0)}%"
+            cpuSystemRate = f"{stats.get('cpu_sys', {}).get('avg', 0)}%"
+            totalPassAvg = f"{stats.get('mem_total', {}).get('avg', 0)}MB"
+            swapPassAvg = f"{stats.get('mem_swap', {}).get('avg', 0)}MB"
+            fps_avg = stats.get('fps', {}).get('avg', 0)
+            fpsAvg = f'{int(fps_avg)}HZ/s' if fps_avg else 0
+            jankAvg = str(int(stats.get('jank', {}).get('sum', 0)))
+            bigJankAvg = str(int(stats.get('big_jank', {}).get('sum', 0)))
+            gpu = stats.get('gpu', {}).get('avg', 0)
         else:
-            cpuAppRate, cpuSystemRate = 0, 0    
+            cpuAppData = self.readLog(scene=scene, filename='cpu_app.log')[1]
+            cpuSystemData = self.readLog(scene=scene, filename='cpu_sys.log')[1]
+            if cpuAppData and cpuSystemData:
+                cpuAppRate = f'{round(sum(cpuAppData) / len(cpuAppData), 2)}%'
+                cpuSystemRate = f'{round(sum(cpuSystemData) / len(cpuSystemData), 2)}%'
+            else:
+                cpuAppRate, cpuSystemRate = 0, 0
 
-        batteryLevelData = self.readLog(scene=scene, filename=f'battery_level.log')[1]
-        batteryTemlData = self.readLog(scene=scene, filename=f'battery_tem.log')[1]
-        if batteryLevelData.__len__() > 0 and batteryTemlData.__len__() > 0:
-            batteryLevel = f'{batteryLevelData[-1]}%'
-            batteryTeml = f'{batteryTemlData[-1]}°C'
+            totalPassData = self.readLog(scene=scene, filename='mem_total.log')[1]
+            if totalPassData:
+                swapPassData = self.readLog(scene=scene, filename='mem_swap.log')[1]
+                totalPassAvg = f'{round(sum(totalPassData) / len(totalPassData), 2)}MB'
+                swapPassAvg = f'{round(sum(swapPassData) / len(swapPassData), 2)}MB' if swapPassData else 0
+            else:
+                totalPassAvg, swapPassAvg = 0, 0
+
+            fpsData = self.readLog(scene=scene, filename='fps.log')[1]
+            jankData = self.readLog(scene=scene, filename='jank.log')[1]
+            bigJankData = self.readLog(scene=scene, filename='big_jank.log')[1]
+            if fpsData:
+                fpsAvg = f'{int(sum(fpsData) / len(fpsData))}HZ/s'
+                jankAvg = f'{int(sum(jankData))}'
+                bigJankAvg = f'{int(sum(bigJankData))}' if bigJankData else '0'
+            else:
+                fpsAvg, jankAvg, bigJankAvg = 0, 0, 0
+
+            gpuData = self.readLog(scene=scene, filename='gpu.log')[1]
+            gpu = round(sum(gpuData) / len(gpuData), 2) if gpuData else 0
+
+        bl = self._read_log_last_value(scene, 'battery_level.log')
+        bt = self._read_log_last_value(scene, 'battery_tem.log')
+        if bl is not None and bt is not None:
+            batteryLevel = f'{bl}%'
+            batteryTeml = f'{bt}°C'
         else:
-            batteryLevel, batteryTeml = 0, 0   
-    
+            batteryLevel, batteryTeml = 0, 0
 
-        totalPassData = self.readLog(scene=scene, filename=f'mem_total.log')[1]
-        
-        if totalPassData.__len__() > 0:
-            swapPassData = self.readLog(scene=scene, filename=f'mem_swap.log')[1]
-            totalPassAvg = f'{round(sum(totalPassData) / len(totalPassData), 2)}MB'
-            swapPassAvg = f'{round(sum(swapPassData) / len(swapPassData), 2)}MB'
-        else:
-            totalPassAvg, swapPassAvg = 0, 0    
-
-        fpsData = self.readLog(scene=scene, filename=f'fps.log')[1]
-        jankData = self.readLog(scene=scene, filename=f'jank.log')[1]
-        if fpsData.__len__() > 0:
-            fpsAvg = f'{int(sum(fpsData) / len(fpsData))}HZ/s'
-            jankAvg = f'{int(sum(jankData))}'
-        else:
-            fpsAvg, jankAvg = 0, 0    
-
-        if os.path.exists(os.path.join(self.report_dir,scene,'end_net.json')):
-            f_pre = open(os.path.join(self.report_dir,scene,'pre_net.json'))
-            f_end = open(os.path.join(self.report_dir,scene,'end_net.json'))
-            json_pre = json.loads(f_pre.read())
-            json_end = json.loads(f_end.read())
+        if os.path.exists(os.path.join(self.report_dir, scene, 'end_net.json')):
+            with open(os.path.join(self.report_dir, scene, 'pre_net.json'), encoding='utf-8') as f_pre:
+                json_pre = json.loads(f_pre.read())
+            with open(os.path.join(self.report_dir, scene, 'end_net.json'), encoding='utf-8') as f_end:
+                json_end = json.loads(f_end.read())
             send = json_end['send'] - json_pre['send']
             recv = json_end['recv'] - json_pre['recv']
         else:
-            send, recv = 0, 0    
+            send, recv = 0, 0
         flowSend = f'{round(float(send / 1024), 2)}MB'
         flowRecv = f'{round(float(recv / 1024), 2)}MB'
 
-        gpuData = self.readLog(scene=scene, filename='gpu.log')[1]
-        if gpuData.__len__() > 0:
-            gpu = round(sum(gpuData) / len(gpuData), 2)
-        else:
-            gpu = 0
-
-        mem_detail_flag = os.path.exists(os.path.join(self.report_dir,scene,'mem_java_heap.log'))
-        disk_flag = os.path.exists(os.path.join(self.report_dir,scene,'disk_free.log'))
-        thermal_flag = os.path.exists(os.path.join(self.report_dir,scene,'init_thermal_temp.json'))
-        cpu_core_flag = os.path.exists(os.path.join(self.report_dir,scene,'cpu0.log'))
+        mem_detail_flag = os.path.exists(os.path.join(self.report_dir, scene, 'mem_java_heap.log'))
+        disk_flag = os.path.exists(os.path.join(self.report_dir, scene, 'disk_free.log'))
+        thermal_flag = os.path.exists(os.path.join(self.report_dir, scene, 'init_thermal_temp.json'))
+        cpu_core_flag = os.path.exists(os.path.join(self.report_dir, scene, 'cpu0.log'))
         apm_dict = dict()
         apm_dict['app'] = app
         apm_dict['devices'] = devices
         apm_dict['platform'] = platform
         apm_dict['ctime'] = ctime
+        apm_dict['duration'] = duration
+        apm_dict['duration_label'] = duration_label
         apm_dict['cpuAppRate'] = cpuAppRate
         apm_dict['cpuSystemRate'] = cpuSystemRate
         apm_dict['totalPassAvg'] = totalPassAvg
         apm_dict['swapPassAvg'] = swapPassAvg
         apm_dict['fps'] = fpsAvg
         apm_dict['jank'] = jankAvg
+        apm_dict['big_jank'] = bigJankAvg
         apm_dict['flow_send'] = flowSend
         apm_dict['flow_recv'] = flowRecv
         apm_dict['batteryLevel'] = batteryLevel
@@ -1247,67 +1557,78 @@ class File:
             apm_dict['init_thermal_temp'] = init_thermal_temp
             apm_dict['current_thermal_temp'] = current_thermal_temp
 
+        stats = stats or self._read_scene_json(scene, 'perf_stats.json') or self.build_perf_stats(scene, Platform.Android)
+        self._merge_stats_into_apm_dict(apm_dict, stats, Platform.Android, scene)
+
         return apm_dict
 
     def _setiOSPerfs(self, scene):
-        """Aggregate APM data for iOS"""
-        
-        app = self.readJson(scene=scene).get('app')
-        devices = self.readJson(scene=scene).get('devices')
-        platform = self.readJson(scene=scene).get('platform')
-        ctime = self.readJson(scene=scene).get('ctime')
+        """Aggregate APM data for iOS (uses perf_stats.json when available)."""
+        meta = self.readJson(scene=scene)
+        app = meta.get('app')
+        devices = meta.get('devices')
+        platform = meta.get('platform')
+        ctime = meta.get('ctime')
+        duration_label = meta.get('duration_label', '')
+        duration = meta.get('duration', '')
 
-        cpuAppData = self.readLog(scene=scene, filename=f'cpu_app.log')[1]
-        cpuSystemData = self.readLog(scene=scene, filename=f'cpu_sys.log')[1]
-        if cpuAppData.__len__() > 0 and cpuSystemData.__len__() > 0:
-            cpuAppRate = f'{round(sum(cpuAppData) / len(cpuAppData), 2)}%'
-            cpuSystemRate = f'{round(sum(cpuSystemData) / len(cpuSystemData), 2)}%'
+        stats = self._read_scene_json(scene, 'perf_stats.json')
+        if stats:
+            cpuAppRate = f"{stats.get('cpu_app', {}).get('avg', 0)}%"
+            cpuSystemRate = f"{stats.get('cpu_sys', {}).get('avg', 0)}%"
+            totalPassAvg = f"{stats.get('mem_total', {}).get('avg', 0)}MB"
+            fps_avg = stats.get('fps', {}).get('avg', 0)
+            fpsAvg = f'{int(fps_avg)}HZ/s' if fps_avg else 0
+            gpu = stats.get('gpu', {}).get('avg', 0)
+            flowSendData = stats.get('upflow', {}).get('sum', 0)
+            flowRecvData = stats.get('downflow', {}).get('sum', 0)
+            flowSend = f'{round(float(flowSendData / 1024), 2)}MB' if flowSendData else 0
+            flowRecv = f'{round(float(flowRecvData / 1024), 2)}MB' if flowRecvData else 0
         else:
-            cpuAppRate, cpuSystemRate = 0, 0
+            cpuAppData = self.readLog(scene=scene, filename='cpu_app.log')[1]
+            cpuSystemData = self.readLog(scene=scene, filename='cpu_sys.log')[1]
+            if cpuAppData and cpuSystemData:
+                cpuAppRate = f'{round(sum(cpuAppData) / len(cpuAppData), 2)}%'
+                cpuSystemRate = f'{round(sum(cpuSystemData) / len(cpuSystemData), 2)}%'
+            else:
+                cpuAppRate, cpuSystemRate = 0, 0
 
-        totalPassData = self.readLog(scene=scene, filename='mem_total.log')[1]
-        if totalPassData.__len__() > 0:
-            totalPassAvg = f'{round(sum(totalPassData) / len(totalPassData), 2)}MB'
-        else:
-            totalPassAvg = 0
+            totalPassData = self.readLog(scene=scene, filename='mem_total.log')[1]
+            totalPassAvg = f'{round(sum(totalPassData) / len(totalPassData), 2)}MB' if totalPassData else 0
 
-        fpsData = self.readLog(scene=scene, filename='fps.log')[1]
-        if fpsData.__len__() > 0:
-            fpsAvg = f'{int(sum(fpsData) / len(fpsData))}HZ/s'
-        else:
-            fpsAvg = 0
+            fpsData = self.readLog(scene=scene, filename='fps.log')[1]
+            fpsAvg = f'{int(sum(fpsData) / len(fpsData))}HZ/s' if fpsData else 0
 
-        flowSendData = self.readLog(scene=scene, filename='upflow.log')[1]
-        flowRecvData = self.readLog(scene=scene, filename='downflow.log')[1]
-        if flowSendData.__len__() > 0:
-            flowSend = f'{round(float(sum(flowSendData) / 1024), 2)}MB'
-            flowRecv = f'{round(float(sum(flowRecvData) / 1024), 2)}MB'
-        else:
-            flowSend, flowRecv = 0, 0    
+            flowSendData = self.readLog(scene=scene, filename='upflow.log')[1]
+            flowRecvData = self.readLog(scene=scene, filename='downflow.log')[1]
+            if flowSendData:
+                flowSend = f'{round(float(sum(flowSendData) / 1024), 2)}MB'
+                flowRecv = f'{round(float(sum(flowRecvData) / 1024), 2)}MB'
+            else:
+                flowSend, flowRecv = 0, 0
+
+            gpuData = self.readLog(scene=scene, filename='gpu.log')[1]
+            gpu = round(sum(gpuData) / len(gpuData), 2) if gpuData else 0
 
         batteryTemlData = self.readLog(scene=scene, filename='battery_tem.log')[1]
         batteryCurrentData = self.readLog(scene=scene, filename='battery_current.log')[1]
         batteryVoltageData = self.readLog(scene=scene, filename='battery_voltage.log')[1]
         batteryPowerData = self.readLog(scene=scene, filename='battery_power.log')[1]
-        if batteryTemlData.__len__() > 0:
+        if batteryTemlData:
             batteryTeml = int(batteryTemlData[-1])
             batteryCurrent = int(sum(batteryCurrentData) / len(batteryCurrentData))
             batteryVoltage = int(sum(batteryVoltageData) / len(batteryVoltageData))
             batteryPower = int(sum(batteryPowerData) / len(batteryPowerData))
         else:
-            batteryTeml,  batteryCurrent , batteryVoltage, batteryPower = 0, 0, 0, 0 
-
-        gpuData = self.readLog(scene=scene, filename='gpu.log')[1]
-        if gpuData.__len__() > 0:
-            gpu = round(sum(gpuData) / len(gpuData), 2)
-        else:
-            gpu = 0    
+            batteryTeml, batteryCurrent, batteryVoltage, batteryPower = 0, 0, 0, 0    
         disk_flag = os.path.exists(os.path.join(self.report_dir,scene,'disk_free.log'))
         apm_dict = dict()
         apm_dict['app'] = app
         apm_dict['devices'] = devices
         apm_dict['platform'] = platform
         apm_dict['ctime'] = ctime
+        apm_dict['duration'] = duration
+        apm_dict['duration_label'] = duration_label
         apm_dict['cpuAppRate'] = cpuAppRate
         apm_dict['cpuSystemRate'] = cpuSystemRate
         apm_dict['totalPassAvg'] = totalPassAvg
@@ -1323,6 +1644,8 @@ class File:
         apm_dict['batteryPower'] = batteryPower
         apm_dict['gpu'] = gpu
         apm_dict['disk_flag'] = disk_flag
+        stats = stats or self._read_scene_json(scene, 'perf_stats.json') or self.build_perf_stats(scene, Platform.iOS)
+        self._merge_stats_into_apm_dict(apm_dict, stats, Platform.iOS, scene)
         return apm_dict
 
     def _setpkPerfs(self, scene):

@@ -27,8 +27,6 @@ function Find-GitBash {
         "$env:ProgramFiles\Git\usr\bin\bash.exe",
         "${env:ProgramFiles(x86)}\Git\bin\bash.exe",
         "$env:LOCALAPPDATA\Programs\Git\bin\bash.exe",
-        "D:\workDir\Git\bin\bash.exe",
-        "D:\workDir\Git\usr\bin\bash.exe",
         "C:\Git\bin\bash.exe"
     )
     foreach ($c in $candidates) {
