@@ -95,7 +95,13 @@ packages = ["solox"]
 include-package-data = true
 
 [tool.setuptools.package-data]
-solox = ["templates/*", "static/**/*", "public/scrcpy/*", "public/ffmpeg/**/*"]
+solox = [
+    "templates/*",
+    "static/**/*",
+    "public/scrcpy/*",
+    "public/ffmpeg/**/*",
+    "public/android_agent/**/*",
+]
 
 [tool.setuptools_scm]
 write_to = "solox/_version.py"
