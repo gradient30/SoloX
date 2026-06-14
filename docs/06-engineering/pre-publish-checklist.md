@@ -26,7 +26,7 @@ bash scripts/release_gate.sh
 | 项 | 状态 |
 |----|------|
 | 根目录无 `.log` / `err.txt` / 个人脚本残留 | ✅ 已清理 |
-| `.gitignore` 覆盖 runtime/report/密钥目录 | ✅ |
+| `.gitignore` 覆盖 runtime/report/密钥/ffmpeg 二进制 | ✅ |
 | `dev.ps1` 无本机绝对路径 | ✅ |
 | Git 文档改为上游 Fork 工作流 | ✅ |
 | 冗余 MD 已删除（system-design 等）；plans 保留中文过程文档 | ✅ |
@@ -72,7 +72,7 @@ bash scripts/release_gate.sh
 ## 6. 推送 GitHub 前最后一遍
 
 ```bash
-git status                    # 无 report/runtime/.env
+git status                    # 无 report/runtime 产物/.env/ffmpeg 二进制
 bash scripts/release_gate.sh
 git push origin main          # 或你的发布分支
 ```

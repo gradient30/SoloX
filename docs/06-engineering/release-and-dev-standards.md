@@ -46,7 +46,10 @@ Windows：`.\scripts\dev.ps1 start`（需 Git for Windows）。
 
 已在 `.gitignore` 覆盖，发布前自查：
 
-- `runtime/logs/`、`runtime/pids/`、根目录 `.solox.*`
+- `runtime/logs/`、`runtime/pids/`、`runtime/cache/`（仅 `.gitkeep` 入库）
+- `runtime/*.py`（个人临时启动脚本，如 `start_solox_service_50005.py`）
+- `solox/public/ffmpeg/bin/`（本地 ffmpeg 二进制；可用 `SOLOX_FFMPEG` 或 PATH）
+- 根目录 `.solox.*`
 - `report/`、`adblog/`、`solox/logs/`
 - `.env`、`.venv/`、`.claude/`、`err.txt`
 - `build/`、`dist/`、`*.egg-info/`、`.pytest_cache/`

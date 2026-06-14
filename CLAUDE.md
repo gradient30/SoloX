@@ -112,7 +112,8 @@ API request → `FPS.getObject()` (singleton) → `FPSMonitor.start()` → `Surf
 
 ### Project Layout
 - `scripts/` — dev, release gate, packaging (see `scripts/README.md`)
-- `runtime/` — dev log/PID (`runtime/logs`, `runtime/pids`); gitignored
+- `runtime/` — dev log/PID/cache (`runtime/logs`, `runtime/pids`, `runtime/cache`); gitignored except `.gitkeep`
+- `solox/public/ffmpeg/bin/` — optional ffmpeg for recording remux; not in git (see `ffmpeg/README.md`)
 - `report/` — APM session logs and recordings; gitignored
 - `docs/06-engineering/` — directory, dev vs release, pre-publish checklist
 

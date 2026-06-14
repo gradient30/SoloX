@@ -33,13 +33,17 @@ SoloX/
 | `public/common.py` | 设备、报告 I/O、Scrcpy、Logcat |
 | `templates/` | Jinja2 前端 |
 | `public/scrcpy/` | 内置 scrcpy 二进制（Windows） |
+| `public/ffmpeg/` | 可选 ffmpeg（录屏 remux；二进制不入库，见目录 README） |
 
 ## 日志与运行时产物
 
 | 位置 | 内容 | 版本控制 |
 |------|------|----------|
-| `runtime/logs/solox-dev.log` | `dev.sh start` 服务日志 | 忽略 |
-| `runtime/pids/solox.pid` | 开发服务器 PID | 忽略 |
+| `runtime/logs/solox-dev.log` | `dev.sh start` 服务日志 | 忽略（保留 `logs/.gitkeep`） |
+| `runtime/pids/solox.pid` | 开发服务器 PID | 忽略（保留 `pids/.gitkeep`） |
+| `runtime/cache/` | Android 应用名持久化缓存（按设备） | 忽略（保留 `cache/.gitkeep`） |
+| `runtime/*.py` | 个人临时启动脚本 | 忽略 |
+| `solox/public/ffmpeg/bin/` | 可选内置 ffmpeg（录屏 remux） | 忽略二进制；见 `ffmpeg/README.md` |
 | `report/apm_*/` | 单次采集的 `*.log`、`result.json`、录屏 | 忽略 |
 | `solox/logs/` | 应用内部日志目录 | 忽略 |
 | `adblog/` | Logcat 导出 | 忽略 |

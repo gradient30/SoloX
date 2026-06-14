@@ -138,10 +138,17 @@ report/
 .log
 .xls
 adblog/
-runtime/logs/
-runtime/pids/
-runtime/cache/android-package-labels.json
-runtime/cache/android-package-labels.json.*.tmp
+# Local dev runtime (see runtime/README.md) — keep README + .gitkeep only
+runtime/logs/*
+!runtime/logs/.gitkeep
+runtime/pids/*
+!runtime/pids/.gitkeep
+runtime/cache/*
+!runtime/cache/.gitkeep
+runtime/*.py
+runtime/*.log
+runtime/*.stderr.log
+runtime/*.stdout.log
 .solox.pid
 .solox.log
 .solox-*.log
@@ -149,3 +156,12 @@ runtime/cache/android-package-labels.json.*.tmp
 .solox-*.out.log
 err.txt
 .claude/
+# Optional bundled ffmpeg binaries (~300MB; install locally or set SOLOX_FFMPEG)
+solox/public/ffmpeg/bin/*
+!solox/public/ffmpeg/bin/.gitkeep
+solox/public/ffmpeg/ffmpeg
+solox/public/ffmpeg/ffmpeg.exe
+solox/public/ffmpeg/ffprobe
+solox/public/ffmpeg/ffprobe.exe
+solox/public/ffmpeg/ffplay
+solox/public/ffmpeg/ffplay.exe
