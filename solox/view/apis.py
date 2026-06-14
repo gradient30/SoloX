@@ -1352,7 +1352,12 @@ def weaknet_capabilities():
             return {'status': 1, 'simulation_supported': False, 'mode': 'unsupported',
                     'msg': 'weak network simulation is Android-only; iOS use Network Link Conditioner on macOS host'}
         device_id = d.getIdbyDevice(device, platform)
-        cap = WeakNetworkManager.get_capabilities(device_id)
+        engine = request.values.get('engine')
+        cap = (
+            WeakNetworkManager.get_capabilities(device_id, engine=engine)
+            if engine
+            else WeakNetworkManager.get_capabilities(device_id)
+        )
         return {'status': 1, **cap}
     except Exception as e:
         logger.exception(e)
@@ -1375,19 +1380,36 @@ def weaknet_status():
 def weaknet_apply():
     platform = method._request(request, 'platform')
     device = method._request(request, 'device')
-    preset = request.args.get('preset') or request.form.get('preset') or ''
+    preset = request.values.get('preset') or ''
+    engine = request.values.get('engine') or 'auto'
+    target_package = request.values.get('target_package') or None
     try:
         if platform != Platform.Android:
             return {'status': 0, 'msg': 'Android only'}
         device_id = d.getIdbyDevice(device, platform)
         if preset and preset != 'custom':
-            data = WeakNetworkManager.apply_preset(device_id, preset)
+            data = WeakNetworkManager.apply_preset(
+                device_id,
+                preset,
+                engine=engine,
+                target_package=target_package,
+            )
         else:
-            delay_ms = int(request.args.get('delay_ms', 0) or request.form.get('delay_ms', 0) or 0)
-            jitter_ms = int(request.args.get('jitter_ms', 0) or request.form.get('jitter_ms', 0) or 0)
-            loss_pct = float(request.args.get('loss_pct', 0) or request.form.get('loss_pct', 0) or 0)
-            rate = request.args.get('rate') or request.form.get('rate') or None
-            iface = request.args.get('interface') or request.form.get('interface') or None
+            def optional_number(name, converter):
+                raw = request.values.get(name)
+                return None if raw is None or raw == '' else converter(raw)
+
+            delay_ms = int(request.values.get('delay_ms', 0) or 0)
+            jitter_ms = int(request.values.get('jitter_ms', 0) or 0)
+            loss_pct = float(request.values.get('loss_pct', 0) or 0)
+            rate = request.values.get('rate') or None
+            iface = request.values.get('interface') or None
+            raw_ip_filter = request.values.get('ip_filter') or ''
+            ip_filter = tuple(
+                value.strip()
+                for value in raw_ip_filter.split(',')
+                if value.strip()
+            )
             data = WeakNetworkManager.apply_custom(
                 device_id,
                 preset_id='custom',
@@ -1396,6 +1418,24 @@ def weaknet_apply():
                 loss_pct=loss_pct,
                 rate=rate,
                 interface=iface,
+                engine=engine,
+                target_package=target_package,
+                uplink_delay_ms=optional_number('uplink_delay_ms', int),
+                uplink_jitter_ms=optional_number('uplink_jitter_ms', int),
+                uplink_loss_pct=optional_number('uplink_loss_pct', float),
+                uplink_rate=request.values.get('uplink_rate') or None,
+                uplink_burst_loss_pct=float(
+                    request.values.get('uplink_burst_loss_pct', 0) or 0
+                ),
+                downlink_delay_ms=optional_number('downlink_delay_ms', int),
+                downlink_jitter_ms=optional_number('downlink_jitter_ms', int),
+                downlink_loss_pct=optional_number('downlink_loss_pct', float),
+                downlink_rate=request.values.get('downlink_rate') or None,
+                downlink_burst_loss_pct=float(
+                    request.values.get('downlink_burst_loss_pct', 0) or 0
+                ),
+                protocol=request.values.get('protocol') or 'all',
+                ip_filter=ip_filter,
             )
         return {'status': 1, **data}
     except Exception as e:
@@ -1409,7 +1449,12 @@ def weaknet_clear():
     device = method._request(request, 'device')
     try:
         device_id = d.getIdbyDevice(device, platform)
-        data = WeakNetworkManager.clear(device_id)
+        engine = request.values.get('engine')
+        data = (
+            WeakNetworkManager.clear(device_id, engine=engine)
+            if engine
+            else WeakNetworkManager.clear(device_id)
+        )
         return data
     except Exception as e:
         logger.exception(e)
@@ -1426,6 +1471,48 @@ def weaknet_probe():
         device_id = d.getIdbyDevice(device, platform)
         probe = WeakNetworkManager.probe(device_id, host=host, count=count)
         return {'status': 1, 'probe': probe.to_dict()}
+    except Exception as e:
+        logger.exception(e)
+        return {'status': 0, 'msg': str(e)}
+
+
+@api.route('/apm/weaknet/agent/status', methods=['post', 'get'])
+def weaknet_agent_status():
+    platform = method._request(request, 'platform')
+    device = method._request(request, 'device')
+    try:
+        if platform != Platform.Android:
+            return {'status': 0, 'msg': 'Android only'}
+        device_id = d.getIdbyDevice(device, platform)
+        return {'status': 1, **WeakNetworkManager.agent_status(device_id)}
+    except Exception as e:
+        logger.exception(e)
+        return {'status': 0, 'msg': str(e)}
+
+
+@api.route('/apm/weaknet/agent/install', methods=['post', 'get'])
+def weaknet_agent_install():
+    platform = method._request(request, 'platform')
+    device = method._request(request, 'device')
+    try:
+        if platform != Platform.Android:
+            return {'status': 0, 'msg': 'Android only'}
+        device_id = d.getIdbyDevice(device, platform)
+        return {'status': 1, **WeakNetworkManager.agent_install(device_id)}
+    except Exception as e:
+        logger.exception(e)
+        return {'status': 0, 'msg': str(e)}
+
+
+@api.route('/apm/weaknet/agent/prepare', methods=['post', 'get'])
+def weaknet_agent_prepare():
+    platform = method._request(request, 'platform')
+    device = method._request(request, 'device')
+    try:
+        if platform != Platform.Android:
+            return {'status': 0, 'msg': 'Android only'}
+        device_id = d.getIdbyDevice(device, platform)
+        return {'status': 1, **WeakNetworkManager.agent_prepare(device_id)}
     except Exception as e:
         logger.exception(e)
         return {'status': 0, 'msg': str(e)}

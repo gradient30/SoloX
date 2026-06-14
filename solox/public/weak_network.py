@@ -9,7 +9,12 @@ from dataclasses import dataclass
 from typing import Any
 
 from solox.public.adb import adb
-from solox.public.weaknet.models import WeakNetworkProfile
+from solox.public.weaknet.agent import AndroidAgentController
+from solox.public.weaknet.models import (
+    DirectionProfile,
+    WeakNetworkProfile,
+    parse_rate_kbps,
+)
 from solox.public.weaknet.root_tc import RootTcWeakNetworkEngine
 
 # PerfDog-style presets: delay / jitter / loss / egress rate limit
@@ -85,6 +90,7 @@ WEAKNET_PRESETS: dict[str, dict[str, Any]] = {
 
 _lock = threading.Lock()
 _active: dict[str, dict[str, Any]] = {}
+_active_engines: dict[str, str] = {}
 
 
 @dataclass
@@ -116,6 +122,13 @@ class WeakNetworkManager:
     """Apply Linux tc/netem on device (root) or run latency probes (all devices)."""
 
     DEFAULT_PROBE_HOST = '8.8.8.8'
+    _agent_controller: AndroidAgentController | None = None
+
+    @classmethod
+    def _agent(cls) -> AndroidAgentController:
+        if cls._agent_controller is None:
+            cls._agent_controller = AndroidAgentController()
+        return cls._agent_controller
 
     @classmethod
     def _root_engine(cls) -> RootTcWeakNetworkEngine:
@@ -147,23 +160,81 @@ class WeakNetworkManager:
         return items
 
     @classmethod
-    def get_capabilities(cls, device_id: str) -> dict[str, Any]:
-        return cls._root_engine().capabilities(device_id)
+    def get_capabilities(
+        cls,
+        device_id: str,
+        engine: str = 'auto',
+    ) -> dict[str, Any]:
+        cls._validate_engine(engine)
+        root = cls._root_engine().capabilities(device_id)
+        agent = cls._agent_capabilities(device_id)
+        with _lock:
+            active_engine = _active_engines.get(device_id)
+        result = {
+            **root,
+            'simulation_supported': bool(
+                root.get('simulation_supported')
+                or agent.get('simulation_supported')
+            ),
+            'agent': agent,
+            'available_engines': [
+                name
+                for name, supported in (
+                    ('agent', agent.get('simulation_supported')),
+                    ('root_tc', root.get('simulation_supported')),
+                )
+                if supported
+            ],
+            'active_engine': active_engine,
+        }
+        if active_engine == 'agent':
+            result['mode'] = 'simulation'
+            result['engine'] = 'agent'
+        elif root.get('mode') == 'simulation':
+            result['engine'] = 'root_tc'
+        return result
 
     @classmethod
     def get_status(cls, device_id: str) -> dict[str, Any]:
-        return cls._root_engine().status(device_id)
+        with _lock:
+            active_engine = _active_engines.get(device_id)
+        if active_engine == 'agent':
+            status = cls._agent().status(device_id)
+            return {
+                **status,
+                'engine': 'agent',
+                'active_engine': 'agent',
+                'active': status.get('state') == 'active',
+            }
+        status = cls._root_engine().status(device_id)
+        if status.get('active'):
+            status['engine'] = 'root_tc'
+            status['active_engine'] = 'root_tc'
+        return status
 
     @classmethod
-    def apply_preset(cls, device_id: str, preset_id: str) -> dict[str, Any]:
+    def apply_preset(
+        cls,
+        device_id: str,
+        preset_id: str,
+        *,
+        engine: str = 'auto',
+        target_package: str | None = None,
+    ) -> dict[str, Any]:
         if preset_id == 'off':
-            return cls.clear(device_id)
+            return cls.clear(device_id, engine=engine)
         if preset_id not in WEAKNET_PRESETS:
             raise ValueError(f'unknown preset: {preset_id}')
         cfg = dict(WEAKNET_PRESETS[preset_id])
         cfg.pop('label_cn', None)
         cfg.pop('label_en', None)
-        return cls.apply_custom(device_id, preset_id=preset_id, **cfg)
+        return cls.apply_custom(
+            device_id,
+            preset_id=preset_id,
+            engine=engine,
+            target_package=target_package,
+            **cfg,
+        )
 
     @classmethod
     def apply_custom(
@@ -175,23 +246,188 @@ class WeakNetworkManager:
         loss_pct: float = 0,
         rate: str | None = None,
         interface: str | None = None,
+        engine: str = 'auto',
+        target_package: str | None = None,
+        uplink_delay_ms: int | None = None,
+        uplink_jitter_ms: int | None = None,
+        uplink_loss_pct: float | None = None,
+        uplink_rate: str | int | float | None = None,
+        uplink_burst_loss_pct: float = 0,
+        downlink_delay_ms: int | None = None,
+        downlink_jitter_ms: int | None = None,
+        downlink_loss_pct: float | None = None,
+        downlink_rate: str | int | float | None = None,
+        downlink_burst_loss_pct: float = 0,
+        protocol: str = 'all',
+        ip_filter: tuple[str, ...] | list[str] | None = None,
     ) -> dict[str, Any]:
-        profile = WeakNetworkProfile.from_legacy(
+        cls._validate_engine(engine)
+        profile = cls._build_profile(
             delay_ms=delay_ms,
             jitter_ms=jitter_ms,
             loss_pct=loss_pct,
             rate=rate,
+            uplink_delay_ms=uplink_delay_ms,
+            uplink_jitter_ms=uplink_jitter_ms,
+            uplink_loss_pct=uplink_loss_pct,
+            uplink_rate=uplink_rate,
+            uplink_burst_loss_pct=uplink_burst_loss_pct,
+            downlink_delay_ms=downlink_delay_ms,
+            downlink_jitter_ms=downlink_jitter_ms,
+            downlink_loss_pct=downlink_loss_pct,
+            downlink_rate=downlink_rate,
+            downlink_burst_loss_pct=downlink_burst_loss_pct,
+            protocol=protocol,
+            ip_filter=ip_filter,
         )
-        return cls._root_engine().apply(
-            device_id,
-            profile,
-            preset_id=preset_id,
-            interface=interface,
-        )
+        selected = engine
+        if selected == 'auto':
+            agent = cls._agent_capabilities(device_id)
+            if agent.get('simulation_supported') and target_package:
+                selected = 'agent'
+            else:
+                root = cls._root_engine().capabilities(device_id)
+                if root.get('simulation_supported'):
+                    selected = 'root_tc'
+                elif agent.get('simulation_supported'):
+                    raise ValueError('target package is required for Agent mode')
+                elif agent.get('installed') and agent.get('state') == 'permission_required':
+                    raise RuntimeError('Android Agent VPN authorization is required')
+                else:
+                    raise RuntimeError(
+                        'weak network simulation requires an authorized Android Agent '
+                        'or root tc/netem support'
+                    )
+
+        if selected == 'agent':
+            if not target_package or not target_package.strip():
+                raise ValueError('target package is required for Agent mode')
+            capabilities = cls._agent_capabilities(device_id)
+            if not capabilities.get('installed'):
+                raise RuntimeError('Android Agent is not installed')
+            if not capabilities.get('reachable'):
+                raise RuntimeError('Android Agent is not reachable')
+            if not capabilities.get('simulation_supported'):
+                if capabilities.get('state') == 'permission_required':
+                    raise RuntimeError('Android Agent VPN authorization is required')
+                raise RuntimeError('Android Agent is not ready')
+            result = cls._agent().apply(
+                device_id,
+                target_package.strip(),
+                profile,
+            )
+        else:
+            result = cls._root_engine().apply(
+                device_id,
+                profile,
+                preset_id=preset_id,
+                interface=interface,
+            )
+            result.update({
+                'engine': 'root_tc',
+                'active': True,
+                'profile': profile.to_dict(),
+            })
+
+        with _lock:
+            _active_engines[device_id] = selected
+        return result
 
     @classmethod
-    def clear(cls, device_id: str) -> dict[str, Any]:
-        return cls._root_engine().clear(device_id)
+    def clear(
+        cls,
+        device_id: str,
+        *,
+        engine: str = 'auto',
+    ) -> dict[str, Any]:
+        cls._validate_engine(engine)
+        with _lock:
+            active_engine = _active_engines.get(device_id)
+        selected = active_engine if engine == 'auto' and active_engine else engine
+        if selected == 'agent':
+            result = cls._agent().clear(device_id)
+        else:
+            result = cls._root_engine().clear(device_id)
+            result['engine'] = 'root_tc'
+        with _lock:
+            _active_engines.pop(device_id, None)
+        return result
+
+    @classmethod
+    def agent_status(cls, device_id: str) -> dict[str, Any]:
+        return cls._agent().capabilities(device_id)
+
+    @classmethod
+    def agent_install(cls, device_id: str) -> dict[str, Any]:
+        return cls._agent().install(device_id)
+
+    @classmethod
+    def agent_prepare(cls, device_id: str) -> dict[str, Any]:
+        return cls._agent().prepare(device_id)
+
+    @classmethod
+    def _agent_capabilities(cls, device_id: str) -> dict[str, Any]:
+        try:
+            return cls._agent().capabilities(device_id)
+        except Exception as exc:
+            return {
+                'apk_available': False,
+                'installed': False,
+                'reachable': False,
+                'simulation_supported': False,
+                'state': 'error',
+                'error': str(exc),
+            }
+
+    @staticmethod
+    def _validate_engine(engine: str) -> None:
+        if engine not in ('auto', 'agent', 'root_tc'):
+            raise ValueError(f'unsupported weak network engine: {engine}')
+
+    @staticmethod
+    def _build_profile(
+        *,
+        delay_ms: int,
+        jitter_ms: int,
+        loss_pct: float,
+        rate: str | int | float | None,
+        uplink_delay_ms: int | None,
+        uplink_jitter_ms: int | None,
+        uplink_loss_pct: float | None,
+        uplink_rate: str | int | float | None,
+        uplink_burst_loss_pct: float,
+        downlink_delay_ms: int | None,
+        downlink_jitter_ms: int | None,
+        downlink_loss_pct: float | None,
+        downlink_rate: str | int | float | None,
+        downlink_burst_loss_pct: float,
+        protocol: str,
+        ip_filter: tuple[str, ...] | list[str] | None,
+    ) -> WeakNetworkProfile:
+        uplink = DirectionProfile(
+            delay_ms=delay_ms if uplink_delay_ms is None else uplink_delay_ms,
+            jitter_ms=jitter_ms if uplink_jitter_ms is None else uplink_jitter_ms,
+            loss_pct=loss_pct if uplink_loss_pct is None else uplink_loss_pct,
+            bandwidth_kbps=parse_rate_kbps(
+                rate if uplink_rate is None else uplink_rate
+            ),
+            burst_loss_pct=uplink_burst_loss_pct,
+        )
+        downlink = DirectionProfile(
+            delay_ms=delay_ms if downlink_delay_ms is None else downlink_delay_ms,
+            jitter_ms=jitter_ms if downlink_jitter_ms is None else downlink_jitter_ms,
+            loss_pct=loss_pct if downlink_loss_pct is None else downlink_loss_pct,
+            bandwidth_kbps=parse_rate_kbps(
+                rate if downlink_rate is None else downlink_rate
+            ),
+            burst_loss_pct=downlink_burst_loss_pct,
+        )
+        return WeakNetworkProfile(
+            uplink=uplink,
+            downlink=downlink,
+            protocol=protocol,
+            ip_filter=tuple(ip_filter or ()),
+        )
 
     @classmethod
     def probe(cls, device_id: str, host: str | None = None, count: int = 10) -> ProbeResult:
