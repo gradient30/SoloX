@@ -23,6 +23,46 @@ DEFAULT_ADB_PATH = {
 }
 
 
+def _windows_hidden_process_kwargs():
+    if platform.system() != "Windows":
+        return {}
+    startupinfo = subprocess.STARTUPINFO()
+    startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+    startupinfo.wShowWindow = 0
+    return {
+        "startupinfo": startupinfo,
+        "creationflags": getattr(subprocess, "CREATE_NO_WINDOW", 0),
+    }
+
+
+def _popen_hidden(cmd, **kwargs):
+    kwargs.setdefault("stdin", subprocess.DEVNULL)
+    kwargs.update(_windows_hidden_process_kwargs())
+    return subprocess.Popen(cmd, **kwargs)
+
+
+def _run_hidden(cmd):
+    proc = _popen_hidden(
+        cmd,
+        shell=True,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
+    return proc.wait()
+
+
+def _read_hidden(cmd, split_lines=False):
+    proc = _popen_hidden(
+        cmd,
+        shell=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
+    stdout, _ = proc.communicate()
+    text = stdout.decode("utf-8", errors="ignore") if isinstance(stdout, bytes) else stdout
+    return text.splitlines(True) if split_lines else text
+
+
 def make_file_executable(file_path):
     """
     If the path does not have executable permissions, execute chmod +x
@@ -49,10 +89,7 @@ def builtin_adb_path():
     system = platform.system()
     machine = platform.machine()
     adb_path = DEFAULT_ADB_PATH.get('{}-{}'.format(system, machine))
-    proc = subprocess.Popen('adb devices', stdout=subprocess.PIPE, shell=True)
-    result = proc.stdout.read()
-    if not isinstance(result, str):
-        result = str(result, 'utf-8')
+    result = _read_hidden('adb devices')
     if result and "command not found" not in result:
         adb_path = "adb"
         return adb_path
@@ -80,7 +117,7 @@ class ADB(object):
         started = telemetry.begin_adb()
         try:
             run_cmd = f'{self.adb_path} -s {deviceId} shell {cmd}'
-            result = subprocess.Popen(
+            result = _popen_hidden(
                 run_cmd,
                 shell=True,
                 stdout=subprocess.PIPE,
@@ -94,7 +131,7 @@ class ADB(object):
         started = telemetry.begin_adb()
         try:
             run_cmd = f'{self.adb_path} -s {deviceId} {cmd}'
-            result = os.system(run_cmd)
+            result = _run_hidden(run_cmd)
             return result
         finally:
             telemetry.end_adb(started)
@@ -103,31 +140,23 @@ class ADB(object):
         started = telemetry.begin_adb()
         try:
             run_cmd = f'{self.adb_path} {cmd}'
-            result = os.system(run_cmd)
+            result = _run_hidden(run_cmd)
             return result
         finally:
             telemetry.end_adb(started)
 
     def popen_readlines(self, cmd):
         started = telemetry.begin_adb()
-        pipe = None
         try:
-            pipe = os.popen(cmd)
-            return pipe.readlines()
+            return _read_hidden(cmd, split_lines=True)
         finally:
-            if pipe is not None:
-                pipe.close()
             telemetry.end_adb(started)
 
     def popen_read(self, cmd):
         started = telemetry.begin_adb()
-        pipe = None
         try:
-            pipe = os.popen(cmd)
-            return pipe.read()
+            return _read_hidden(cmd)
         finally:
-            if pipe is not None:
-                pipe.close()
             telemetry.end_adb(started)
 
 

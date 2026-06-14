@@ -30,11 +30,10 @@
     <div class="card-header">
         <h3 class="card-title"></h3>
         <div class="card-actions btn-actions">
-            <button type="button" class="btn btn-remove-all disabled" data-bs-toggle="modal" data-bs-target="#modal-danger-selected">
+            <button type="button" class="btn btn-remove-all disabled" id="btn-bulk-delete">
                 <svg t="1635400029781" class="icon" viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg" p-id="17941" width="200" height="200"><path d="M877.79 217.23H624.22c0-36.02-29.2-65.23-65.23-65.23H465c-36.02 0-65.23 29.2-65.23 65.23H146.21c-18.01 0-32.61 14.6-32.61 32.61 0 18.01 14.6 32.61 32.61 32.61h49.75l14.43 528.79c1.06 33.91 25.21 60.76 54.64 60.76h493.93c29.43 0 53.58-26.86 54.64-60.76l14.48-528.79h49.7c18.01 0 32.61-14.6 32.61-32.61 0.01-18.01-14.59-32.61-32.6-32.61zM364.24 748.41c-17.98 0.82-33.4-10.01-34.44-24.19L308 427.56c-1.04-14.18 12.69-26.34 30.67-27.16 17.98-0.82 33.4 10.01 34.45 24.19l21.8 296.67c1.04 14.17-12.7 26.33-30.68 27.15z m180.37-25.42c0 14.2-14.6 25.72-32.61 25.72-18.01 0-32.61-11.51-32.61-25.72V425.83c0-14.2 14.6-25.72 32.61-25.72 18.01 0 32.61 11.51 32.61 25.72v297.16zM716 427.56l-21.8 296.67c-1.04 14.18-16.46 25.01-34.44 24.19-17.98-0.82-31.71-12.98-30.67-27.16l21.8-296.67c1.04-14.18 16.46-25.01 34.44-24.19 17.98 0.82 31.72 12.98 30.67 27.16z" fill="#FF5D5D" p-id="17942"></path></svg>
                 {% if lan == 'cn' %} 删除 {% else %} Delete {% endif %}
             </button>
-            </a>
         </div>
     </div>
     <div class="table-responsive" style="font-size: 15px;">
@@ -140,9 +139,9 @@
                             </a>
                         </div>
                         <div class="col">
-                            <a  id="remove_confirm" class="btn btn-danger w-100">
+                            <button type="button" id="remove_confirm" class="btn btn-danger w-100">
                             {% if lan == 'cn' %} 确认 {% else %} Confirm {% endif %}
-                            </a>
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -170,9 +169,9 @@
                             </a>
                         </div>
                         <div class="col">
-                            <a onclick="removeCheckedData()"  class="btn btn-danger w-100">
+                            <button type="button" id="remove_selected_confirm" class="btn btn-danger w-100">
                             {% if lan == 'cn' %} 确认 {% else %} Confirm {% endif %}
-                            </a>
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -182,14 +181,16 @@
 </div>
 
 <div class="modal modal-blur fade" id="modal-video-player" tabindex="-1" role="dialog" aria-hidden="true">
-    <div class="modal-dialog modal-lg modal-dialog-centered" role="document">
+    <div class="modal-dialog modal-xl modal-dialog-centered" role="document">
         <div class="modal-content">
             <div class="modal-header">
                 <h5 class="modal-title" id="video-player-title">{% if lan == 'cn' %}录屏回放{% else %}Screen Recording{% endif %}</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body">
-                <video id="report-video" style="width:100%;max-height:65vh;background:#000;border-radius:4px;" preload="metadata" playsinline></video>
+                <div id="video-player-stage" class="d-flex align-items-center justify-content-center" style="width:100%;min-height:240px;max-height:78vh;background:#000;border-radius:4px;overflow:hidden;">
+                    <video id="report-video" style="display:block;max-width:100%;max-height:78vh;width:auto;height:auto;object-fit:contain;" preload="metadata" playsinline></video>
+                </div>
                 <div class="mt-3">
                     <div class="d-flex align-items-center flex-wrap gap-2">
                         <button type="button" class="btn btn-primary btn-sm" id="video-btn-play">
@@ -229,6 +230,17 @@
     var pageSize = 20;
     var reportLan = '{{ lan }}';
     var isCn = reportLan === 'cn';
+    var pendingDeleteScene = null;
+    var bulkDeleteRunning = false;
+
+    function hideReportModal(modalId) {
+        var el = document.getElementById(modalId);
+        if (!el) {
+            return;
+        }
+        var modal = bootstrap.Modal.getInstance(el) || bootstrap.Modal.getOrCreateInstance(el);
+        modal.hide();
+    }
 
     function apiBase() {
         return (typeof Host !== 'undefined') ? Host : '';
@@ -247,6 +259,21 @@
         return div.innerHTML;
     }
 
+    function playErrorMessage(rawMsg) {
+        var msg = rawMsg || '';
+        if (msg === 'video not found') {
+            return isCn
+                ? '录屏文件不存在（请确认测试时已勾选录屏且 scrcpy 录制成功）'
+                : 'Recording file missing (enable record and verify scrcpy succeeded)';
+        }
+        if (msg === 'video corrupt') {
+            return isCn
+                ? '录屏文件已损坏（多为停止时 scrcpy 未正常收尾；请重新录一段，旧文件无法用播放器修复）'
+                : 'Recording file is corrupt (scrcpy did not finalize; re-record — file cannot be repaired)';
+        }
+        return msg;
+    }
+
     function play(scene){
         $.ajax({
             url: apiBase() + "/apm/record/info",
@@ -256,7 +283,7 @@
             data:{scene: scene},
             success: function (data) {
                 if(data['status'] != 1 ){
-                    SwalFire('error', isCn ? '无法播放' : 'Play failed', data['msg'] || '', 2000);
+                    SwalFire('error', isCn ? '无法播放' : 'Play failed', playErrorMessage(data['msg']), 2000);
                     return;
                 }
                 if(!data['browser_playable']){
@@ -284,6 +311,27 @@
             return h + ':' + mm + ':' + ss;
         }
         return mm + ':' + ss;
+    }
+
+    function adjustVideoLayout() {
+        var video = document.getElementById('report-video');
+        var stage = document.getElementById('video-player-stage');
+        if (!video || !stage || !video.videoWidth || !video.videoHeight) return;
+        var maxH = Math.floor(window.innerHeight * 0.78);
+        var maxW = stage.clientWidth || Math.floor(window.innerWidth * 0.9);
+        var ar = video.videoWidth / video.videoHeight;
+        var w, h;
+        if (ar >= 1) {
+            w = Math.min(maxW, maxH * ar);
+            h = w / ar;
+        } else {
+            h = Math.min(maxH, maxW / ar);
+            w = h * ar;
+        }
+        video.style.width = Math.round(w) + 'px';
+        video.style.height = Math.round(h) + 'px';
+        video.style.maxWidth = '100%';
+        video.style.maxHeight = maxH + 'px';
     }
 
     function updateVideoTimeDisplay() {
@@ -316,6 +364,10 @@
         var modalEl = document.getElementById('modal-video-player');
         var modal = bootstrap.Modal.getOrCreateInstance(modalEl);
         modal.show();
+        video.onloadedmetadata = function() {
+            adjustVideoLayout();
+            updateVideoTimeDisplay();
+        };
         video.play().catch(function(){});
     }
 
@@ -328,7 +380,7 @@
             data:{scene: scene},
             success: function (data) {
                 if(data['status'] != 1 ){
-                    SwalFire('error', isCn ? '系统播放器打开失败' : 'System player failed', data['msg'] || '', 2000);
+                    SwalFire('error', isCn ? '系统播放器打开失败' : 'System player failed', playErrorMessage(data['msg']), 2000);
                 }
             }
         });
@@ -337,11 +389,47 @@
     $(document).ready(function() {
         loadReports(1);
 
+        $('#btn-bulk-delete').on('click', function(e) {
+            if ($(this).hasClass('disabled')) {
+                e.preventDefault();
+                return;
+            }
+            bootstrap.Modal.getOrCreateInstance(document.getElementById('modal-danger-selected')).show();
+        });
+
+        $('#remove_selected_confirm').on('click', function() {
+            removeCheckedData();
+        });
+
+        $('#remove_confirm').on('click', function() {
+            if (!pendingDeleteScene) {
+                return;
+            }
+            var scene = pendingDeleteScene;
+            pendingDeleteScene = null;
+            hideReportModal('modal-danger');
+            removeReport(scene, function(ok) {
+                if (ok) {
+                    loadReports(currentPage);
+                }
+            });
+        });
+
+        $('#modal-danger, #modal-danger-selected').on('hidden.bs.modal', function() {
+            if (this.id === 'modal-danger') {
+                pendingDeleteScene = null;
+            }
+        });
+
         var video = document.getElementById('report-video');
         if (!video) return;
 
         video.addEventListener('timeupdate', updateVideoTimeDisplay);
-        video.addEventListener('loadedmetadata', updateVideoTimeDisplay);
+        video.addEventListener('loadedmetadata', function() {
+            adjustVideoLayout();
+            updateVideoTimeDisplay();
+        });
+        window.addEventListener('resize', adjustVideoLayout);
         video.addEventListener('error', function() {
             if (!currentPlayScene) return;
             SwalFire('warning',
@@ -534,13 +622,7 @@
     }
 
     function checkedNum(){
-        var num = 0;
-        $("input[type='checkbox']").each(function(){
-            if($(this).prop("checked")){
-                num++ ;
-            }
-        });
-        return num;
+        return $("input[name='checksId']:checked").length;
     }
 
     function exportData(platform, scene){
@@ -569,25 +651,8 @@
         });
     }
 
-    function removeCheckedData(){
-        $('#cancel_remove_selected_confirm').click();
-        var scenes = [];
-        $("input[name='checksId']:checked").each(function(){
-            var scene = $(this).closest('tr').attr('data-scene');
-            if(scene) scenes.push(scene);
-        });
-        var done = 0;
-        for(var i = 0; i < scenes.length; i++){
-            removeReport(scenes[i], function(){
-                done++;
-                if(done >= scenes.length){
-                    loadReports(currentPage);
-                }
-            });
-        }
-    }
-
-    function removeReport(scenename, callback){
+    function removeReport(scenename, callback, options){
+        options = options || {};
         $.ajax({
             url: apiBase() + "/apm/remove/report",
             type: "GET",
@@ -595,51 +660,76 @@
             cache: false,
             data:{ scene: scenename },
             beforeSend: function () {
-                SwalLoading('Deleting',scenename)
+                if (!options.skipLoading) {
+                    SwalLoading(isCn ? '删除中' : 'Deleting', scenename);
+                }
             },
             success: function (data) {
-                SwalCloseLoading();
-                if(data['status'] != 1 ){
-                    SwalFire('error','Delete failed',data['msg'] || '')
+                if (!options.skipLoading) {
+                    SwalCloseLoading();
                 }
-                if(callback) callback();
+                if(data['status'] != 1 ){
+                    SwalFire('error', isCn ? '删除失败' : 'Delete failed', data['msg'] || '', 2000);
+                }
+                if(callback) callback(data['status'] == 1);
             },
             error: function(){
-                SwalCloseLoading();
-                SwalFire('error','Delete failed','')
-                if(callback) callback();
+                if (!options.skipLoading) {
+                    SwalCloseLoading();
+                }
+                SwalFire('error', isCn ? '删除失败' : 'Delete failed', '', 2000);
+                if(callback) callback(false);
             }
-        })
+        });
+    }
+
+    function removeCheckedData(){
+        if (bulkDeleteRunning) {
+            return;
+        }
+        var scenes = [];
+        $("input[name='checksId']:checked").each(function(){
+            var scene = $(this).closest('tr').attr('data-scene');
+            if(scene) scenes.push(scene);
+        });
+        if (!scenes.length) {
+            return;
+        }
+
+        bulkDeleteRunning = true;
+        hideReportModal('modal-danger-selected');
+
+        var label = isCn ? ('共 ' + scenes.length + ' 条报告') : (scenes.length + ' reports');
+        SwalLoading(isCn ? '批量删除中' : 'Deleting', label);
+
+        var index = 0;
+        var failed = false;
+        function deleteNext(){
+            if (index >= scenes.length) {
+                SwalCloseLoading();
+                bulkDeleteRunning = false;
+                loadReports(currentPage);
+                return;
+            }
+            var scene = scenes[index++];
+            removeReport(scene, function(ok){
+                if (!ok) {
+                    failed = true;
+                    SwalCloseLoading();
+                    bulkDeleteRunning = false;
+                    loadReports(currentPage);
+                    return;
+                }
+                deleteNext();
+            }, { skipLoading: true });
+        }
+        deleteNext();
     }
 
     function removeOneData(scenename){
         if(window.event) window.event.preventDefault();
-        $('.scenetext').text(scenename)
-        $('#remove_confirm').off('click').on('click', function () {
-            $('#cancel_remove_confirm').click();
-            $.ajax({
-                url: apiBase() + "/apm/remove/report",
-                type: "GET",
-                async: true,
-                cache: false,
-                data:{ scene: scenename },
-                beforeSend: function () {
-                    SwalLoading('Deleting',scenename)
-                },
-                success: function (data) {
-                    SwalCloseLoading();
-                    if(data['status'] != 1 ){
-                        SwalFire('error','Delete failed',data['msg'] || '')
-                    }else{
-                        loadReports(currentPage);
-                    }
-                },
-                error: function () {
-                    SwalCloseLoading();
-                    SwalFire('error','Delete failed','')
-                }
-            });
-        });
+        pendingDeleteScene = scenename;
+        $('.scenetext').text(scenename);
     }
 
     function editOneData(old_scene){

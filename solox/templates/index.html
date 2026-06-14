@@ -8,7 +8,239 @@ SoloX - Application Performance Monitoring
 {% endif %}
 {% endblock %}
 
-{% block css %}{% endblock %}
+{% block css %}
+<style>
+    .select2-container {
+        max-width: 100%;
+    }
+    .apm-info .input-group {
+        flex-wrap: nowrap;
+        align-items: stretch;
+    }
+    .apm-info .input-group > .select2-container {
+        flex: 1 1 auto;
+        min-width: 0;
+        width: 1% !important;
+    }
+    .apm-info .input-group .select2-selection--single {
+        height: 100%;
+    }
+    .apm-info .input-group .select2-selection__rendered {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+    .select2-results__option .android-app-option {
+        display: flex;
+        align-items: baseline;
+        width: 100%;
+        max-width: 100%;
+        min-width: 0;
+        overflow: hidden;
+        white-space: nowrap;
+        line-height: 1.25;
+    }
+    .android-app-label,
+    .android-app-package {
+        display: inline-block;
+        min-width: 0;
+        max-width: 100%;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+    .android-app-label {
+        flex: 1 1 auto;
+        color: #1f2937;
+        font-weight: 600;
+    }
+    .android-app-option--labeled .android-app-label {
+        flex: 0 1 42%;
+    }
+    .android-app-package {
+        flex: 1 1 58%;
+        color: #6b7280;
+        font-size: 12px;
+        margin-left: 6px;
+    }
+    .select2-results__option--highlighted .android-app-label,
+    .select2-results__option--highlighted .android-app-package {
+        color: #fff !important;
+    }
+    .android-app-selection {
+        display: block;
+        min-width: 0;
+        max-width: 100%;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+    .apm-metrics-toolbar {
+        max-width: 100%;
+        display: flex;
+        align-items: center;
+        flex-wrap: nowrap;
+        gap: 8px;
+        font-size: 12px;
+        line-height: 1.25;
+        min-height: 26px;
+    }
+    .apm-metrics-toolbar .btn-group .btn {
+        font-size: 12px;
+        line-height: 1.25;
+        padding: 0.2rem 0.5rem;
+    }
+    .apm-inline-switches {
+        display: flex;
+        align-items: center;
+        flex-wrap: nowrap;
+        gap: 10px;
+        min-width: 0;
+    }
+    .apm-inline-switch {
+        display: inline-flex;
+        align-items: center;
+        gap: 2px;
+        font-size: 12px;
+        line-height: 1.25;
+        white-space: nowrap;
+        flex-shrink: 0;
+    }
+    .apm-inline-switch .form-check.form-switch {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        margin: 0;
+        padding: 0;
+        min-height: 0;
+    }
+    .apm-inline-switch .form-check.form-switch .form-check-input {
+        margin-left: 0;
+    }
+    .apm-inline-switch .form-check-input {
+        width: 1.75rem;
+        height: 0.95rem;
+        margin: 0;
+        float: none;
+        flex-shrink: 0;
+    }
+    .apm-inline-switch .form-check-label {
+        font-size: 12px;
+        line-height: 1.25;
+        margin: 0;
+        padding: 0;
+        white-space: nowrap;
+    }
+    .apm-inline-switch .metric-option-help {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        line-height: 1;
+        min-height: 16px;
+        margin: 0;
+    }
+    .apm-inline-switch .form-help {
+        font-size: 11px;
+        width: 16px;
+        height: 16px;
+        line-height: 14px;
+        padding: 0;
+        flex-shrink: 0;
+    }
+    .apm-metrics-columns {
+        max-width: 100%;
+        min-width: 0;
+        align-items: flex-start;
+    }
+    .apm-metrics-main,
+    .apm-metrics-extra {
+        flex: 1 1 50%;
+        min-width: 0;
+    }
+    .apm-metrics-extra {
+        border-left: 1px solid rgba(98, 105, 118, 0.12);
+    }
+    .apm-metrics-list .dropdown-item {
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    #btn-toggle-add-more.active {
+        background: rgba(32, 107, 196, 0.08);
+    }
+    .record-status-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        max-width: 240px;
+        min-height: 34px;
+        padding: 0 10px;
+        border-radius: 4px;
+        background: rgba(47, 179, 68, 0.12);
+        color: #2fb344;
+        font-size: 12px;
+        font-weight: 600;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        vertical-align: middle;
+    }
+    .record-status-badge.d-none {
+        display: none !important;
+    }
+    .record-status-badge.record-status-warning {
+        background: rgba(245, 159, 0, 0.16);
+        color: #b7791f;
+    }
+    .record-status-badge.record-status-danger {
+        background: rgba(214, 57, 57, 0.14);
+        color: #d63939;
+    }
+    .record-status-badge .record-status-text,
+    .record-status-badge .record-status-risk {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+    .record-status-badge .record-status-risk {
+        font-weight: 500;
+    }
+    .chart-record-duration {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        margin-left: 8px;
+        padding-left: 10px;
+        border-left: 1px solid rgba(160, 174, 192, 0.35);
+        font-size: 13px;
+        color: #a0aec0;
+        white-space: nowrap;
+    }
+    .chart-record-duration.is-active {
+        color: #2fb344;
+    }
+    .chart-record-duration.is-warning {
+        color: #b7791f;
+    }
+    .chart-record-duration.is-danger {
+        color: #d63939;
+    }
+    .chart-record-duration .chart-record-elapsed {
+        font-variant-numeric: tabular-nums;
+        font-weight: 600;
+        color: #e2e8f0;
+    }
+    .chart-record-duration.is-active .chart-record-elapsed {
+        color: #2fb344;
+    }
+    .chart-record-duration.is-warning .chart-record-elapsed {
+        color: #b7791f;
+    }
+    .chart-record-duration.is-danger .chart-record-elapsed {
+        color: #d63939;
+    }
+</style>
+{% endblock %}
 
 {% block page_title %}
 {% if platform == 'Android' %}
@@ -95,6 +327,13 @@ SoloX - Application Performance Monitoring
 </div>
 <div class="ms-auto d-print-none  col-auto">
     <div class="btn-list apm-btn-list">
+        <span id="record-status-badge" class="record-status-badge d-none" title="">
+            <span class="record-status-text">
+                {% if lan == 'cn' %}已录时长{% else %}Recorded{% endif %}
+                <span id="record-elapsed">00:00:00</span>
+            </span>
+            <span id="record-risk-message" class="record-status-risk"></span>
+        </span>
         <a id="run-apm" class="btn btn-default">
             <svg t="1647757457022" class="icon" viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg" p-id="21859" width="200" height="200"><path d="M511.4 512.1m-448 0a448 448 0 1 0 896 0 448 448 0 1 0-896 0Z" fill="#006DFC" p-id="21860"></path><path d="M658.4 555.6L475.5 661.1c-33.4 19.3-75-4.8-75-43.3V406.6c0-38.5 41.7-62.6 75-43.3l182.9 105.6c33.3 19.3 33.3 67.4 0 86.7z" fill="#FFFFFF" p-id="21861"></path></svg>
             {% if lan == 'cn' %} 开始 {% else %} Start {% endif %}
@@ -127,11 +366,48 @@ SoloX - Application Performance Monitoring
                     <svg t="1645171258689" class="icon" viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg" p-id="2225" width="2000" height="2000"><path d="M352 96H224c-70.4 0-128 57.6-128 128v128c0 70.4 57.6 128 128 128h192c35.2 0 64-28.8 64-64V224c0-70.4-57.6-128-128-128z m64 319.9l-0.1 0.1H224c-17 0-33-6.7-45.1-18.9S160 369 160 352V224c0-17 6.7-33 18.9-45.1S207 160 224 160h128c17 0 33 6.7 45.1 18.9S416 207 416 224v191.9zM800 96H672c-70.4 0-128 57.6-128 128v192c0 35.2 28.8 64 64 64h192c70.4 0 128-57.6 128-128V224c0-70.4-57.6-128-128-128z m64 256c0 17-6.7 33-18.9 45.1S817 416 800 416H608.1l-0.1-0.1V224c0-17 6.7-33 18.9-45.1S655 160 672 160h128c17 0 33 6.7 45.1 18.9S864 207 864 224v128zM416 544H224c-70.4 0-128 57.6-128 128v128c0 70.4 57.6 128 128 128h128c70.4 0 128-57.6 128-128V608c0-35.2-28.8-64-64-64z m0 256c0 17-6.7 33-18.9 45.1S369 864 352 864H224c-17 0-33-6.7-45.1-18.9S160 817 160 800V672c0-17 6.7-33 18.9-45.1S207 608 224 608h191.9l0.1 0.1V800zM800 544H608c-35.2 0-64 28.8-64 64v192c0 70.4 57.6 128 128 128h128c70.4 0 128-57.6 128-128V672c0-70.4-57.6-128-128-128z m64 256c0 17-6.7 33-18.9 45.1S817 864 800 864H672c-17 0-33-6.7-45.1-18.9S608 817 608 800V608.1l0.1-0.1H800c17 0 33 6.7 45.1 18.9S864 655 864 672v128z" fill="#1875F0" p-id="2226"></path></svg>
                 </div>
                 {% if lan == 'cn' %}
-                <select  class="select-app select2-selection--single" data-placeholder="请选择一个APP"></select>
+                <select  class="select-app select2-selection--single" data-placeholder="搜索应用名或包名"></select>
                 {% else %}
-                <select  class="select-app select2-selection--single" data-placeholder="Please select a package"></select>
+                <select  class="select-app select2-selection--single" data-placeholder="Search app name or package"></select>
                 {% endif %}
             </div>
+            {% if platform == 'Android' %}
+            <div id="android-foreground-panel" class="mb-2 px-1 overflow-hidden" style="width: 93%; margin-left: 10px;">
+                <div class="d-flex align-items-center gap-2 small min-w-0">
+                    <button type="button" id="btn-rescan-foreground" class="btn btn-sm btn-outline-primary flex-shrink-0 px-2">
+                        {% if lan == 'cn' %}自动{% else %}Auto{% endif %}
+                    </button>
+                    <span id="foreground-status-icon" class="text-primary flex-shrink-0" aria-hidden="true">
+                        <span class="spinner-border spinner-border-sm d-none" id="foreground-scan-spinner" role="status"></span>
+                        <svg id="foreground-status-check" class="icon d-none" viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M9 16.2 4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4z"/></svg>
+                        <svg id="foreground-status-warn" class="icon d-none" viewBox="0 0 24 24" width="16" height="16" fill="#f59f00"><path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z"/></svg>
+                    </span>
+                    <div class="flex-grow-1 d-flex align-items-center gap-1 min-w-0 overflow-hidden">
+                        <div id="foreground-status-text" class="text-body-secondary text-truncate flex-grow-1" style="min-width: 0;">
+                            {% if lan == 'cn' %}等待应用列表…{% else %}Loading apps…{% endif %}
+                        </div>
+                        <button type="button" id="foreground-help-trigger" class="btn btn-link btn-sm p-0 flex-shrink-0 text-muted"
+                                tabindex="0"
+                                data-bs-toggle="popover"
+                                data-bs-trigger="hover focus"
+                                data-bs-html="true"
+                                data-bs-placement="top"
+                                aria-label="{% if lan == 'cn' %}应用选择说明{% else %}App selection help{% endif %}"
+                                title="{% if lan == 'cn' %}应用选择说明{% else %}App selection help{% endif %}"
+                                data-bs-content="{% if lan == 'cn' %}无需手动查包名：在手机上<strong>打开并保持</strong>要测试的 App 在前台，连接设备后会<strong>自动选中</strong>；也可在下拉框<strong>搜索应用中文名</strong>。未识别时请点「自动」。{% else %}No need to look up package names: <strong>open and keep</strong> the target app in foreground—we <strong>auto-select</strong> it after connect. Search by app name below, or tap <strong>Auto</strong>.{% endif %}">
+                            <span class="form-help" style="font-size: 14px; width: 22px; height: 22px; line-height: 20px;">?</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+            {% if platform == 'Android' %}
+            <div id="android-app-type-filter" class="btn-group btn-group-sm mb-3" style="width: 93%;margin-left: 10px;" role="group">
+                <button type="button" class="btn btn-outline-primary active" data-app-type="user">{% if lan == 'cn' %}第三方{% else %}User{% endif %}</button>
+                <button type="button" class="btn btn-outline-primary" data-app-type="system">{% if lan == 'cn' %}系统{% else %}System{% endif %}</button>
+                <button type="button" class="btn btn-outline-primary" data-app-type="all">{% if lan == 'cn' %}全部{% else %}All{% endif %}</button>
+            </div>
+            {% endif %}
             {% if platform == 'Android' %}
             <div class="input-group" style="width: 93%;margin-left: 10px;">
                 <div class="input-group-text">
@@ -167,11 +443,55 @@ SoloX - Application Performance Monitoring
                 <div class="card-body">
                     <div class="tab-content">
                         <div class="tab-pane active show" id="tabs-apm-target">
-                            <div class="mb-2 d-flex gap-1">
-                                <button class="btn btn-sm btn-outline-primary btn-quick-toggle" data-mode="1min" title="{% if lan == 'cn' %}仅核心指标{% else %}Core metrics only{% endif %}">1</button>
-                                <button class="btn btn-sm btn-outline-primary btn-quick-toggle" data-mode="5min" title="{% if lan == 'cn' %}常用指标{% else %}Common metrics{% endif %}">5</button>
-                                <button class="btn btn-sm btn-outline-primary btn-quick-toggle active" data-mode="all" title="{% if lan == 'cn' %}全部指标{% else %}All metrics{% endif %}">All</button>
+                            <div class="apm-metrics-toolbar mb-2">
+                                <div class="btn-group btn-group-sm flex-shrink-0">
+                                    <button class="btn btn-outline-primary btn-quick-toggle" data-mode="1min" title="{% if lan == 'cn' %}仅核心指标{% else %}Core metrics only{% endif %}">1</button>
+                                    <button class="btn btn-outline-primary btn-quick-toggle" data-mode="5min" title="{% if lan == 'cn' %}常用指标{% else %}Common metrics{% endif %}">5</button>
+                                    <button class="btn btn-outline-primary btn-quick-toggle active" data-mode="all" title="{% if lan == 'cn' %}全部指标{% else %}All metrics{% endif %}">All</button>
+                                </div>
+                                {% if platform == 'Android' %}
+                                <div class="apm-inline-switches">
+                                    <div class="apm-inline-switch">
+                                        <div class="form-check form-switch mb-0">
+                                            <input id="net-switch" class="form-check-input cursor-pointer" type="checkbox" checked name="net-switch">
+                                            <label class="form-check-label cursor-pointer" for="net-switch">WLAN</label>
+                                        </div>
+                                        <button type="button" class="btn btn-link btn-sm p-0 text-muted metric-option-help"
+                                                tabindex="0"
+                                                onclick="event.preventDefault(); event.stopPropagation();"
+                                                data-bs-toggle="popover"
+                                                data-bs-trigger="hover focus"
+                                                data-bs-html="true"
+                                                data-bs-placement="bottom"
+                                                aria-label="{% if lan == 'cn' %}WLAN 说明{% else %}WLAN help{% endif %}"
+                                                title="WLAN"
+                                                data-bs-content="{% if lan == 'cn' %}开：统计 <strong>WiFi</strong> 流量（wlan0）<br>关：统计<strong>蜂窝</strong>流量（rmnet）{% else %}On: measure <strong>WiFi</strong> traffic (wlan0)<br>Off: measure <strong>cellular</strong> traffic{% endif %}">
+                                            <span class="form-help">?</span>
+                                        </button>
+                                    </div>
+                                    <div class="apm-inline-switch">
+                                        <div class="form-check form-switch mb-0">
+                                            <input id="fps-switch" class="form-check-input cursor-pointer" type="checkbox" checked name="fps-switch">
+                                            <label class="form-check-label cursor-pointer" for="fps-switch">SurfaceView</label>
+                                        </div>
+                                        <button type="button" class="btn btn-link btn-sm p-0 text-muted metric-option-help"
+                                                tabindex="0"
+                                                onclick="event.preventDefault(); event.stopPropagation();"
+                                                data-bs-toggle="popover"
+                                                data-bs-trigger="hover focus"
+                                                data-bs-html="true"
+                                                data-bs-placement="bottom"
+                                                aria-label="{% if lan == 'cn' %}SurfaceView 说明{% else %}SurfaceView help{% endif %}"
+                                                title="SurfaceView"
+                                                data-bs-content="{% if lan == 'cn' %}开：SurfaceFlinger 采 FPS，适合<strong>游戏</strong>等 SurfaceView 应用<br>关：gfxinfo 采 FPS，适合<strong>普通 View</strong> 应用{% else %}On: SurfaceFlinger FPS for <strong>games</strong> / SurfaceView apps<br>Off: gfxinfo FPS for <strong>standard View</strong> apps{% endif %}">
+                                            <span class="form-help">?</span>
+                                        </button>
+                                    </div>
+                                </div>
+                                {% endif %}
                             </div>
+                            <div class="apm-metrics-columns d-flex align-items-start">
+                            <div class="apm-metrics-main apm-metrics-list">
                             <label class="dropdown-item cursor-pointer"><input class="form-check-input m-0 me-2 cursor-pointer" id="cpu_checkbox" type="checkbox" checked name="cpu"> 
                                 <svg t="1702629502002" class="icon me-2" viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg" p-id="7953" width="320" height="320"><path d="M426.666667 85.333333v85.333334h170.666666V85.333333h85.333334v85.333334h42.666666a128 128 0 0 1 128 128v42.666666h85.333334v85.333334h-85.333334v170.666666h85.333334v85.333334h-85.333334v42.666666a128 128 0 0 1-128 128h-42.666666v85.333334h-85.333334v-85.333334h-170.666666v85.333334h-85.333334v-85.333334h-42.666666a128 128 0 0 1-128-128v-42.666666H85.333333v-85.333334h85.333334v-170.666666H85.333333v-85.333334h85.333334v-42.666666a128 128 0 0 1 128-128h42.666666V85.333333h85.333334z m-128 170.666667a42.666667 42.666667 0 0 0-42.666667 42.666667v426.666666a42.666667 42.666667 0 0 0 42.666667 42.666667h426.666666a42.666667 42.666667 0 0 0 42.666667-42.666667V298.666667a42.666667 42.666667 0 0 0-42.666667-42.666667H298.666667z" fill="#000000" p-id="7954"></path><path d="M362.666667 405.333333a42.666667 42.666667 0 0 1 42.666666-42.666666h213.333334a42.666667 42.666667 0 0 1 42.666666 42.666666v213.333334a42.666667 42.666667 0 0 1-42.666666 42.666666H405.333333a42.666667 42.666667 0 0 1-42.666666-42.666666V405.333333z m85.333333 42.666667v128h128v-128h-128z" fill="#0078FF" p-id="7955"></path></svg>
                                 <strong>CPU</strong>
@@ -183,33 +503,51 @@ SoloX - Application Performance Monitoring
                             <label class="dropdown-item cursor-pointer"><input class="form-check-input m-0 me-2 cursor-pointer" id="flow_checkbox" type="checkbox" checked name="network"> 
                                 <svg t="1702629797008" class="icon me-2" viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg" p-id="20256" width="320" height="320"><path d="M660.224 662.2208m-248.7296 0a248.7296 248.7296 0 1 0 497.4592 0 248.7296 248.7296 0 1 0-497.4592 0Z" fill="#FFE6D8" p-id="20257"></path><path d="M445.696 721.6128c0-137.3696 111.36-248.7296 248.7296-248.7296 79.9232 0 150.9888 37.7344 196.4544 96.3072-36.864-91.2384-126.208-155.6992-230.656-155.6992-137.3696 0-248.7296 111.36-248.7296 248.7296 0 57.4464 19.5584 110.336 52.2752 152.4224a247.42912 247.42912 0 0 1-18.0736-93.0304z" fill="#FF7B4C" p-id="20258"></path><path d="M477.4912 797.696c0-137.3696 111.36-248.7296 248.7296-248.7296 70.912 0 134.8608 29.7472 180.1216 77.4144-2.8672-19.8656-8.1408-38.9632-15.4112-57.0368-45.4656-58.624-116.5312-96.4096-196.5056-96.4096-137.3696 0-248.7296 111.36-248.7296 248.7296 0 33.0752 6.6048 64.5632 18.3296 93.3888 5.0688 6.5024 10.496 12.8 16.1792 18.7392-1.6896-11.776-2.7136-23.808-2.7136-36.096z" fill="#FE966C" p-id="20259"></path><path d="M726.2208 548.9664c-137.3696 0-248.7296 111.36-248.7296 248.7296 0 12.2368 0.9216 24.2176 2.6624 35.9936 10.8032 11.3152 22.6304 21.6576 35.3792 30.7712 6.7584-131.328 115.3536-235.776 248.3712-235.776 54.016 0 103.936 17.3056 144.6912 46.592 0.2048-4.3008 0.3584-8.704 0.3584-13.056 0-12.2368-0.9216-24.2176-2.6112-35.9936-45.312-47.5648-109.2096-77.2608-180.1216-77.2608z" fill="#FFB392" p-id="20260"></path><path d="M899.6352 729.7024c4.9152-17.4592 8.0384-35.6864 9.0112-54.528a247.48032 247.48032 0 0 0-144.7424-46.4896c-133.0176 0-241.6128 104.3968-248.3712 235.776 13.8752 9.9328 28.8256 18.5344 44.6464 25.4976 29.3888-104.6016 125.3888-181.2992 239.4112-181.2992 35.584 0 69.4272 7.5776 100.0448 21.0432z" fill="#FEC3A6" p-id="20261"></path><path d="M799.5904 708.6592c-113.9712 0-210.0224 76.6976-239.4112 181.2992 18.5344 8.1408 38.2464 14.1312 58.8288 17.5616 42.2912-77.056 124.1088-129.28 218.2144-129.28 14.08 0 27.8016 1.2288 41.2672 3.4816 8.96-16.3328 16.0768-33.7408 21.1968-52.0704-30.6688-13.4656-64.512-20.992-100.096-20.992z" fill="#FED9C4" p-id="20262"></path><path d="M511.744 930.0992c-232.9088 0-422.4-189.4912-422.4-422.4s189.4912-422.4 422.4-422.4 422.4 189.4912 422.4 422.4-189.4912 422.4-422.4 422.4z m0-762.88c-187.7504 0-340.48 152.7296-340.48 340.48s152.7296 340.48 340.48 340.48 340.48-152.7296 340.48-340.48-152.7296-340.48-340.48-340.48z" fill="#373E51" p-id="20263"></path><path d="M436.0704 706.6624c-10.752 0-21.2992-4.2496-29.184-12.1856L310.784 597.0944c-15.872-16.128-15.7184-42.0352 0.4096-57.9072 16.0768-15.872 42.0352-15.7184 57.9072 0.4096l25.9584 26.3168V348.0576c0-22.6304 18.3296-40.96 40.96-40.96s40.96 18.3296 40.96 40.96v317.6448c0 16.64-10.0352 31.5904-25.3952 37.888-5.0176 2.0992-10.2912 3.072-15.5136 3.072z" fill="#373E51" p-id="20264"></path><path d="M587.1616 706.6624c-22.6304 0-40.96-18.3296-40.96-40.96V348.0576c0-16.64 10.0352-31.5904 25.3952-37.888 15.36-6.2976 33.024-2.7136 44.6976 9.1136l96.1024 97.3824c15.872 16.0768 15.7184 42.0352-0.4096 57.9072-16.128 15.872-42.0352 15.7184-57.9072-0.4096l-25.9584-26.3168v217.8048a40.96 40.96 0 0 1-40.96 41.0112z" fill="#373E51" p-id="20265"></path></svg>
                                 {% if lan == 'cn' %} <strong>流量</strong> {% else %} <strong>Network</strong> {% endif %}
-                                {% if platform == 'Android' %}
-                                <span class="ms-auto">
-                                    <label class="form-check form-check-single form-switch">
-                                        <input id="net-switch" class="form-check-input cursor-pointer" type="checkbox" checked name="net-switch" style="margin-right: 5px"> WLAN
-                                    </label>
-                                </span>
-                                {% endif %}
                             </label>
                             <label class="dropdown-item cursor-pointer"><input class="form-check-input m-0 me-2 cursor-pointer" id="fps_checkbox" type="checkbox" name="fps" checked> 
                                 <svg t="1702629928532" class="icon me-2" viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg" p-id="27477" width="320" height="320"><path d="M163.7 749.9c-63.9 0-115.9-52-115.9-116s52-116 115.9-116c63.9 0 116 52 116 116s-52.1 116-116 116z m0-161.9c-25.4 0-46 20.6-46 46s20.6 46 46 46 46-20.6 46-46-20.6-46-46-46zM393.1 538.7c-63.9 0-116-52-116-116 0-63.9 52-115.9 116-115.9 63.9 0 115.9 52 115.9 115.9 0.1 63.9-51.9 116-115.9 116z m0-162c-25.4 0-46 20.6-46 46s20.6 46 46 46 46-20.6 46-46c0-25.3-20.6-46-46-46zM859.9 504.4c-63.9 0-115.9-52-115.9-115.9 0-63.9 52-116 115.9-116 63.9 0 116 52 116 116 0 63.9-52 115.9-116 115.9z m0-161.9c-25.4 0-46 20.6-46 46s20.6 46 46 46 46-20.6 46-46-20.6-46-46-46z" fill="#706D7E" p-id="27478"></path><path d="M220.9 611.7c-8.9 0-17.9-3.4-24.7-10.2-13.7-13.7-13.7-35.8 0-49.5l106.6-106.6c13.7-13.7 35.8-13.7 49.5 0 13.7 13.7 13.7 35.8 0 49.5L245.7 601.4c-6.9 6.9-15.8 10.3-24.8 10.3zM552.7 580c-8.9 0-17.9-3.4-24.7-10.2L441.2 483c-13.7-13.7-13.7-35.8 0-49.5 13.6-13.7 35.8-13.7 49.5 0l86.8 86.8c13.7 13.7 13.7 35.8 0 49.5-6.9 6.7-15.8 10.2-24.8 10.2zM691 592.4c-8.9 0-17.9-3.4-24.7-10.2-13.7-13.7-13.7-35.8 0-49.5L778 421c13.6-13.7 35.8-13.7 49.5 0 13.7 13.7 13.7 35.8 0 49.5L715.7 582.1c-6.8 6.9-15.8 10.3-24.7 10.3z" fill="#706D7E" p-id="27479"></path><path d="M620.1 714.8c-63.9 0-116-52-116-116s52-116 116-116c63.9 0 115.9 52 115.9 116s-52 116-115.9 116z m0-162c-25.4 0-46 20.6-46 46s20.6 46 46 46 46-20.6 46-46c0-25.3-20.6-46-46-46z" fill="#5AC0F9" p-id="27480"></path></svg>
                                 {% if lan == 'cn' %} <strong>流畅度</strong> {% else %} <strong>FPS</strong> {% endif %}
-                                {% if platform == 'Android' %}
-                                <span class="ms-auto">
-                                    <label class="form-check form-check-single form-switch">
-                                        <input id="fps-switch" class="form-check-input cursor-pointer" type="checkbox" checked name="fps-switch" style="margin-right: 5px"> SurfaceView
-                                    </label>
-                                </span>
-                                {% endif %}
                             </label>
                             <label class="dropdown-item cursor-pointer"><input class="form-check-input m-0 me-2 cursor-pointer" id="battery_checkbox" type="checkbox" name="battery" checked> 
                                 <svg t="1702629971672" class="icon me-2" viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg" p-id="29513" width="320" height="320"><path d="M385 228V124c0-19.3 15.7-35 35-35h184c19.3 0 35 15.7 35 35v104H385z" fill="#8F8D94" p-id="29514"></path><path d="M604 114c5.5 0 10 4.5 10 10v79H410v-79c0-5.5 4.5-10 10-10h184m0-50H420c-33.1 0-60 26.9-60 60v129h304V124c0-33.1-26.9-60-60-60z" fill="#504D59" p-id="29515"></path><path d="M410 139h203.5v21H410z" fill="#6F6D75" p-id="29516"></path><path d="M262 935c-35.8 0-65-29.2-65-65V250c0-35.8 29.2-65 65-65h500c35.8 0 65 29.2 65 65v620c0 35.8-29.2 65-65 65H262z" fill="#8BEF99" p-id="29517"></path><path d="M762 210c10.6 0 20.6 4.2 28.2 11.8 7.6 7.6 11.8 17.6 11.8 28.2v620c0 10.6-4.2 20.6-11.8 28.2-7.6 7.6-17.6 11.8-28.2 11.8H262c-10.6 0-20.6-4.2-28.2-11.8-7.6-7.6-11.8-17.6-11.8-28.2V250c0-10.6 4.2-20.6 11.8-28.2S251.4 210 262 210h500m0-50H262c-49.5 0-90 40.5-90 90v620c0 49.5 40.5 90 90 90h500c49.5 0 90-40.5 90-90V250c0-49.5-40.5-90-90-90z" fill="#504D59" p-id="29518"></path><path d="M762 210h-26.4v460.6c0 77.2-62.8 140-140 140H541l151.4-239.5-166-43L470 351.7l-140.9 272 137 65.5 21.2 121.5H222V870c0 22.1 17.9 40 40 40h500c22.1 0 40-17.9 40-40V250c0-22.1-17.9-40-40-40z" fill="#6DC674" p-id="29519"></path><path d="M517.3 656.4l-156-54.1 108.8-227.6 35.7 165.4 154 41.1-144.1 226.1z" fill="#FFCE00" p-id="29520"></path><path d="M464.7 420.8l24.5 113.5 3.9 17.9 17.7 4.7 125.4 33.4-105 164.7 0.9-87.6 0.2-21.6-20.4-7.1-130-45.1 82.8-172.8m10.8-92.2L340.5 611l161.7 56.1-2.1 192.5L683.5 572l-165-44-43-199.4z" fill="#504D59" p-id="29521"></path><path d="M197 269v-19c0-35.8 29.2-65 65-65h500c35.8 0 65 29.2 65 65v19H197z" fill="#A9B7AA" p-id="29522"></path><path d="M762 210c10.6 0 20.6 4.2 28.2 11.8 6.1 6.1 10.1 13.9 11.3 22.2h-579c1.3-8.3 5.2-16.1 11.3-22.2 7.6-7.6 17.6-11.8 28.2-11.8h500m0-50H262c-49.5 0-90 40.5-90 90v44h680v-44c0-49.5-40.5-90-90-90z" fill="#504D59" p-id="29523"></path></svg>
                                 {% if lan == 'cn' %} <strong>电池</strong> {% else %} <strong>Battery</strong> {% endif %}
                             </label>
-                            <label class="dropdown-item cursor-pointer" style="color:rgb(0, 102, 255)" data-bs-toggle="modal" data-bs-target="#add-more">
+                            <button type="button" id="btn-toggle-add-more" class="dropdown-item cursor-pointer border-0 bg-transparent w-100 text-start px-2" style="color:rgb(0, 102, 255)">
                                 <svg t="1711359199362" class="icon me-2" viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg" p-id="39454" width="200" height="200"><path d="M819.8 196.9C647.9 25 369.1 25 197.2 196.9s-171.9 450.7 0 622.7c171.9 171.9 450.7 171.9 622.7 0s171.9-450.8-0.1-622.7zM508.5 820.6c-33.6 0-61.1-27.5-61.1-61.1V569.3H257.3c-33.6 0-61.1-27.5-61.1-61.1s27.5-61.1 61.1-61.1h190.1V257c0-33.6 27.5-61.1 61.1-61.1s61.1 27.5 61.1 61.1v190.1h190.1c33.6 0 61.1 27.5 61.1 61.1s-27.5 61.1-61.1 61.1H569.6v190.1c0 33.7-27.5 61.2-61.1 61.2z" fill="#FE801D" p-id="39455"></path></svg>
                                 {% if lan == 'cn' %} 添加更多参数 {% else %} Add More {% endif %}
-                            </label>
+                            </button>
+                            </div>
+                            <div id="apm-metrics-extra" class="apm-metrics-extra apm-metrics-list" style="display:none;">
+                                <label class="dropdown-item cursor-pointer apm-extra-item"><input class="form-check-input m-0 me-2 cursor-pointer" id="gpu_checkbox" type="checkbox" checked name="gpu">
+                                    <svg t="1702629555656" class="icon me-2" viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg" p-id="8114" width="320" height="320"><path d="M809.2 525.5h120.5c13.1 0 23.6-10.6 23.6-23.6 0-13-10.6-23.6-23.6-23.6H809.2c-4.8 0-9.1 1.8-12.8 4.3v-71.5c0-4.9-0.7-9.6-1.4-14.4 4 3.1 8.8 5.3 14.3 5.3h120.5c13.1 0 23.6-10.6 23.6-23.6 0-13-10.6-23.6-23.6-23.6H809.2c-10.4 0-18.9 6.8-22.1 16.1-15.1-32-47.5-54.3-85.2-54.3H409c-52.2 0-94.5 42.3-94.5 94.5v305.3c0 33.1 17 62.1 42.7 78.9-3.7 4.2-6.1 9.5-6.1 15.5v123.6c0 13 10.6 23.6 23.6 23.6 13.1 0 23.6-10.6 23.6-23.6V810.8c0-0.4-0.2-0.7-0.2-1.1 3.6 0.4 7.1 1.1 10.9 1.1h62.6v123.6c0 13 10.6 23.6 23.6 23.6s23.6-10.6 23.6-23.6V810.8H592v123.6c0 13 10.6 23.6 23.6 23.6 13.1 0 23.6-10.6 23.6-23.6V810.8h62.6c3.7 0 7.3-0.7 10.9-1.1 0 0.4-0.2 0.7-0.2 1.1v123.6c0 13 10.6 23.6 23.6 23.6 13.1 0 23.6-10.6 23.6-23.6V810.8c0-6-2.4-11.4-6.1-15.5 14.5-9.5 26-22.9 33.4-38.7 3.2 9.3 11.7 16.1 22.1 16.1h120.5c13.1 0 23.6-10.6 23.6-23.6 0-13-10.6-23.6-23.6-23.6H809.2c-5.5 0-10.3 2.2-14.3 5.3 0.7-4.7 1.4-9.4 1.4-14.4v-71.5c3.7 2.5 8 4.3 12.8 4.3h120.5c13.1 0 23.6-10.6 23.6-23.6 0-13-10.6-23.6-23.6-23.6H809.2c-4.8 0-9.1 1.8-12.8 4.3v-84.9c3.7 2.3 8 4.1 12.8 4.1z" fill="#4DBBF7" p-id="8115"></path><path d="M585 384.4c13 0 23.6 10.6 23.6 23.6v187.8c0 13-10.6 23.6-23.6 23.6H405.4c-13 0-23.6-10.6-23.6-23.6V408c0-13 10.6-23.6 23.6-23.6H585m0-47.2H405.4c-39.1 0-70.9 31.7-70.9 70.9v187.8c0 39.1 31.7 70.9 70.9 70.9H585c39.1 0 70.9-31.7 70.9-70.9V408c-0.1-39.1-31.8-70.8-70.9-70.8z" fill="" p-id="8116"></path><path d="M893 463.8c13.1 0 23.6-10.6 23.6-23.6S906 416.6 893 416.6H776.3v-76.3H893c13.1 0 23.6-10.6 23.6-23.6S906.1 293 893 293H774.8c-6.3-39.1-36.5-70.2-75.3-77.6V107.6c0-13-10.6-23.6-23.6-23.6s-23.6 10.6-23.6 23.6v106h-73.2v-106c0-13-10.6-23.6-23.6-23.6-13.1 0-23.6 10.6-23.6 23.6v106h-73.2v-106c0-13-10.6-23.6-23.6-23.6s-23.6 10.6-23.6 23.6v106h-73.2v-106c0-13-10.6-23.6-23.6-23.6s-23.6 10.6-23.6 23.6v107.8c-38.8 7.4-68.9 38.4-75.2 77.6h-113c-13.1 0-23.6 10.6-23.6 23.6s10.6 23.6 23.6 23.6h111.2v76.3H102.9c-13.1 0-23.6 10.6-23.6 23.6s10.6 23.6 23.6 23.6h111.2V540H102.9c-13.1 0-23.6 10.6-23.6 23.6s10.6 23.6 23.6 23.6h111.2v76.3H102.9c-13.1 0-23.6 10.6-23.6 23.6 0 13 10.6 23.6 23.6 23.6h112.7c6.3 39.1 36.5 70.2 75.2 77.6v107.8c0 13 10.6 23.6 23.6 23.6s23.6-10.6 23.6-23.6v-106h73.2v106c0 13 10.6 23.6 23.6 23.6s23.6-10.6 23.6-23.6v-106h73.2v106c0 13 10.6 23.6 23.6 23.6 13.1 0 23.6-10.6 23.6-23.6v-106H652v106c0 13 10.6 23.6 23.6 23.6s23.6-10.6 23.6-23.6V788.4c38.8-7.4 68.9-38.4 75.3-77.6H893c13.1 0 23.6-10.6 23.6-23.6 0-13-10.6-23.6-23.6-23.6H776.3v-76.3H893c13.1 0 23.6-10.6 23.6-23.6S906 540.1 893 540.1H776.3v-76.3H893zM729.1 695.7c0 26.1-21.2 47.2-47.2 47.2H308.6c-26 0-47.2-21.2-47.2-47.2V308.1c0-26.1 21.2-47.2 47.2-47.2h373.2c26 0 47.2 21.2 47.2 47.2v387.6z" fill="" p-id="8117"></path><path d="M518.1 437.3h33.1v14.5h-33.1z" fill="#FFD939" p-id="8118"></path><path d="M574.8 413.6h-80.3v61.8h80.3v-61.8z" fill="" p-id="8119"></path></svg>
+                                    <strong>GPU</strong>
+                                </label>
+                                {% if platform == 'Android' %}
+                                <label class="dropdown-item cursor-pointer apm-extra-item"><input class="form-check-input m-0 me-2 cursor-pointer" id="mem_detail_checkbox" type="checkbox" name="mem_detail">
+                                    <svg t="1702629683077" class="icon me-2" viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg" p-id="13054" width="320" height="320"><path d="M798.11 959.56H225.89c-49.11 0-89.07-39.96-89.07-89.07V153.51c0-49.11 39.96-89.07 89.07-89.07h355.8c23.85 0 46.94 9.93 63.35 27.24l218.19 230.21c15.44 16.28 23.94 37.61 23.94 60.05v488.55c0 49.12-39.96 89.07-89.07 89.07zM225.89 135.7c-9.82 0-17.81 7.99-17.81 17.81v716.98c0 9.82 7.99 17.81 17.81 17.81h572.22c9.82 0 17.81-7.99 17.81-17.81V381.94c0-4.12-1.56-8.04-4.4-11.03L593.33 140.7c-3.01-3.18-7.25-5-11.64-5h-355.8z" fill="#474747" p-id="13055"></path><path d="M681.21 814.4H342.99c-21.51 0-39.01-17.5-39.01-39.01V493.42c0-21.51 17.5-39.01 39.01-39.01h338.22c21.51 0 39.01 17.5 39.01 39.01V775.4c0 21.51-17.5 39.01-39.01 39.01z m-323.78-53.44h309.35V507.85H357.43v253.11z" fill="#4F95FC" p-id="13056"></path><path d="M452.76 797.26c-14.76 0-26.72-11.96-26.72-26.72V615.36c0-14.76 11.96-26.72 26.72-26.72 14.76 0 26.72 11.96 26.72 26.72v155.18c0 14.76-11.96 26.72-26.72 26.72zM585.81 797.26c-14.76 0-26.72-11.96-26.72-26.72V615.36c0-14.76 11.96-26.72 26.72-26.72 14.76 0 26.72 11.96 26.72 26.72v155.18c0 14.76-11.96 26.72-26.72 26.72z" fill="#4F95FC" p-id="13057"></path></svg>
+                                    {% if lan == 'cn' %} <strong>内存细化指标</strong> {% else %}<strong>Memory Detail</strong>{% endif %}
+                                </label>
+                                <label class="dropdown-item cursor-pointer apm-extra-item"><input class="form-check-input m-0 me-2 cursor-pointer" id="thermal_checkbox" type="checkbox" name="thermal_sensor">
+                                    <svg t="1717146743461" class="icon me-2" viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg" p-id="10995" width="256" height="256"><path d="M512 0c282.7776 0 512 229.2224 512 512s-229.2224 512-512 512S0 794.7776 0 512 229.2224 0 512 0z m-3.9936 204.8c-30.9248 0-60.2624 9.3184-82.5856 26.2144-23.936 18.1248-37.632 43.8272-37.632 70.528v236.16A174.6688 174.6688 0 0 0 332.8 665.1392a174.08 174.08 0 0 0 51.3024 123.904 174.0544 174.0544 0 0 0 123.904 51.3024 174.0544 174.0544 0 0 0 123.904-51.3024 174.08 174.08 0 0 0 51.3024-123.904 174.6688 174.6688 0 0 0-54.9888-127.4368V301.568c0-26.7008-13.7216-52.4032-37.632-70.528C568.2176 214.1184 538.9056 204.8 507.9808 204.8z m0 47.104c39.6288 0 73.1136 22.7328 73.1136 49.6384v257.8432l8.5248 7.0656a127.7952 127.7952 0 0 1 46.464 98.688 128.256 128.256 0 0 1-128.1024 128.1024 128.256 128.256 0 0 1-128.1024-128.1024c0-38.272 16.9216-74.24 46.4384-98.688l8.5248-7.0656V301.5424c0-26.9056 33.4848-49.6384 73.1392-49.6384z m0 87.1168c-19.968 0-36.1472 12.2624-36.1472 27.3664v216.9856a89.3952 89.3952 0 1 0 72.2688 0v-216.9856c0-15.104-16.1792-27.3664-36.1216-27.3664z m171.5968 142.5152h-28.2624a11.5968 11.5968 0 0 0 0 23.2192h28.2624a11.5968 11.5968 0 1 0 0-23.2192z m0-35.6096h-28.2624a11.5968 11.5968 0 0 0 0 23.1936h28.2624a11.5968 11.5968 0 1 0 0-23.1936z m0-35.6352h-28.2624a11.5968 11.5968 0 0 0 0 23.2192h28.2624a11.5968 11.5968 0 1 0 0-23.2192z m0-35.6352h-28.2624a11.5968 11.5968 0 0 0 0 23.2192h28.2624a11.5968 11.5968 0 1 0 0-23.2192z m0-35.6352h-28.2624a11.5968 11.5968 0 0 0 0 23.2192h28.2624a11.5968 11.5968 0 1 0 0-23.2192z m0-35.6352h-28.2624a11.5968 11.5968 0 0 0 0 23.2192h28.2624a11.5968 11.5968 0 1 0 0-23.2192z" fill="#d4237a" p-id="10996"></path></svg>
+                                    {% if lan == 'cn' %} <strong>温度传感器</strong> {% else %} <strong>Thermal Sensor</strong> {% endif %}
+                                </label>
+                                <label class="dropdown-item cursor-pointer apm-extra-item"><input class="form-check-input m-0 me-2 cursor-pointer" id="cpu_core_checkbox" type="checkbox" name="cpu_core">
+                                    <svg t="1702629502002" class="icon me-2" viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg" p-id="7953" width="320" height="320"><path d="M426.666667 85.333333v85.333334h170.666666V85.333333h85.333334v85.333334h42.666666a128 128 0 0 1 128 128v42.666666h85.333334v85.333334h-85.333334v170.666666h85.333334v85.333334h-85.333334v42.666666a128 128 0 0 1-128 128h-42.666666v85.333334h-85.333334v-85.333334h-170.666666v85.333334h-85.333334v-85.333334h-42.666666a128 128 0 0 1-128-128v-42.666666H85.333333v-85.333334h85.333334v-170.666666H85.333333v-85.333334h85.333334v-42.666666a128 128 0 0 1 128-128h42.666666V85.333333h85.333334z m-128 170.666667a42.666667 42.666667 0 0 0-42.666667 42.666667v426.666666a42.666667 42.666667 0 0 0 42.666667 42.666667h426.666666a42.666667 42.666667 0 0 0 42.666667-42.666667V298.666667a42.666667 42.666667 0 0 0-42.666667-42.666667H298.666667z" fill="#000000" p-id="7954"></path><path d="M362.666667 405.333333a42.666667 42.666667 0 0 1 42.666666-42.666666h213.333334a42.666667 42.666667 0 0 1 42.666666 42.666666v213.333334a42.666667 42.666667 0 0 1-42.666666 42.666666H405.333333a42.666667 42.666667 0 0 1-42.666666-42.666666V405.333333z m85.333333 42.666667v128h128v-128h-128z" fill="#0078FF" p-id="7955"></path></svg>
+                                    {% if lan == 'cn' %} <strong>CPU核心使用率</strong> {% else %}<strong>CPU Cores</strong> {% endif %}
+                                </label>
+                                {% endif %}
+                                <label class="dropdown-item cursor-pointer apm-extra-item"><input class="form-check-input m-0 me-2 cursor-pointer" id="disk_checkbox" type="checkbox" name="disk">
+                                    <svg t="1711433630085" class="icon me-2" viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg" p-id="84744" width="200" height="200"><path d="M172.261392 465.745702l-0.539234 376.625021 326.285617 180.627064v-375.786213L172.261392 465.745702z" fill="#4762AF" p-id="84745"></path><path d="M743.081477 435.363404l50.121532 15.817532-41.815149 39.734468-8.306383-55.552zM235.558754 438.021447l-25.469277 23.895149 21.776341 20.153191 3.692936-44.04834z" fill="#6982C8" p-id="84746"></path><path d="M521.750414 667.549957c-13.105021-7.271489-32.768-8.170213-43.890383-1.998978L178.966414 831.400851c-11.122383 6.171234-9.510128 17.081191 3.594893 24.352681l291.70383 161.857362c13.105021 7.271489 32.768 8.164766 43.890383 1.998978l298.893617-165.849872c11.122383-6.171234 9.510128-17.081191-3.594894-24.352681L521.750414 667.549957z" fill="#4762AF" p-id="84747"></path></svg>
+                                    {% if lan == 'cn' %} <strong>磁盘</strong> {% else %}<strong>Disk</strong> {% endif %}
+                                </label>
+                                {% if platform == 'iOS' %}
+                                <label class="dropdown-item cursor-pointer apm-extra-item"><input class="form-check-input m-0 me-2 cursor-pointer" id="energy_checkbox" type="checkbox" name="energy">
+                                    <svg t="1718160175906" class="icon me-2" viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg" p-id="8233" width="256" height="256"><path d="M672 672m-240 0a240 240 0 1 0 480 0 240 240 0 1 0-480 0Z" fill="#FFEBEB" p-id="8234"></path><path d="M681.9 418.2l-121.9-0.8 17-148.5c1.7-14.8-5.9-29-18.7-34.6s-27.3-1-35.4 10.9L318 545.2c-6.7 10-7.8 23.4-2.7 34.5 5.1 11.1 15.6 18.1 27 18.1h113l-40.2 152c-3.9 14.9 2.2 30.9 14.8 38.2 4.5 2.6 9.5 4 14.3 4 8.7 0 17.2-4.1 23-12l237.7-307.6c7.5-9.8 9.3-23.4 4.3-35-5-11.7-15.6-19.2-27.3-19.2zM512.4 619.6l12-45.5c2.6-10 0.7-20.6-4.9-28.9-5.7-8.3-14.6-13.2-24.2-13.2h-93l100.6-147.5-6.9 61.6c-1 9.3 1.6 18.8 7.2 25.8 5.7 7.1 14 11.1 22.5 11.2l91.5 0.7-104.8 135.8z" fill="#F23B3B" p-id="8235"></path><path d="M951.3 496.4l-166.1-368c-5.7-10.1-16.4-16.4-28-16.4H266.8c-11.6 0-22.3 6.3-27.9 16.4l-166.1 368c-5.4 9.7-5.4 21.6 0 31.3l166.1 368c5.7 10.1 16.3 16.4 27.9 16.4h490.5c11.6 0 22.3-6.3 27.9-16.4l166.1-368c5.4-9.7 5.4-21.6 0-31.3z m-101 31.2l-116.8 280c-5.6 10.1-16.3 16.4-27.8 16.4H318.3c-11.6 0-22.3-6.3-27.9-16.4l-116.8-280c-5.4-9.7-5.4-21.6 0-31.3l116.8-280c5.7-10.1 16.3-16.4 27.9-16.4h387.3c11.6 0 22.3 6.3 27.9 16.4l116.8 280c5.4 9.7 5.4 21.6 0 31.3z" fill="#FF4C4C" p-id="8236"></path></svg>
+                                    {% if lan == 'cn' %} <strong>功耗</strong> {% else %}<strong>Energy</strong> {% endif %}
+                                </label>
+                                {% endif %}
+                            </div>
+                            </div>
                             <div id="live-stats-card" class="border rounded p-2 mt-2 small" style="display:none;">
                                 <strong>{% if lan == 'cn' %}实时统计{% else %}Live Stats{% endif %}</strong>
                                 <table class="table table-sm table-borderless mb-0 mt-1" style="font-size:11px;">
@@ -334,6 +672,19 @@ SoloX - Application Performance Monitoring
                     </label>
                 </span>
             </a>
+            <a class="dropdown-item" style="margin-top: 6px;" onclick="event.stopPropagation();">
+                <span style="margin-left: 28px; font-size: 13px; color: #666;">{% if lan == 'cn' %}录制画质{% else %}Record Quality{% endif %}</span>
+                <span class="ms-auto">
+                    <select id="record-quality" class="form-select form-select-sm" style="width: auto; display: inline-block;" onclick="event.stopPropagation();">
+                        <option value="1080p">{% if lan == 'cn' %}超清 1080p{% else %}1080p{% endif %}</option>
+                        <option value="720p" selected>{% if lan == 'cn' %}高清 720p{% else %}720p{% endif %}</option>
+                        <option value="480p">{% if lan == 'cn' %}流畅 480p{% else %}480p{% endif %}</option>
+                    </select>
+                </span>
+            </a>
+            <div style="font-size: 11px; color: #999; padding: 2px 16px 4px 44px; line-height: 1.6;">
+                {% if lan == 'cn' %}超清≈60MB/分钟，高清≈30MB/分钟，流畅≈15MB/分钟；分辨率越高越清晰但文件越大。{% else %}1080p≈60MB/min, 720p≈30MB/min, 480p≈15MB/min; higher = clearer but larger.{% endif %}
+            </div>
 
             <a class="dropdown-item" style="margin-top: 10px;">
                 <svg t="1657093102367" class="icon me-2" viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg" p-id="27860" width="2000" height="2000"><path d="M938.362 256.2V149.626c0-23.576-19.11-42.654-42.652-42.654H43.046C19.502 106.972 0.392 126.05 0.392 149.626V256.2h937.97z" fill="#E6E9ED" p-id="27861"></path><path d="M792.164 831.75H0.392V192.25h937.97v446.306z" fill="#656D78" p-id="27862"></path><path d="M85.67 149.626c0 11.772-9.526 21.296-21.328 21.296-11.74 0-21.294-9.524-21.294-21.296S52.602 128.3 64.342 128.3c11.802 0 21.328 9.556 21.328 21.326z" fill="#ED5564" p-id="27863"></path><path d="M149.62 149.626c0 11.772-9.524 21.296-21.326 21.296-11.742 0-21.296-9.524-21.296-21.296S116.55 128.3 128.292 128.3c11.804 0 21.328 9.556 21.328 21.326z" fill="#FFCE54" p-id="27864"></path><path d="M213.568 149.626c0 11.772-9.524 21.296-21.326 21.296-11.74 0-21.294-9.524-21.294-21.296S180.502 128.3 192.242 128.3c11.802 0 21.326 9.556 21.326 21.326z" fill="#A0D468" p-id="27865"></path><path d="M746.512 277.496H106.996c-11.772 0-21.326 9.554-21.326 21.326s9.554 21.328 21.326 21.328h639.516c11.74 0 21.294-9.556 21.294-21.328s-9.554-21.326-21.294-21.326z" fill="#FC6E51" p-id="27866"></path><path d="M106.996 405.426h341.046c11.802 0 21.326-9.554 21.326-21.328 0-11.772-9.524-21.326-21.326-21.326H106.996c-11.772 0-21.326 9.554-21.326 21.326 0 11.774 9.554 21.328 21.326 21.328z" fill="#AC92EB" p-id="27867"></path><path d="M575.958 448.05H106.996c-11.772 0-21.326 9.556-21.326 21.328s9.554 21.296 21.326 21.296h468.962c11.8 0 21.294-9.524 21.294-21.296s-9.492-21.328-21.294-21.328z" fill="#48CFAD" p-id="27868"></path><path d="M106.996 575.952H405.42c11.772 0 21.326-9.556 21.326-21.328s-9.554-21.296-21.326-21.296H106.996c-11.772 0-21.326 9.526-21.326 21.296s9.554 21.328 21.326 21.328z" fill="#5D9CEC" p-id="27869"></path><path d="M615.678 669.22c8.618 0 16.734-5.278 19.984-13.832 4.122-11.024-1.5-23.326-12.492-27.45-41.03-15.392-47.336-54.708-47.336-55.112a21.332 21.332 0 0 0-24.232-17.956c-11.662 1.716-19.688 12.552-17.97 24.2 0.376 2.624 10.242 64.668 74.55 88.776 2.5 0.938 4.996 1.374 7.496 1.374zM959.534 917.028c1 0 2.06-0.094 3.122-0.25 11.68-1.716 19.674-12.552 17.988-24.2-0.376-2.624-10.242-64.668-74.566-88.776-11.054-4.152-23.296 1.438-27.48 12.458-4.122 11.024 1.5 23.326 12.492 27.448 41.03 15.394 47.336 54.708 47.398 55.114a21.28 21.28 0 0 0 21.046 18.206zM448.042 618.572H106.996c-11.772 0-21.326 9.554-21.326 21.328 0 11.772 9.554 21.326 21.326 21.326h341.046c11.802 0 21.326-9.554 21.326-21.326a21.312 21.312 0 0 0-21.326-21.328z" fill="#FFCE54" p-id="27870"></path><path d="M277.52 703.85H106.996c-11.772 0-21.326 9.554-21.326 21.328 0 11.772 9.554 21.294 21.326 21.294h170.524c11.772 0 21.326-9.524 21.326-21.294 0-11.774-9.554-21.328-21.326-21.328z" fill="#ED5564" p-id="27871"></path><path d="M1002.312 746.472H533.318a21.28 21.28 0 0 1-21.294-21.294c0-11.774 9.524-21.328 21.294-21.328h468.994c11.74 0 21.294 9.554 21.294 21.328 0.002 11.772-9.554 21.294-21.294 21.294zM725.592 555.53a21.332 21.332 0 0 1-18.298-10.368l-64.388-107.478c-5.994-10.086-2.746-23.202 7.372-29.228a21.276 21.276 0 0 1 29.226 7.338l64.324 107.478c6.058 10.086 2.81 23.17-7.306 29.228a21.286 21.286 0 0 1-10.93 3.03zM810.212 555.53c-3.686 0-7.496-0.968-10.93-3.03-10.054-6.058-13.364-19.142-7.306-29.26l64.324-107.446a21.278 21.278 0 0 1 29.228-7.338c10.118 6.026 13.364 19.11 7.368 29.228l-64.324 107.478c-3.996 6.65-11.116 10.368-18.36 10.368zM920.002 669.22c-8.62 0-16.738-5.278-19.922-13.832-4.184-11.024 1.436-23.326 12.426-27.45 41.094-15.392 47.34-54.708 47.402-55.112 1.686-11.648 12.55-19.674 24.168-17.956 11.68 1.716 19.734 12.552 17.986 24.2-0.376 2.624-10.242 64.668-74.568 88.776a20.884 20.884 0 0 1-7.492 1.374zM575.958 917.028c-1 0-2.062-0.094-3.124-0.25-11.616-1.716-19.672-12.552-17.984-24.2 0.438-2.624 10.242-64.668 74.566-88.776 11.054-4.152 23.356 1.438 27.478 12.458 4.124 11.024-1.436 23.326-12.49 27.448-41.032 15.394-47.276 54.708-47.338 55.114-1.56 10.586-10.68 18.206-21.108 18.206z" fill="#FFCE54" p-id="27872"></path><path d="M938.236 682.524c0 129.524-48.71 234.504-170.43 234.504-121.716 0-170.43-104.98-170.43-234.504 0-129.494 63.39-191.85 170.43-191.85 107.044-0.002 170.43 62.356 170.43 191.85z" fill="#ED5564" p-id="27873"></path><path d="M746.512 915.872c6.806 0.75 13.928 1.156 21.294 1.156 7.372 0 14.49-0.406 21.296-1.156v-297.3h-42.592v297.3z" fill="#DA4453" p-id="27874"></path><path d="M603.56 618.572h328.494c-18.298-86.12-76.626-127.9-164.248-127.9-87.616 0-145.946 41.782-164.246 127.9z" fill="#DA4453" p-id="27875"></path></svg>
@@ -377,6 +728,12 @@ SoloX - Application Performance Monitoring
             <button class="btn btn-sm btn-global-zoom active" data-zoom="0" style="padding: 1px 8px; font-size: 12px; background: #e6c619; color: #000; border: none; border-radius: 3px;">1min</button>
             <button class="btn btn-sm btn-global-zoom" data-zoom="1" style="padding: 1px 8px; font-size: 12px; background: #666; color: #fff; border: none; border-radius: 3px;">5min</button>
             <button class="btn btn-sm btn-global-zoom" data-zoom="2" style="padding: 1px 8px; font-size: 12px; background: #666; color: #fff; border: none; border-radius: 3px;">All</button>
+            {% if platform == 'Android' %}
+            <span id="chart-record-duration" class="chart-record-duration" title="{% if lan == 'cn' %}当前录屏累计时长{% else %}Screen recording elapsed time{% endif %}">
+                <span>{% if lan == 'cn' %}已录制时长{% else %}Recorded{% endif %}</span>
+                <span id="chart-record-elapsed" class="chart-record-elapsed">00:00:00</span>
+            </span>
+            {% endif %}
         </div>
         <div id="cpu" class="mb-3 cpu" style="min-width:400px;height:300px"></div>
         {% if platform == 'Android' %}
@@ -809,47 +1166,6 @@ adb kill-server &amp;&amp; adb start-server</code></pre>
         </div>
     </div>
 </div>
-
-<div class="modal modal-blur fade" id="add-more" tabindex="-1" role="dialog" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered" role="document">
-      <div class="modal-content">
-        <div class="modal-header">
-          <h5 class="modal-title">{% if lan == 'cn' %}添加更多指标{% else %}Add More{% endif %}</h5>
-          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-        </div>
-        <div class="modal-body">
-            <label class="dropdown-item cursor-pointer"><input class="form-check-input m-0 me-2 cursor-pointer" id="gpu_checkbox" type="checkbox" checked  name="gpu"> 
-                <svg t="1702629555656" class="icon me-2" viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg" p-id="8114" width="320" height="320"><path d="M809.2 525.5h120.5c13.1 0 23.6-10.6 23.6-23.6 0-13-10.6-23.6-23.6-23.6H809.2c-4.8 0-9.1 1.8-12.8 4.3v-71.5c0-4.9-0.7-9.6-1.4-14.4 4 3.1 8.8 5.3 14.3 5.3h120.5c13.1 0 23.6-10.6 23.6-23.6 0-13-10.6-23.6-23.6-23.6H809.2c-10.4 0-18.9 6.8-22.1 16.1-15.1-32-47.5-54.3-85.2-54.3H409c-52.2 0-94.5 42.3-94.5 94.5v305.3c0 33.1 17 62.1 42.7 78.9-3.7 4.2-6.1 9.5-6.1 15.5v123.6c0 13 10.6 23.6 23.6 23.6 13.1 0 23.6-10.6 23.6-23.6V810.8c0-0.4-0.2-0.7-0.2-1.1 3.6 0.4 7.1 1.1 10.9 1.1h62.6v123.6c0 13 10.6 23.6 23.6 23.6s23.6-10.6 23.6-23.6V810.8H592v123.6c0 13 10.6 23.6 23.6 23.6 13.1 0 23.6-10.6 23.6-23.6V810.8h62.6c3.7 0 7.3-0.7 10.9-1.1 0 0.4-0.2 0.7-0.2 1.1v123.6c0 13 10.6 23.6 23.6 23.6 13.1 0 23.6-10.6 23.6-23.6V810.8c0-6-2.4-11.4-6.1-15.5 14.5-9.5 26-22.9 33.4-38.7 3.2 9.3 11.7 16.1 22.1 16.1h120.5c13.1 0 23.6-10.6 23.6-23.6 0-13-10.6-23.6-23.6-23.6H809.2c-5.5 0-10.3 2.2-14.3 5.3 0.7-4.7 1.4-9.4 1.4-14.4v-71.5c3.7 2.5 8 4.3 12.8 4.3h120.5c13.1 0 23.6-10.6 23.6-23.6 0-13-10.6-23.6-23.6-23.6H809.2c-4.8 0-9.1 1.8-12.8 4.3v-84.9c3.7 2.3 8 4.1 12.8 4.1z" fill="#4DBBF7" p-id="8115"></path><path d="M585 384.4c13 0 23.6 10.6 23.6 23.6v187.8c0 13-10.6 23.6-23.6 23.6H405.4c-13 0-23.6-10.6-23.6-23.6V408c0-13 10.6-23.6 23.6-23.6H585m0-47.2H405.4c-39.1 0-70.9 31.7-70.9 70.9v187.8c0 39.1 31.7 70.9 70.9 70.9H585c39.1 0 70.9-31.7 70.9-70.9V408c-0.1-39.1-31.8-70.8-70.9-70.8z" fill="" p-id="8116"></path><path d="M893 463.8c13.1 0 23.6-10.6 23.6-23.6S906 416.6 893 416.6H776.3v-76.3H893c13.1 0 23.6-10.6 23.6-23.6S906.1 293 893 293H774.8c-6.3-39.1-36.5-70.2-75.3-77.6V107.6c0-13-10.6-23.6-23.6-23.6s-23.6 10.6-23.6 23.6v106h-73.2v-106c0-13-10.6-23.6-23.6-23.6-13.1 0-23.6 10.6-23.6 23.6v106h-73.2v-106c0-13-10.6-23.6-23.6-23.6s-23.6 10.6-23.6 23.6v106h-73.2v-106c0-13-10.6-23.6-23.6-23.6s-23.6 10.6-23.6 23.6v107.8c-38.8 7.4-68.9 38.4-75.2 77.6h-113c-13.1 0-23.6 10.6-23.6 23.6s10.6 23.6 23.6 23.6h111.2v76.3H102.9c-13.1 0-23.6 10.6-23.6 23.6s10.6 23.6 23.6 23.6h111.2V540H102.9c-13.1 0-23.6 10.6-23.6 23.6s10.6 23.6 23.6 23.6h111.2v76.3H102.9c-13.1 0-23.6 10.6-23.6 23.6 0 13 10.6 23.6 23.6 23.6h112.7c6.3 39.1 36.5 70.2 75.2 77.6v107.8c0 13 10.6 23.6 23.6 23.6s23.6-10.6 23.6-23.6v-106h73.2v106c0 13 10.6 23.6 23.6 23.6s23.6-10.6 23.6-23.6v-106h73.2v106c0 13 10.6 23.6 23.6 23.6 13.1 0 23.6-10.6 23.6-23.6v-106H652v106c0 13 10.6 23.6 23.6 23.6s23.6-10.6 23.6-23.6V788.4c38.8-7.4 68.9-38.4 75.3-77.6H893c13.1 0 23.6-10.6 23.6-23.6 0-13-10.6-23.6-23.6-23.6H776.3v-76.3H893c13.1 0 23.6-10.6 23.6-23.6S906 540.1 893 540.1H776.3v-76.3H893zM729.1 695.7c0 26.1-21.2 47.2-47.2 47.2H308.6c-26 0-47.2-21.2-47.2-47.2V308.1c0-26.1 21.2-47.2 47.2-47.2h373.2c26 0 47.2 21.2 47.2 47.2v387.6z" fill="" p-id="8117"></path><path d="M518.1 437.3h33.1v14.5h-33.1z" fill="#FFD939" p-id="8118"></path><path d="M574.8 413.6h-80.3v61.8h80.3v-61.8z" fill="" p-id="8119"></path></svg>
-                <strong>GPU</strong>
-            </label>
-            {% if platform == 'Android' %}
-            <label class="dropdown-item cursor-pointer"><input class="form-check-input m-0 me-2 cursor-pointer" id="mem_detail_checkbox" type="checkbox"  name="mem_detail"> 
-                <svg t="1702629683077" class="icon me-2" viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg" p-id="13054" width="320" height="320"><path d="M798.11 959.56H225.89c-49.11 0-89.07-39.96-89.07-89.07V153.51c0-49.11 39.96-89.07 89.07-89.07h355.8c23.85 0 46.94 9.93 63.35 27.24l218.19 230.21c15.44 16.28 23.94 37.61 23.94 60.05v488.55c0 49.12-39.96 89.07-89.07 89.07zM225.89 135.7c-9.82 0-17.81 7.99-17.81 17.81v716.98c0 9.82 7.99 17.81 17.81 17.81h572.22c9.82 0 17.81-7.99 17.81-17.81V381.94c0-4.12-1.56-8.04-4.4-11.03L593.33 140.7c-3.01-3.18-7.25-5-11.64-5h-355.8z" fill="#474747" p-id="13055"></path><path d="M681.21 814.4H342.99c-21.51 0-39.01-17.5-39.01-39.01V493.42c0-21.51 17.5-39.01 39.01-39.01h338.22c21.51 0 39.01 17.5 39.01 39.01V775.4c0 21.51-17.5 39.01-39.01 39.01z m-323.78-53.44h309.35V507.85H357.43v253.11z" fill="#4F95FC" p-id="13056"></path><path d="M452.76 797.26c-14.76 0-26.72-11.96-26.72-26.72V615.36c0-14.76 11.96-26.72 26.72-26.72 14.76 0 26.72 11.96 26.72 26.72v155.18c0 14.76-11.96 26.72-26.72 26.72zM585.81 797.26c-14.76 0-26.72-11.96-26.72-26.72V615.36c0-14.76 11.96-26.72 26.72-26.72 14.76 0 26.72 11.96 26.72 26.72v155.18c0 14.76-11.96 26.72-26.72 26.72z" fill="#4F95FC" p-id="13057"></path></svg>
-                {% if lan == 'cn' %} <strong>内存细化指标</strong> {% else %}<strong>Memory Detail</strong>{% endif %}
-            </label>
-            <label class="dropdown-item cursor-pointer"><input class="form-check-input m-0 me-2 cursor-pointer" id="thermal_checkbox" type="checkbox"  name="thermal_sensor"> 
-                <svg t="1717146743461" class="icon me-2" viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg" p-id="10995" width="256" height="256"><path d="M512 0c282.7776 0 512 229.2224 512 512s-229.2224 512-512 512S0 794.7776 0 512 229.2224 0 512 0z m-3.9936 204.8c-30.9248 0-60.2624 9.3184-82.5856 26.2144-23.936 18.1248-37.632 43.8272-37.632 70.528v236.16A174.6688 174.6688 0 0 0 332.8 665.1392a174.08 174.08 0 0 0 51.3024 123.904 174.0544 174.0544 0 0 0 123.904 51.3024 174.0544 174.0544 0 0 0 123.904-51.3024 174.08 174.08 0 0 0 51.3024-123.904 174.6688 174.6688 0 0 0-54.9888-127.4368V301.568c0-26.7008-13.7216-52.4032-37.632-70.528C568.2176 214.1184 538.9056 204.8 507.9808 204.8z m0 47.104c39.6288 0 73.1136 22.7328 73.1136 49.6384v257.8432l8.5248 7.0656a127.7952 127.7952 0 0 1 46.464 98.688 128.256 128.256 0 0 1-128.1024 128.1024 128.256 128.256 0 0 1-128.1024-128.1024c0-38.272 16.9216-74.24 46.4384-98.688l8.5248-7.0656V301.5424c0-26.9056 33.4848-49.6384 73.1392-49.6384z m0 87.1168c-19.968 0-36.1472 12.2624-36.1472 27.3664v216.9856a89.3952 89.3952 0 1 0 72.2688 0v-216.9856c0-15.104-16.1792-27.3664-36.1216-27.3664z m171.5968 142.5152h-28.2624a11.5968 11.5968 0 0 0 0 23.2192h28.2624a11.5968 11.5968 0 1 0 0-23.2192z m0-35.6096h-28.2624a11.5968 11.5968 0 0 0 0 23.1936h28.2624a11.5968 11.5968 0 1 0 0-23.1936z m0-35.6352h-28.2624a11.5968 11.5968 0 0 0 0 23.2192h28.2624a11.5968 11.5968 0 1 0 0-23.2192z m0-35.6352h-28.2624a11.5968 11.5968 0 0 0 0 23.2192h28.2624a11.5968 11.5968 0 1 0 0-23.2192z m0-35.6352h-28.2624a11.5968 11.5968 0 0 0 0 23.2192h28.2624a11.5968 11.5968 0 1 0 0-23.2192z m0-35.6352h-28.2624a11.5968 11.5968 0 0 0 0 23.2192h28.2624a11.5968 11.5968 0 1 0 0-23.2192z" fill="#d4237a" p-id="10996" data-spm-anchor-id="a313x.search_index.0.i0.3b713a81JBMZXg" class="selected"></path></svg>
-                {% if lan == 'cn' %} <strong>温度传感器</strong> {% else %} <strong>Thermal Sensor</strong> {% endif %}
-            </label>
-            <label class="dropdown-item cursor-pointer"><input class="form-check-input m-0 me-2 cursor-pointer" id="cpu_core_checkbox" type="checkbox"  name="cpu_core"> 
-                <svg t="1702629502002" class="icon me-2" viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg" p-id="7953" width="320" height="320"><path d="M426.666667 85.333333v85.333334h170.666666V85.333333h85.333334v85.333334h42.666666a128 128 0 0 1 128 128v42.666666h85.333334v85.333334h-85.333334v170.666666h85.333334v85.333334h-85.333334v42.666666a128 128 0 0 1-128 128h-42.666666v85.333334h-85.333334v-85.333334h-170.666666v85.333334h-85.333334v-85.333334h-42.666666a128 128 0 0 1-128-128v-42.666666H85.333333v-85.333334h85.333334v-170.666666H85.333333v-85.333334h85.333334v-42.666666a128 128 0 0 1 128-128h42.666666V85.333333h85.333334z m-128 170.666667a42.666667 42.666667 0 0 0-42.666667 42.666667v426.666666a42.666667 42.666667 0 0 0 42.666667 42.666667h426.666666a42.666667 42.666667 0 0 0 42.666667-42.666667V298.666667a42.666667 42.666667 0 0 0-42.666667-42.666667H298.666667z" fill="#000000" p-id="7954"></path><path d="M362.666667 405.333333a42.666667 42.666667 0 0 1 42.666666-42.666666h213.333334a42.666667 42.666667 0 0 1 42.666666 42.666666v213.333334a42.666667 42.666667 0 0 1-42.666666 42.666666H405.333333a42.666667 42.666667 0 0 1-42.666666-42.666666V405.333333z m85.333333 42.666667v128h128v-128h-128z" fill="#0078FF" p-id="7955"></path></svg>
-                {% if lan == 'cn' %} <strong>CPU核心使用率</strong> {% else %}<strong>CPU Cores</strong> {% endif %}
-            </label>
-            {% endif %}
-            <label class="dropdown-item cursor-pointer"><input class="form-check-input m-0 me-2 cursor-pointer" id="disk_checkbox" type="checkbox"  name="disk">
-                <svg t="1711433630085" class="icon me-2" viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg" p-id="84744" width="200" height="200"><path d="M172.261392 465.745702l-0.539234 376.625021 326.285617 180.627064v-375.786213L172.261392 465.745702z" fill="#4762AF" p-id="84745"></path><path d="M743.081477 435.363404l50.121532 15.817532-41.815149 39.734468-8.306383-55.552zM235.558754 438.021447l-25.469277 23.895149 21.776341 20.153191 3.692936-44.04834z" fill="#6982C8" p-id="84746"></path><path d="M521.750414 667.549957c-13.105021-7.271489-32.768-8.170213-43.890383-1.998978L178.966414 831.400851c-11.122383 6.171234-9.510128 17.081191 3.594893 24.352681l291.70383 161.857362c13.105021 7.271489 32.768 8.164766 43.890383 1.998978l298.893617-165.849872c11.122383-6.171234 9.510128-17.081191-3.594894-24.352681L521.750414 667.549957z" fill="#4762AF" p-id="84747"></path><path d="M532.720286 13.148596c0-11.035234-6.737702-16.122553-15.044085-11.362043L246.909903 157.107745c-8.300936 4.760511-15.044085 17.582298-15.044085 28.617532v596.098723c0 11.029787 6.743149 16.122553 15.044085 11.362043l270.766298-155.321192c8.306383-4.760511 15.044085-17.587745 15.044085-28.617532V13.148596z" fill="#C4CADD" p-id="84748"></path><path d="M526.717903 0.604596l14.542979 8.279149-15.937362 7.473021-6.955574-7.974128L526.717903 0.604596z" fill="#C4CADD" p-id="84749"></path><path d="M546.560626 21.090043c0-11.035234-6.743149-16.128-15.044085-11.36749L260.750243 165.043745c-8.300936 4.760511-15.044085 17.587745-15.044085 28.622978v596.093277c0 11.035234 6.743149 16.128 15.044085 11.362043l270.766298-155.315745c8.300936-4.765957 15.044085-17.587745 15.044085-28.622979V21.090043z" fill="#848BA6" p-id="84750"></path><path d="M602.842499 75.389277c0-11.035234-6.743149-16.128-15.044085-11.362043L317.032116 219.342979c-8.300936 4.765957-15.044085 17.587745-15.044085 28.622978v596.093277c0 11.035234 6.743149 16.128 15.044085 11.367489l270.766298-155.321191c8.300936-4.760511 15.044085-17.587745 15.044085-28.622979V75.389277z" fill="#C4CADD" p-id="84751"></path><path d="M596.840116 62.845277l14.542978 8.279149-15.937361 7.467574-6.955575-7.968681 8.349958-7.778042z" fill="#C4CADD" p-id="84752"></path><path d="M616.682839 83.325277c0-11.029787-6.743149-16.122553-15.044085-11.362043L330.872456 227.284426c-8.306383 4.760511-15.044085 17.587745-15.044085 28.617531v596.098724c0 11.035234 6.737702 16.128 15.044085 11.362042l270.766298-155.315744c8.300936-4.765957 15.044085-17.587745 15.044085-28.622979V83.325277z" fill="#848BA6" p-id="84753"></path><path d="M672.964711 137.629957c0-11.035234-6.743149-16.128-15.044085-11.362042L387.154329 281.58366c-8.306383 4.765957-15.044085 17.587745-15.044086 28.622978v596.093277c0 11.035234 6.737702 16.128 15.044086 11.367489l270.766297-155.321191c8.300936-4.760511 15.044085-17.587745 15.044085-28.622979V137.629957z" fill="#C4CADD" p-id="84754"></path><path d="M666.956882 125.080511l14.542978 8.284595-15.937361 7.467575-6.950128-7.974128 8.344511-7.778042z" fill="#C4CADD" p-id="84755"></path><path d="M686.799605 145.565957c0-11.029787-6.737702-16.122553-15.038638-11.362042L400.989222 289.525106c-8.300936 4.760511-15.038638 17.587745-15.038638 28.617532v596.098724c0 11.035234 6.737702 16.122553 15.038638 11.362042l270.771745-155.321191c8.300936-4.760511 15.038638-17.582298 15.038638-28.617532V145.565957z" fill="#848BA6" p-id="84756"></path><path d="M743.081477 199.870638c0-11.035234-6.737702-16.128-15.038638-11.367489L457.271094 343.82434c-8.300936 4.760511-15.038638 17.587745-15.038638 28.622979v596.093277c0 11.035234 6.737702 16.128 15.038638 11.362042l270.771745-155.315744c8.300936-4.765957 15.038638-17.587745 15.038638-28.622979V199.870638z" fill="#C4CADD" p-id="84757"></path><path d="M737.079094 187.321191l14.542979 8.284596-15.937362 7.467575-6.955574-7.974128 8.349957-7.778043z" fill="#C4CADD" p-id="84758"></path><path d="M756.921818 207.806638c0-11.035234-6.737702-16.122553-15.044085-11.362042L471.111435 351.765787c-8.300936 4.760511-15.044085 17.582298-15.044085 28.617532v596.098724c0 11.029787 6.743149 16.122553 15.044085 11.362042l270.766298-155.321191c8.306383-4.760511 15.044085-17.587745 15.044085-28.617532V207.806638z" fill="#848BA6" p-id="84759"></path><path d="M496.215775 642.592681l327.511149-178.088851 0.566468 379.40834-328.077617-69.011064v-132.308425z" fill="#4762AF" p-id="84760"></path><path d="M465.670073 636.43234l69.893447-2.897702v376.412596s-8.900085 7.690894-22.168511 11.645277c-4.33566 1.290894-9.150638 1.824681-14.254298 2.037106-9.984 0.408511-20.790468-4.057872-32.223319-10.092936l-1.247319-377.104341z" fill="#6982C8" p-id="84761"></path><path d="M466.732201 641.056681L225.286073 501.656511v80.498383l241.446128 139.40017v-80.498383zM466.732201 926.093617L225.286073 786.693447v83.412425l241.446128 139.400171v-83.412426z" fill="#4762AF" p-id="84762"></path><path d="M466.732201 705.16017l-19.477787-11.247659v269.361021l19.477787 11.247659v-269.361021z" fill="#4762AF" p-id="84763"></path><path d="M231.865818 422.432681v24.989957l-6.634213 3.829107c-9.733447 5.621106-8.513362 15.458043 2.728851 21.945191l250.264511 144.48749c11.242213 6.492596 28.274383 7.200681 38.00783 1.579574l255.722212-147.641191c9.733447-5.621106 8.513362-15.452596-2.728851-21.945192l-12.30434-7.102638v-26.662128l56.59234 34.347575c13.083234 7.554723 14.510298 18.998468 3.17549 25.540085l-297.570043 171.797787c-11.329362 6.541617-31.144851 5.719149-44.228085-1.830128L183.672456 477.630638c-13.083234-7.554723-14.504851-18.993021-3.175489-25.534638l51.368851-29.663319z" fill="#6982C8" p-id="84764"></path><path d="M535.361988 775.701787v182.805787l250.694809-127.656851-250.694809-55.148936zM302.124201 827.833191v-24.227404l-20.708766 12.27166 20.708766 11.955744z" fill="#4762AF" p-id="84765"></path><path d="M316.503775 795.620766l123.332085-73.166979 0.838809 56.16749-111.812085 64.561021-12.358809-7.04817v-40.513362zM387.007265 828.328851l53.623829-30.95966v110.902469l-53.623829-30.954213v-48.988596z" fill="#848BA6" p-id="84766"></path><path d="M245.967605 597.416851l-14.101787-7.03183v199.293277l13.84034 11.590808 0.261447-203.852255z" fill="#C4CADD" p-id="84767"></path><path d="M245.967605 597.416851l76.625702 43.835915-76.625702 44.244425v-88.08034zM245.967605 705.525106v29.254809l118.544341-69.021958-24.832-14.336-93.712341 54.103149z" fill="#848BA6" p-id="84768"></path><path d="M302.086073 629.716426v197.817191l14.417702 8.32817v-197.926127l-14.417702-8.219234zM372.23552 670.218894v198.17668l14.771745 8.529703v-198.443575l-14.771745-8.262808z" fill="#C4CBDC" p-id="84769"></path><path d="M220.471094 697.943149l12.233532 7.059064v62.551149c0 10.937191 6.612426 23.628255 14.760851 28.334298l178.453788 103.031829c8.142979 4.700596 14.755404-0.359489 14.755404-11.291234v-62.551149l12.233532 7.059064v71.876085c0 12.217191-7.391319 17.870979-16.492936 12.614809l-199.451234-115.150979c-9.101617-5.25617-16.492936-19.43966-16.492937-31.662298v-71.870638z" fill="#6982C8" p-id="84770"></path><path d="M452.908201 832.63183l-12.233532-7.064511v-95.923745c0-10.931745-6.612426-23.628255-14.755404-28.328851l-178.453788-103.031829c-8.148426-4.706043-14.760851 0.354043-14.760851 11.285787v95.929191l-12.233532-7.06451v-105.243234c0-12.222638 7.391319-17.876426 16.492937-12.620256l199.451234 115.150979c9.101617 5.25617 16.492936 19.445106 16.492936 31.662298v105.248681z" fill="#6982C8" p-id="84771"></path><path d="M549.360286 891.827745v-141.932936s-6.601532-30.08817 43.699745-50.301277l196.433702-113.408s10.446979-9.624511 23.306893-0.849702c12.859915 8.769362 28.601191 16.514723 28.601192 16.514723s-227.878128 133.61566-229.653787 132.59166c-1.781106-1.029447-19.684766 5.670128-19.684766 34.124255v166.067745l-32.250554-18.617192s-10.452426-9.23234-10.452425-24.189276z" fill="#273F73" p-id="84772"></path><path d="M847.671094 614.89566c0-10.893617-6.634213-15.904681-14.798978-11.193192l-229.681022 132.608c-8.170213 4.716936-14.798979 17.386213-14.798978 28.27983v157.864851c0 10.88817 6.628766 15.904681 14.798978 11.187745l229.681022-132.608c8.164766-4.711489 14.798979-17.386213 14.798978-28.274383v-157.864851z" fill="#677FC4" p-id="84773"></path><path d="M806.711094 667.609872c0-7.424-4.520851-10.839149-10.087489-7.625532l-146.965787 84.850383c-5.566638 3.213617-10.087489 11.846809-10.087489 19.270809s4.520851 10.844596 10.087489 7.625532l146.965787-84.850383c5.566638-3.213617 10.087489-11.846809 10.087489-19.270809zM806.711094 719.659574c0-7.424-4.520851-10.839149-10.087489-7.625531l-146.965787 84.850383c-5.566638 3.213617-10.087489 11.846809-10.087489 19.270808s4.520851 10.844596 10.087489 7.625532l146.965787-84.850383c5.566638-3.213617 10.087489-11.846809 10.087489-19.270809zM806.711094 769.955404c0-7.424-4.520851-10.839149-10.087489-7.625532l-146.965787 84.850383c-5.566638 3.213617-10.087489 11.852255-10.087489 19.276256s4.520851 10.839149 10.087489 7.625532l146.965787-84.850383c5.566638-3.213617 10.087489-11.852255 10.087489-19.276256z" fill="#71E0FF" p-id="84774"></path><path d="M535.814073 448.969532v54.762213l-19.788255 11.427404V438.337362l25.785191-14.886128c11.307574-6.530723 20.164085-8.676766 26.564085-6.449021 7.603745 2.701617 11.405617 10.131064 11.405617 22.28834 0 11.634383-3.251745 23.001872-9.749787 34.107915-6.498043 11.106043-14.86434 19.613957-25.098893 25.523745-1.203745 0.691745-3.170043 1.753872-5.898894 3.180936v-22.571575l3.164596-1.830127c11.53634-6.656 17.304511-15.561532 17.30451-26.705702 0-10.463319-5.670128-12.42417-17.010383-5.877107l-6.677787 3.850894zM608.877563 384.724426v76.827234l-19.788256 11.421957V396.15183l19.788256-11.427404zM653.427009 358.666894v21.89617a10.675745 10.675745 0 0 0-3.311659 1.067574c-1.497872 0.866043-2.777872 2.244085-3.850894 4.139575-1.073021 1.895489-1.612255 3.741957-1.612255 5.539404 0 1.541447 0.588255 3.153702 1.753872 4.842213l1.514213 2.16783c2.728851 3.899915 4.096 8.404426 4.096 13.508085 0 7.467574-2.304 15.114894-6.901106 22.947404-4.597106 7.832511-10.207319 13.660596-16.836086 17.489702-3.186383 1.841021-6.340085 2.816-9.455659 2.924936v-22.228425c1.884596 0.299574 3.556766 0.027234 5.016511-0.817022 1.721191-0.996766 3.159149-2.396596 4.313872-4.204936 1.154723-1.813787 1.732085-3.578553 1.732085-5.305191 0-1.127489-0.925957-3.050213-2.777872-5.76817-2.957617-4.297532-4.433702-9.450213-4.433702-15.452596 0-7.238809 2.233191-14.766298 6.699574-22.582468 4.466383-7.810723 9.804255-13.513532 16.013617-17.097532a24.870128 24.870128 0 0 1 8.039489-3.066553zM721.228882 319.86383l-17.549617 44.968851 17.451574 31.912851-22.228425 12.827234-15.060426-33.737532 17.059404-44.238979 20.32749-11.732425z m-37.969702 21.917957v76.827234l-19.793703 11.421958V353.209191l19.793703-11.427404z" fill="#17284A" p-id="84775"></path></svg> 
-                {% if lan == 'cn' %}<strong> 磁盘 </strong> {% else %}<strong>Disk</strong>  {% endif %}
-            </label>
-            {% if platform == 'iOS' %}
-            <label class="dropdown-item cursor-pointer"><input class="form-check-input m-0 me-2 cursor-pointer" id="energy_checkbox" type="checkbox"  name="energy">
-                <svg t="1718160175906" class="icon me-2" viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg" p-id="8233" width="256" height="256"><path d="M672 672m-240 0a240 240 0 1 0 480 0 240 240 0 1 0-480 0Z" fill="#FFEBEB" p-id="8234"></path><path d="M681.9 418.2l-121.9-0.8 17-148.5c1.7-14.8-5.9-29-18.7-34.6s-27.3-1-35.4 10.9L318 545.2c-6.7 10-7.8 23.4-2.7 34.5 5.1 11.1 15.6 18.1 27 18.1h113l-40.2 152c-3.9 14.9 2.2 30.9 14.8 38.2 4.5 2.6 9.5 4 14.3 4 8.7 0 17.2-4.1 23-12l237.7-307.6c7.5-9.8 9.3-23.4 4.3-35-5-11.7-15.6-19.2-27.3-19.2zM512.4 619.6l12-45.5c2.6-10 0.7-20.6-4.9-28.9-5.7-8.3-14.6-13.2-24.2-13.2h-93l100.6-147.5-6.9 61.6c-1 9.3 1.6 18.8 7.2 25.8 5.7 7.1 14 11.1 22.5 11.2l91.5 0.7-104.8 135.8z" fill="#F23B3B" p-id="8235"></path><path d="M951.3 496.4l-166.1-368c-5.7-10.1-16.4-16.4-28-16.4H266.8c-11.6 0-22.3 6.3-27.9 16.4l-166.1 368c-5.4 9.7-5.4 21.6 0 31.3l166.1 368c5.7 10.1 16.3 16.4 27.9 16.4h490.5c11.6 0 22.3-6.3 27.9-16.4l166.1-368c5.4-9.7 5.4-21.6 0-31.3z m-101 31.2l-116.8 280c-5.6 10.1-16.3 16.4-27.8 16.4H318.3c-11.6 0-22.3-6.3-27.9-16.4l-116.8-280c-5.4-9.7-5.4-21.6 0-31.3l116.8-280c5.7-10.1 16.3-16.4 27.9-16.4h387.3c11.6 0 22.3 6.3 27.9 16.4l116.8 280c5.4 9.7 5.4 21.6 0 31.3z" fill="#FF4C4C" p-id="8236"></path></svg>
-                {% if lan == 'cn' %}<strong> 功耗 </strong> {% else %}<strong>Energy</strong>  {% endif %}
-            </label>
-            {% endif %}
-        </div>
-      </div>
-    </div>
-  </div>
 {% endblock %}
 
 {% block js %}
@@ -857,6 +1173,673 @@ adb kill-server &amp;&amp; adb start-server</code></pre>
 
     var stop = false; // 任务状态
     var pidRefreshTimer = null; // 进程列表刷新定时器
+    var androidPackages = [];
+    var androidAppTypeFilter = 'user';
+    var castQuality = 'medium';
+    var SOLOX_UI_STORAGE_KEY = 'solox.index.ui.' + platform;
+    var SOLOX_RECORDING_SESSION_KEY = 'solox.recording.active';
+    var recordStatusTimer = null;
+    var RECORD_WARNING_SECONDS = 15 * 60;
+    var RECORD_DANGER_SECONDS = 30 * 60;
+    var metricCheckboxIds = ['cpu_checkbox', 'mem_checkbox', 'flow_checkbox', 'fps_checkbox', 'battery_checkbox', 'gpu_checkbox', 'mem_detail_checkbox', 'thermal_checkbox', 'cpu_core_checkbox', 'disk_checkbox', 'energy_checkbox'];
+
+    function formatRecordElapsed(seconds) {
+        seconds = Math.max(0, parseInt(seconds || 0, 10));
+        var hours = Math.floor(seconds / 3600);
+        var minutes = Math.floor((seconds % 3600) / 60);
+        var sec = seconds % 60;
+        function pad(num) {
+            return num < 10 ? '0' + num : '' + num;
+        }
+        return pad(hours) + ':' + pad(minutes) + ':' + pad(sec);
+    }
+
+    function updateRecordStatusBadge(data) {
+        var badge = $('#record-status-badge');
+        if (!badge.length) {
+            return;
+        }
+        var elapsedSeconds = parseInt(data && data.elapsed_seconds || 0, 10);
+        var elapsedLabel = data && data.elapsed_label ? data.elapsed_label : formatRecordElapsed(elapsedSeconds);
+        var riskLevel = data && data.risk_level ? data.risk_level : 'normal';
+        var error = data && data.error ? data.error : '';
+        var riskText = '';
+        if (error) {
+            riskLevel = 'danger';
+            riskText = lan == 'cn' ? '录制异常' : 'Recording error';
+        } else if (elapsedSeconds >= RECORD_DANGER_SECONDS || riskLevel === 'danger') {
+            riskLevel = 'danger';
+            riskText = lan == 'cn' ? '建议尽快结束' : 'End soon';
+        } else if (elapsedSeconds >= RECORD_WARNING_SECONDS || riskLevel === 'warning') {
+            riskLevel = 'warning';
+            riskText = lan == 'cn' ? '长录制' : 'Long recording';
+        }
+        badge
+            .removeClass('d-none record-status-warning record-status-danger')
+            .toggleClass('record-status-warning', riskLevel === 'warning')
+            .toggleClass('record-status-danger', riskLevel === 'danger');
+        $('#record-elapsed').text(elapsedLabel);
+        $('#record-risk-message').text(riskText);
+        badge.attr('title', error || riskText || elapsedLabel);
+        var chartDuration = $('#chart-record-duration');
+        if (chartDuration.length) {
+            $('#chart-record-elapsed').text(elapsedLabel);
+            chartDuration
+                .removeClass('is-active is-warning is-danger')
+                .toggleClass('is-active', riskLevel === 'normal' && !error)
+                .toggleClass('is-warning', riskLevel === 'warning')
+                .toggleClass('is-danger', riskLevel === 'danger' || !!error);
+            chartDuration.attr('title', error || riskText || elapsedLabel);
+        }
+    }
+
+    function stopRecordStatusPolling(hide) {
+        if (recordStatusTimer) {
+            window.clearTimeout(recordStatusTimer);
+            recordStatusTimer = null;
+        }
+        if (hide) {
+            $('#record-status-badge')
+                .addClass('d-none')
+                .removeClass('record-status-warning record-status-danger');
+            $('#record-elapsed').text('00:00:00');
+            $('#record-risk-message').text('');
+            $('#chart-record-elapsed').text('00:00:00');
+            $('#chart-record-duration').removeClass('is-active is-warning is-danger');
+        }
+    }
+
+    function pollRecordStatus() {
+        $.ajax({
+            url: "/apm/record/status",
+            type: "GET",
+            async: true,
+            cache: false,
+            success: function (data) {
+                if (data && data['status'] == 1) {
+                    updateRecordStatusBadge(data);
+                    if (data['recording'] || sessionStorage.getItem(SOLOX_RECORDING_SESSION_KEY) === '1') {
+                        recordStatusTimer = window.setTimeout(pollRecordStatus, 3000);
+                    }
+                }
+            },
+            error: function () {
+                if (sessionStorage.getItem(SOLOX_RECORDING_SESSION_KEY) === '1') {
+                    recordStatusTimer = window.setTimeout(pollRecordStatus, 5000);
+                }
+            }
+        });
+    }
+
+    function startRecordStatusPolling() {
+        stopRecordStatusPolling(false);
+        updateRecordStatusBadge({elapsed_seconds: 0, elapsed_label: '00:00:00', risk_level: 'normal'});
+        pollRecordStatus();
+    }
+
+    function applyMetricChartVisibility(cb) {
+        var name = cb.prop('name');
+        if (!name || name === 'record-switch' || name === 'net-switch' || name === 'fps-switch') {
+            return;
+        }
+        if (cb.is(':checked')) {
+            $('.' + name).show();
+        } else {
+            $('.' + name).hide();
+        }
+    }
+
+    function saveIndexUiState() {
+        var metrics = {};
+        $.each(metricCheckboxIds, function(i, cbId) {
+            var cb = $('#' + cbId);
+            if (cb.length) {
+                metrics[cbId] = cb.is(':checked');
+            }
+        });
+        var quickBtn = $('.btn-quick-toggle.active');
+        var state = {
+            recordSwitch: $('#record-switch').is(':checked'),
+            netSwitch: $('#net-switch').is(':checked'),
+            fpsSwitch: $('#fps-switch').is(':checked'),
+            metrics: metrics,
+            metricsPickerOpen: $('#btn-toggle-add-more').hasClass('active'),
+            quickToggle: quickBtn.length ? quickBtn.data('mode') : 'all',
+            castQuality: castQuality,
+            recordQuality: $('#record-quality').val(),
+            appTypeFilter: androidAppTypeFilter
+        };
+        try {
+            localStorage.setItem(SOLOX_UI_STORAGE_KEY, JSON.stringify(state));
+        } catch (e) {}
+    }
+
+    function restoreIndexUiState() {
+        try {
+            var raw = localStorage.getItem(SOLOX_UI_STORAGE_KEY);
+            if (!raw) {
+                return false;
+            }
+            var state = JSON.parse(raw);
+            if (state.recordSwitch !== undefined) {
+                $('#record-switch').prop('checked', !!state.recordSwitch);
+            }
+            if (state.netSwitch !== undefined) {
+                $('#net-switch').prop('checked', !!state.netSwitch);
+            }
+            if (state.fpsSwitch !== undefined) {
+                $('#fps-switch').prop('checked', !!state.fpsSwitch);
+            }
+            if (state.metrics) {
+                $.each(state.metrics, function(cbId, checked) {
+                    var cb = $('#' + cbId);
+                    if (!cb.length) {
+                        return;
+                    }
+                    cb.prop('checked', !!checked);
+                    applyMetricChartVisibility(cb);
+                });
+            }
+            if (state.metricsPickerOpen) {
+                $('#btn-toggle-add-more').addClass('active');
+            }
+            if (state.quickToggle) {
+                $('.btn-quick-toggle').removeClass('active');
+                var quickBtn = $('.btn-quick-toggle[data-mode="' + state.quickToggle + '"]');
+                if (quickBtn.length) {
+                    quickBtn.addClass('active');
+                }
+            }
+            if (state.castQuality) {
+                castQuality = state.castQuality;
+                $('.cast-quality-item').removeClass('active');
+                $('.cast-quality-item[data-quality="' + state.castQuality + '"]').addClass('active');
+            }
+            if (state.recordQuality) {
+                $('#record-quality').val(state.recordQuality);
+            }
+            if (state.appTypeFilter && platform === 'Android') {
+                androidAppTypeFilter = state.appTypeFilter;
+                $('#android-app-type-filter [data-app-type]').removeClass('active');
+                $('#android-app-type-filter [data-app-type="' + state.appTypeFilter + '"]').addClass('active');
+            }
+            return true;
+        } catch (e) {
+            return false;
+        }
+    }
+    var androidLabelRequestSeq = 0;
+    var androidLabelQueue = [];
+    var androidLabelLookupActive = false;
+    var ANDROID_LABEL_BATCH_SIZE = 1;
+    var ANDROID_LABEL_MAX_INITIAL = 8;
+
+    function normalizeAndroidPackageItem(item) {
+        if (typeof item === 'string') {
+            return {
+                package: item,
+                label: item,
+                type: 'user',
+                display: item,
+                label_pending: true
+            };
+        }
+        var pkg = item['package'] || item['pkgname'] || '';
+        var label = item['label'] || pkg;
+        return {
+            package: pkg,
+            label: label,
+            type: item['type'] || 'user',
+            display: item['display'] || (label !== pkg ? label + ' (' + pkg + ')' : pkg),
+            label_pending: item['label_pending'] !== false && label === pkg
+        };
+    }
+
+    function appSelectMatcher(params, data) {
+        if (!params.term || $.trim(params.term) === '') {
+            return data;
+        }
+        if (data.children && data.children.length) {
+            var match = $.extend(true, {}, data);
+            match.children = [];
+            for (var i = 0; i < data.children.length; i++) {
+                var child = appSelectMatcher(params, data.children[i]);
+                if (child != null) {
+                    match.children.push(child);
+                }
+            }
+            return match.children.length ? match : null;
+        }
+        var term = $.trim(params.term).toLowerCase();
+        var text = (data.text || '').toLowerCase();
+        var label = '';
+        var pkg = '';
+        var searchBlob = '';
+        if (data.element) {
+            label = String($(data.element).attr('data-label') || '').toLowerCase();
+            pkg = String($(data.element).attr('data-package') || '').toLowerCase();
+            searchBlob = String($(data.element).attr('data-search') || '').toLowerCase();
+        }
+        var haystack = (searchBlob || (text + ' ' + label + ' ' + pkg)).toLowerCase();
+        return haystack.indexOf(term) > -1 ? data : null;
+    }
+
+    function formatAndroidAppOption(data) {
+        if (!data.id || !data.element) {
+            return data.text;
+        }
+        var $option = $(data.element);
+        var pkg = $option.attr('data-package') || data.id;
+        var label = $option.attr('data-label') || data.text || pkg;
+        var display = $option.attr('data-display') || data.text || pkg;
+        var $container = $('<div class="android-app-option"></div>').attr('title', display);
+        $('<span class="android-app-label"></span>').text(label).appendTo($container);
+        if (label !== pkg) {
+            $container.addClass('android-app-option--labeled');
+            $('<span class="android-app-package"></span>')
+                .text('\u00b7 ' + pkg)
+                .appendTo($container);
+        }
+        return $container;
+    }
+
+    function formatAndroidAppSelection(data) {
+        if (!data.id || !data.element) {
+            return data.text;
+        }
+        var $option = $(data.element);
+        var pkg = $option.attr('data-package') || data.id;
+        var label = $option.attr('data-label') || data.text || pkg;
+        var display = $option.attr('data-display') || data.text || pkg;
+        return $('<span class="android-app-selection"></span>')
+            .text(label)
+            .attr('title', display);
+    }
+
+    function initAppSelect2() {
+        if ($('.select-app').data('select2')) {
+            $('.select-app').select2('destroy');
+        }
+        $('.select-app').select2({
+            theme: "bootstrap-5",
+            containerCssClass: "select2--small",
+            selectionCssClass: "select2--small",
+            dropdownCssClass: "select2--small",
+            matcher: appSelectMatcher,
+            templateResult: formatAndroidAppOption,
+            templateSelection: formatAndroidAppSelection,
+            language: {
+                noResults: function() {
+                    return lan === 'cn' ? '未找到匹配的应用' : 'No matching app';
+                },
+                searching: function() {
+                    return lan === 'cn' ? '搜索中…' : 'Searching…';
+                }
+            }
+        });
+    }
+
+    function visibleAndroidPackages() {
+        return androidPackages.filter(function(item) {
+            return androidAppTypeFilter === 'all' || item.type === androidAppTypeFilter;
+        });
+    }
+
+    function hydrateVisibleAndroidPackageLabels() {
+        resolveAndroidPackageLabels(visibleAndroidPackages());
+    }
+
+    function renderAndroidAppOptions(packages) {
+        androidPackages = (packages || []).map(normalizeAndroidPackageItem);
+        var currentPkg = $('.select-app').val();
+        var visiblePackages = visibleAndroidPackages();
+        $('.select-app').empty();
+        $('.select-app').append('<option></option>');
+        visiblePackages.forEach(function(item) {
+            var option = $('<option>')
+                .val(item.package)
+                .text(item.display)
+                .attr('data-label', item.label)
+                .attr('data-package', item.package)
+                .attr('data-type', item.type)
+                .attr('data-display', item.display)
+                .attr('data-label-pending', item.label_pending ? '1' : '0')
+                .attr('title', item.display)
+                .attr('data-search', (item.label + ' ' + item.package + ' ' + item.display).toLowerCase());
+            $('.select-app').append(option);
+        });
+        if (currentPkg && visiblePackages.some(function(item) { return item.package === currentPkg; })) {
+            $('.select-app').val(currentPkg);
+        }
+        initAppSelect2();
+        $('.select-app').trigger('change.select2');
+        androidLabelRequestSeq += 1;
+        androidLabelQueue = [];
+        androidLabelLookupActive = false;
+    }
+
+    function renderPackageOptions(data) {
+        if (platform === 'Android') {
+            var packages = data['packages'] || (data['pkgnames'] || []);
+            renderAndroidAppOptions(packages);
+            return;
+        }
+        $('.select-app').empty();
+        $('.select-app').append('<option></option>');
+        for (var i = 0; i < data['pkgnames'].length; i++) {
+            $('.select-app').append('<option>' + data['pkgnames'][i].trim() + '</option>');
+        }
+    }
+
+    function updateAndroidPackageLabel(packageInfo) {
+        var item = normalizeAndroidPackageItem(packageInfo);
+        if (!item.package || item.label_pending) {
+            return false;
+        }
+        var updated = false;
+        for (var i = 0; i < androidPackages.length; i++) {
+            if (androidPackages[i].package === item.package) {
+                item.type = androidPackages[i].type || item.type;
+                androidPackages[i] = item;
+                updated = true;
+                break;
+            }
+        }
+        if (!updated) {
+            androidPackages.push(item);
+        }
+        $('.select-app option').filter(function() {
+            return $(this).val() === item.package;
+        }).each(function() {
+            $(this)
+                .text(item.display)
+                .attr('data-label', item.label)
+                .attr('data-package', item.package)
+                .attr('data-type', item.type)
+                .attr('data-display', item.display)
+                .attr('data-label-pending', '0')
+                .attr('title', item.display)
+                .attr('data-search', (item.label + ' ' + item.package + ' ' + item.display).toLowerCase());
+        });
+        if ($('.select-app').val() === item.package) {
+            $('.select-app').trigger('change.select2');
+            setForegroundStatus('success',
+                lan === 'cn' ? ('已选中：' + item.label) : ('Selected: ' + item.label),
+                item.display);
+        }
+        return true;
+    }
+
+    function resolveAndroidPackageLabels(packages) {
+        if (platform !== 'Android') {
+            return;
+        }
+        var device = $('.select-device').val();
+        if (!device) {
+            return;
+        }
+        var pending = (packages || []).filter(function(item) {
+            return item && item.package && item.label_pending !== false;
+        }).map(function(item) {
+            return item.package;
+        });
+        if (pending.length === 0) {
+            return;
+        }
+        var selectedPkg = $('.select-app').val();
+        pending.sort(function(a, b) {
+            if (a === selectedPkg) {
+                return -1;
+            }
+            if (b === selectedPkg) {
+                return 1;
+            }
+            return 0;
+        });
+        pending = pending.slice(0, ANDROID_LABEL_MAX_INITIAL);
+        var mergedQueue = pending.concat(androidLabelQueue);
+        androidLabelQueue = mergedQueue.filter(function(pkg, index) {
+            return mergedQueue.indexOf(pkg) === index;
+        });
+        drainAndroidLabelQueue(androidLabelRequestSeq);
+    }
+
+    function drainAndroidLabelQueue(requestSeq) {
+        if (androidLabelLookupActive || androidLabelQueue.length === 0) {
+            return;
+        }
+        var device = $('.select-device').val();
+        if (!device) {
+            androidLabelQueue = [];
+            return;
+        }
+        var batch = androidLabelQueue.splice(0, ANDROID_LABEL_BATCH_SIZE);
+        androidLabelLookupActive = true;
+        $.ajax({
+            url: Host + "/device/package/labels",
+            type: "POST",
+            async: true,
+            cache: false,
+            timeout: 60000,
+            data: {
+                platform: platform,
+                device: device,
+                packages: batch.join(',')
+            },
+            success: function(data) {
+                if (requestSeq !== androidLabelRequestSeq || data['status'] !== 1) {
+                    return;
+                }
+                (data['packages'] || []).forEach(function(item) {
+                    updateAndroidPackageLabel(item);
+                });
+                $('.select-app').trigger('change.select2');
+            },
+            complete: function() {
+                androidLabelLookupActive = false;
+                if (requestSeq === androidLabelRequestSeq && androidLabelQueue.length > 0) {
+                    window.setTimeout(function() {
+                        drainAndroidLabelQueue(requestSeq);
+                    }, 200);
+                }
+            }
+        });
+    }
+
+    function populateProcessOptions(pids, selectedProcess) {
+        $('.select-pid').empty();
+        for (var i = 0; i < (pids || []).length; i++) {
+            $('.select-pid').append($('<option>').val(pids[i]).text(pids[i]));
+        }
+        if (selectedProcess) {
+            $('.select-pid').val(selectedProcess);
+        }
+        $('.select-pid').trigger('change.select2');
+    }
+
+    function applyForegroundAndroidSelection(data) {
+        if (platform !== 'Android' || !data || data['status'] !== 1 || !data['pkgname']) {
+            return false;
+        }
+        if (androidAppTypeFilter === 'system') {
+            return false;
+        }
+        var pkgname = data['pkgname'];
+        var packageExists = androidPackages.some(function(item) {
+            return item.package === pkgname;
+        });
+        if (!packageExists && data['package']) {
+            androidPackages.push(normalizeAndroidPackageItem(data['package']));
+            renderAndroidAppOptions(androidPackages);
+        }
+        $('.select-app').val(pkgname).trigger('change.select2');
+        var selectedProcess = data['auto_select_process'] && data['pids'] && data['pids'].length === 1
+            ? data['pids'][0]
+            : null;
+        populateProcessOptions(data['pids'] || [], selectedProcess);
+        var foregroundItem = androidPackages.filter(function(item) {
+            return item.package === pkgname;
+        })[0] || data['package'];
+        if (foregroundItem) {
+            resolveAndroidPackageLabels([foregroundItem]);
+        }
+        return true;
+    }
+
+    function foregroundAppShortName(pkgInfo, pkgname) {
+        pkgname = pkgname || (pkgInfo && pkgInfo.package) || '';
+        var label = (pkgInfo && pkgInfo.label) || '';
+        if (label && label !== pkgname) {
+            return label;
+        }
+        return pkgname;
+    }
+
+    function foregroundAppFullTitle(pkgInfo, pkgname) {
+        if (pkgInfo && pkgInfo.display) {
+            return pkgInfo.display;
+        }
+        return pkgname || '';
+    }
+
+    function setForegroundStatus(state, message, tooltip) {
+        if (platform !== 'Android') {
+            return;
+        }
+        var $spinner = $('#foreground-scan-spinner');
+        var $check = $('#foreground-status-check');
+        var $warn = $('#foreground-status-warn');
+        var $text = $('#foreground-status-text');
+        $spinner.addClass('d-none');
+        $check.addClass('d-none');
+        $warn.addClass('d-none');
+        $text.removeClass('text-success text-warning text-danger text-body-secondary');
+
+        if (state === 'scanning') {
+            $spinner.removeClass('d-none');
+            $text.addClass('text-body-secondary');
+        } else if (state === 'success') {
+            $check.removeClass('d-none');
+            $text.addClass('text-success');
+        } else if (state === 'warn') {
+            $warn.removeClass('d-none');
+            $text.addClass('text-warning');
+        } else if (state === 'error') {
+            $warn.removeClass('d-none');
+            $text.addClass('text-danger');
+        } else {
+            $text.addClass('text-body-secondary');
+        }
+        if (message) {
+            $text.text(message);
+        }
+        $text.attr('title', tooltip || message || '');
+    }
+
+    function foregroundStatusMessage(data) {
+        if (!data) {
+            return lan === 'cn' ? '识别失败' : 'Detection failed';
+        }
+        if (data['status'] === 1) {
+            var name = foregroundAppShortName(data['package'], data['pkgname']);
+            return lan === 'cn' ? ('已选中：' + name) : ('Selected: ' + name);
+        }
+        var msg = (data['msg'] || '').toLowerCase();
+        if (msg.indexOf('third-party') >= 0 || msg.indexOf('not a third-party') >= 0) {
+            return lan === 'cn' ? '请打开目标 App 后点「自动」' : 'Open target app, then tap Auto';
+        }
+        if (msg.indexOf('no foreground') >= 0) {
+            return lan === 'cn' ? '请先打开目标 App' : 'Open target app first';
+        }
+        if (msg.indexOf('process not found') >= 0) {
+            return lan === 'cn' ? '进程未启动，请先打开 App' : 'Process not running—launch app';
+        }
+        return lan === 'cn' ? '未能自动选中' : 'Auto-select failed';
+    }
+
+    function selectForegroundAndroidApp() {
+        if (platform !== 'Android') {
+            return;
+        }
+        var device = $('.select-device').val();
+        if (!device) {
+            setForegroundStatus('idle', lan === 'cn' ? '请先选设备' : 'Select device');
+            return;
+        }
+        setForegroundStatus('scanning', lan === 'cn' ? '识别中…' : 'Detecting…');
+        $.ajax({
+            url: Host + "/package/foreground",
+            type: "GET",
+            async: true,
+            cache: false,
+            timeout: 15000,
+            data: {
+                platform: platform,
+                device: device
+            },
+            success: function(data) {
+                var fullTitle = foregroundAppFullTitle(data['package'], data['pkgname']);
+                if (applyForegroundAndroidSelection(data)) {
+                    setForegroundStatus('success', foregroundStatusMessage(data), fullTitle);
+                } else {
+                    setForegroundStatus('warn', foregroundStatusMessage(data), fullTitle || data['msg'] || '');
+                }
+                hydrateVisibleAndroidPackageLabels();
+            },
+            error: function() {
+                setForegroundStatus('error', lan === 'cn'
+                    ? '识别失败，请点「自动」重试'
+                    : 'Detection failed—tap Auto to retry');
+                hydrateVisibleAndroidPackageLabels();
+            }
+        });
+    }
+
+    function loadAndroidPackagesForSelectedDevice() {
+        var device = $('.select-device').val();
+        if (!device) {
+            return;
+        }
+        $.ajax({
+            url: Host + "/device/package",
+            type: "GET",
+            async: true,
+            cache: false,
+            data: {
+                platform: platform,
+                device: device,
+                type:androidAppTypeFilter
+            },
+            beforeSend: function () {
+                $('.select-app').empty();
+                $('.select-app').append('<option></option>');
+                $('.select-pid').empty();
+                setForegroundStatus('scanning', lan === 'cn' ? '加载应用中…' : 'Loading apps…');
+                if(lan == 'cn' ){
+                    SwalLoading('初始化','正在获取该设备上的APP, 请您稍等！');
+                }else{
+                    SwalLoading('Package initialization!','Initializing Packages, please wait a moment.');
+                }
+            },
+            success: function (data) {
+                if(data['status'] != 1 ) {
+                    if(lan == 'cn' ){
+                        SwalFire('error', '连接失败','请检查当前移动设备是否连接了PC端', 2000);
+                    }else{
+                        SwalFire('error', 'Connect failed !', data['msg'] || 'No packages found', 2000);
+                    }
+                }else{
+                    renderPackageOptions(data);
+                    SwalCloseLoading();
+                    if (androidAppTypeFilter !== 'system') {
+                        selectForegroundAndroidApp();
+                    } else {
+                        hydrateVisibleAndroidPackageLabels();
+                    }
+                }
+            }
+        });
+    }
 
     function startPidRefresh() {
         stopPidRefresh();
@@ -905,9 +1888,31 @@ adb kill-server &amp;&amp; adb start-server</code></pre>
     var cores_num = cpucoreNum();
 
     function ruteCheck(){
-        if(['Android','iOS'].indexOf(platform) === -1 || platform && ['cn','en'].indexOf(lan) === -1 && lan){
-            this.location.href = '/?platform=Android&lan=en';
+        if (['Android', 'iOS'].indexOf(platform) === -1 || (lan && ['cn', 'en'].indexOf(lan) === -1)) {
+            window.location.href = '/?platform=Android&lan=cn';
         }
+    }
+
+    function initMetricOptionHelpPopovers() {
+        document.querySelectorAll('.metric-option-help').forEach(function(el) {
+            if (el.getAttribute('data-popover-init')) {
+                return;
+            }
+            new bootstrap.Popover(el, { sanitize: false });
+            el.setAttribute('data-popover-init', '1');
+        });
+    }
+
+    function initForegroundHelpPopover() {
+        if (platform !== 'Android') {
+            return;
+        }
+        var trigger = document.getElementById('foreground-help-trigger');
+        if (!trigger || trigger.getAttribute('data-popover-init')) {
+            return;
+        }
+        new bootstrap.Popover(trigger, { sanitize: false });
+        trigger.setAttribute('data-popover-init', '1');
     }
 
     function cpucoreNum(){
@@ -927,6 +1932,48 @@ adb kill-server &amp;&amp; adb start-server</code></pre>
     $(document).ready(function() {
 
         ruteCheck();
+        initAppSelect2();
+        initForegroundHelpPopover();
+        initMetricOptionHelpPopovers();
+        restoreIndexUiState();
+        if (sessionStorage.getItem(SOLOX_RECORDING_SESSION_KEY) === '1') {
+            startRecordStatusPolling();
+        }
+
+        function syncExtraMetricsPanel(pickerOpen) {
+            var extra = $('#apm-metrics-extra');
+            var hasChecked = false;
+            extra.find('.apm-extra-item').each(function() {
+                var checked = $(this).find('input[type=checkbox]').is(':checked');
+                if (pickerOpen || checked) {
+                    $(this).show();
+                    if (checked) {
+                        hasChecked = true;
+                    }
+                } else {
+                    $(this).hide();
+                }
+            });
+            extra.toggle(pickerOpen || hasChecked);
+        }
+
+        $('#btn-toggle-add-more').on('click', function(e) {
+            e.preventDefault();
+            var open = !$(this).hasClass('active');
+            $(this).toggleClass('active', open);
+            syncExtraMetricsPanel(open);
+            saveIndexUiState();
+        });
+
+        $('#apm-metrics-extra .form-check-input').on('change', function() {
+            syncExtraMetricsPanel($('#btn-toggle-add-more').hasClass('active'));
+            saveIndexUiState();
+        });
+
+        syncExtraMetricsPanel($('#btn-toggle-add-more').hasClass('active'));
+
+        $('#record-switch, #net-switch, #fps-switch').on('change', saveIndexUiState);
+        $('#record-quality').on('change', saveIndexUiState);
 
         $('#debug-connect').click();
 
@@ -938,11 +1985,13 @@ adb kill-server &amp;&amp; adb start-server</code></pre>
                 }else{
                     $("."+$(this).prop('name')).hide()
                 }
+                if (metricCheckboxIds.indexOf(this.id) !== -1) {
+                    saveIndexUiState();
+                }
             });
         });
 
         // Quick-toggle buttons for batch metric switching
-        var metricCheckboxIds = ['cpu_checkbox', 'mem_checkbox', 'flow_checkbox', 'fps_checkbox', 'battery_checkbox', 'gpu_checkbox', 'mem_detail_checkbox', 'thermal_checkbox', 'cpu_core_checkbox', 'disk_checkbox', 'energy_checkbox'];
         var coreMetrics = ['cpu'];
         var commonMetrics = ['cpu', 'mem', 'network', 'fps', 'battery'];
 
@@ -972,6 +2021,8 @@ adb kill-server &amp;&amp; adb start-server</code></pre>
                     else { $('.' + metricName).hide(); }
                 }
             });
+            syncExtraMetricsPanel($('#btn-toggle-add-more').hasClass('active'));
+            saveIndexUiState();
         });
 
         // Global zoom control for all charts
@@ -990,11 +2041,32 @@ adb kill-server &amp;&amp; adb start-server</code></pre>
         versionCheck()
   });
 
+    $('#android-app-type-filter [data-app-type]').click(function() {
+        $('#android-app-type-filter [data-app-type]').removeClass('active');
+        $(this).addClass('active');
+        androidAppTypeFilter = $(this).data('app-type');
+        saveIndexUiState();
+        if (androidAppTypeFilter === 'system') {
+            setForegroundStatus('warn', lan === 'cn'
+                ? '系统应用请手动选择'
+                : 'Select system app manually');
+        }
+        loadAndroidPackagesForSelectedDevice();
+    });
+
+    $('#btn-rescan-foreground').click(function() {
+        selectForegroundAndroidApp();
+    });
+
     $('#debug-connect').click(function () {
         initializeEnv();
     });
 
     $('.select-device').change(function() {
+        if (platform === 'Android') {
+            loadAndroidPackagesForSelectedDevice();
+            return;
+        }
         $.ajax({
             url: Host + "/device/package",
             type: "GET",
@@ -1007,13 +2079,10 @@ adb kill-server &amp;&amp; adb start-server</code></pre>
             beforeSend: function () {
                 $('.select-app').empty();
                 $('.select-app').append('<option></option>');
-                if(platform == 'Android'){
-                    $('.select-pid').empty();
-                }
                 if(lan == 'cn' ){
                     SwalLoading('初始化','正在获取该设备上的所有APP, 请您稍等！');
                 }else{
-                    SwalLoading('Package initialization!','Initializing Packages, please wait a mmoment.');
+                    SwalLoading('Package initialization!','Initializing Packages, please wait a moment.');
                 }
                 
             },
@@ -1025,10 +2094,8 @@ adb kill-server &amp;&amp; adb start-server</code></pre>
                         SwalFire('error', 'Connect failed !', 'No devices found', 2000);
                     } 
                 }else{
-                    for(var i=0;i<data['pkgnames'].length;i++){
-                        $('.select-app').append('<option>'+data['pkgnames'][i].trim()+'</option>')
-                    }
-                    swal.close();
+                    renderPackageOptions(data);
+                    SwalCloseLoading();
                 }
             }
         });
@@ -1036,6 +2103,18 @@ adb kill-server &amp;&amp; adb start-server</code></pre>
 
     $('.select-app').change(function() {
         if(platform == 'Android'){
+            var pkg = $(this).val();
+            if (pkg) {
+                var matched = androidPackages.filter(function(item) { return item.package === pkg; });
+                var item = matched.length ? matched[0] : null;
+                var shortName = item ? foregroundAppShortName(item, item.package) : pkg;
+                setForegroundStatus('success',
+                    lan === 'cn' ? ('已选中：' + shortName) : ('Selected: ' + shortName),
+                    item ? item.display : pkg);
+                if (item && item.label_pending) {
+                    resolveAndroidPackageLabels([item]);
+                }
+            }
             $.ajax({
                 url: Host + "/package/pids",
                 type: "GET",
@@ -1064,9 +2143,7 @@ adb kill-server &amp;&amp; adb start-server</code></pre>
                             SwalFire('warning', 'Warning', data['msg'], 5000);
                         } 
                     }else{
-                        for(var i=0;i<data['pids'].length;i++){
-                            $('.select-pid').append('<option>'+data['pids'][i]+'</option>')
-                        }
+                        populateProcessOptions(data['pids']);
                         swal.close();
                     }
                 }
@@ -1074,7 +2151,7 @@ adb kill-server &amp;&amp; adb start-server</code></pre>
         }
     });
 
-    function initializeAPM(){
+    function initializeAPM(onReady){
         resetLiveStats();
         $.ajax({
             url: Host + "/apm/initialize",
@@ -1084,6 +2161,14 @@ adb kill-server &amp;&amp; adb start-server</code></pre>
             success: function (data) {
                 console.log(data)
                 $('#scene-tag-list').empty();
+                if (typeof onReady === 'function') {
+                    onReady(data);
+                }
+            },
+            error: function() {
+                if (typeof onReady === 'function') {
+                    onReady(null);
+                }
             }
         });
     }
@@ -1184,9 +2269,7 @@ adb kill-server &amp;&amp; adb start-server</code></pre>
                     for(var i=0;i<data['devices'].length;i++){
                         $('.select-device').append('<option>'+data['devices'][i].trim()+'</option>');
                     }
-                    for(var i=0;i<data['pkgnames'].length;i++){
-                        $('.select-app').append('<option>'+data['pkgnames'][i].trim()+'</option>');
-                    }
+                    renderPackageOptions(data);
                     $('#brand').text(data['device_detail']['brand']);
                     $('#device_name').text(data['device_detail']['name']);
                     $('#os_info').text(data['device_detail']['os'] || data['device_detail']['version']);
@@ -1206,7 +2289,8 @@ adb kill-server &amp;&amp; adb start-server</code></pre>
                     $('#lmk_threshold').text(data['device_detail']['lmk_threshold'] || '-');
                     $('#swap_info').text(data['device_detail']['swap'] || '-');
                     $('#root_status').text(data['device_detail']['root'] || '-');
-                    swal.close();
+                    SwalCloseLoading();
+                    selectForegroundAndroidApp();
                 }
             },
             error: function(error){
@@ -2859,12 +3943,12 @@ adb kill-server &amp;&amp; adb start-server</code></pre>
         }
     }
 
-    var castQuality = 'medium';
     $('.cast-quality-item').on('click', function(e){
         e.preventDefault();
         $('.cast-quality-item').removeClass('active');
         $(this).addClass('active');
         castQuality = $(this).data('quality');
+        saveIndexUiState();
     });
 
     function cast(){
@@ -2920,10 +4004,16 @@ adb kill-server &amp;&amp; adb start-server</code></pre>
             data:{
                 platform:platform,
                 device:$('.select-device').val(),
+                quality:$('#record-quality').val() || '720p',
             },
             success: function (data) {
                 if(data['status']==0){
+                    sessionStorage.removeItem(SOLOX_RECORDING_SESSION_KEY);
+                    stopRecordStatusPolling(true);
                     SwalFire('error','Record Failed',data['msg'],2000)
+                } else {
+                    sessionStorage.setItem(SOLOX_RECORDING_SESSION_KEY, '1');
+                    startRecordStatusPolling();
                 }
             },
             error: function(error){
@@ -2940,12 +4030,14 @@ adb kill-server &amp;&amp; adb start-server</code></pre>
             clearWeakNet(true);
         }
         var wifi_switch = $('#net-switch').is(':checked');
-        var record_switch = $('#record-switch').is(':checked');
+        var record_switch = $('#record-switch').is(':checked') ||
+            sessionStorage.getItem(SOLOX_RECORDING_SESSION_KEY) === '1';
         var thermal_switch = $('#thermal_checkbox').is(':checked')
         $('#run-apm').show();
         $('#stop-apm').hide();
         $('#btn-scene-tag').prop('disabled', true);
         clearAllMetricTimers();
+        stopRecordStatusPolling(false);
         var process = '';
         if(platform == 'Android'){
             process = $('.select-pid').val()
@@ -2962,8 +4054,8 @@ adb kill-server &amp;&amp; adb start-server</code></pre>
                 devices:$('.select-device').val(),
                 wifi_switch:wifi_switch,
                 process:process,
-                record_switch:record_switch,
-                thermal_switch:thermal_switch,
+                record_switch: record_switch ? 'true' : 'false',
+                thermal_switch: thermal_switch ? 'true' : 'false',
                 cores: parseInt($('#cpu_cores').text())
             },
             beforeSend: function () {
@@ -2975,6 +4067,8 @@ adb kill-server &amp;&amp; adb start-server</code></pre>
                 }
             },
             success: function (data) {
+                sessionStorage.removeItem(SOLOX_RECORDING_SESSION_KEY);
+                stopRecordStatusPolling(true);
                 if(data['status']==1){
                     window.location.href = '/report?lan='+lan
                 }else{
@@ -2992,12 +4086,22 @@ adb kill-server &amp;&amp; adb start-server</code></pre>
         $('#run-apm').hide();
         $('#btn-scene-tag').prop('disabled', false);
         $('#live-stats-card').show();
-        resetLiveStats();
-        initializeAPM();
         refreshSceneTags();
         let device = $('.select-device').val();
         let pkgname = $('.select-app').val();
-        if(device && pkgname){
+        if(!device || !pkgname){
+            if(lan == 'cn'){
+                SwalFire('error','执行错误','没有选择APP或者设备',2000);
+            }else{
+                SwalFire('error','Execution Error','No device or package selected',2000);
+            }
+            $('#run-apm').show();
+            $('#stop-apm').hide();
+            return;
+        }
+        initializeAPM(function() {
+            let device = $('.select-device').val();
+            let pkgname = $('.select-app').val();
             var net_switch = $('#net-switch').is(':checked');
             if(platform == 'Android'){
                 setDisk(device)
@@ -3008,12 +4112,12 @@ adb kill-server &amp;&amp; adb start-server</code></pre>
                 setNetWork('pre',device,pkgname,net_switch)
                 var record_switch = $('#record-switch').is(':checked');
                 if(record_switch){
-                    record()
+                    record();
                 }
             }
             collectCpu(device,pkgname);
             collectMem(device,pkgname);
-            
+
             if(platform == 'Android'){
                 collectMemDetail(device,pkgname)
                 collectCoreCpu(device,pkgname)
@@ -3030,15 +4134,8 @@ adb kill-server &amp;&amp; adb start-server</code></pre>
                 var times = parseInt($('#duration').val()) * 60 * 1000
                 setTimeout("stopTask()", times)
             }
-        }else{
-            if(lan == 'cn'){
-                SwalFire('error','执行错误','没有选择APP或者设备',2000);
-            }else{
-                SwalFire('error','Execution Error','No device or package selected',2000);
-            }
-            $('#run-apm').show();
-            $('#stop-apm').hide();
-        }});
+        });
+    });
 
     // var status = false;
     // var socket

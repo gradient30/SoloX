@@ -58,6 +58,31 @@ if ($env:GIT_BASH -and (Test-Path $env:GIT_BASH)) {
     $GitBash = $env:GIT_BASH
 }
 
+# --- Windows-friendly defaults (avoid WSL python + YunShu 50003 + 0.0.0.0 probe) ---
+if (-not $env:SOLOX_PYTHON) {
+    $winPy = $null
+    $pyCmd = Get-Command python -ErrorAction SilentlyContinue
+    if ($pyCmd) { $winPy = $pyCmd.Source }
+    elseif (Test-Path "C:\Python312\python.exe") { $winPy = "C:\Python312\python.exe" }
+    if ($winPy) {
+        $escaped = $winPy -replace "'", "''"
+        $env:SOLOX_PYTHON = & $GitBash -lc "cygpath -u '$escaped'"
+        if (-not $env:SOLOX_PYTHON) { $env:SOLOX_PYTHON = $winPy }
+    }
+}
+
+if (-not $env:SOLOX_HOST) {
+    $env:SOLOX_HOST = "127.0.0.1"
+}
+
+if (-not $env:SOLOX_PORT) {
+    $port50003 = netstat -ano 2>$null | Select-String ":50003\s+.*LISTENING"
+    if ($port50003) {
+        $env:SOLOX_PORT = "50005"
+        Write-Host "[INFO]  Port 50003 is in use; defaulting to SOLOX_PORT=50005" -ForegroundColor Yellow
+    }
+}
+
 # --- Convert Windows path to POSIX for bash ---------------------------------
 $PosixSh = $DevSh -replace '\\','/' -replace '^([A-Za-z]):','/$1'.ToLower()
 # Simpler: just let bash handle the Windows path directly — Git Bash supports it

@@ -178,11 +178,13 @@ def deviceinfo():
                 devices = d.getDevices()
                 if len(deviceids) > 0:
                     pkgnames = d.getPkgname(deviceids[0])
+                    packages = d.getAndroidPackages(deviceids[0], 'user')
                     device_detail = d.getDdeviceDetail(deviceId=deviceids[0], platform=platform)
                     result = {'status': 1,
                               'deviceids': deviceids,
                               'devices': devices,
                               'pkgnames': pkgnames,
+                              'packages': packages,
                               'device_detail': device_detail}
                 else:
                     result = {'status': 0, 'msg': 'no devices'}
@@ -220,17 +222,52 @@ def packageNames():
     """get devices packageNames"""
     platform = method._request(request, 'platform')
     device = method._request(request, 'device')
+    package_type = request.values.get('type') or 'all'
     match(platform):
         case Platform.Android:
             deviceId = d.getIdbyDevice(device, platform)
-            pkgnames = d.getPkgname(deviceId)
+            packages = d.getAndroidPackages(deviceId, package_type)
+            pkgnames = [item['package'] for item in packages]
         case Platform.iOS:
+            packages = []
             pkgnames = d.getPkgnameByiOS(device)
         case _:
             result = {'status': 0, 'msg': 'platform is undefined'}
             return result
-    result = {'status': 1, 'pkgnames': pkgnames} if len(pkgnames) > 0 else  {'status': 0, 'msg': 'no pkgnames'}
+    result = (
+        {'status': 1, 'pkgnames': pkgnames, 'packages': packages}
+        if len(pkgnames) > 0 else
+        {'status': 0, 'msg': 'no pkgnames', 'pkgnames': [], 'packages': []}
+    )
     return result
+
+@api.route('/device/package/labels', methods=['post', 'get'])
+def packageLabels():
+    """Resolve Android package labels on demand."""
+    platform = method._request(request, 'platform')
+    device = method._request(request, 'device')
+    raw_packages = (
+        request.values.getlist('packages[]') or
+        request.values.getlist('packages')
+    )
+    if len(raw_packages) == 1 and ',' in raw_packages[0]:
+        raw_packages = raw_packages[0].split(',')
+    package_names = [
+        item.strip()
+        for item in raw_packages
+        if item and item.strip()
+    ]
+    if platform != Platform.Android:
+        return {'status': 0, 'msg': 'package label resolution is Android only', 'packages': []}
+    if not package_names:
+        return {'status': 0, 'msg': 'no packages', 'packages': []}
+    try:
+        deviceId = d.getIdbyDevice(device, platform)
+        packages = d.resolveAndroidPackageLabels(deviceId, package_names)
+        return {'status': 1, 'packages': packages}
+    except Exception as e:
+        logger.exception(e)
+        return {'status': 0, 'msg': str(e), 'packages': []}
 
 @api.route('/package/pids', methods=['post', 'get'])
 def getPackagePids():
@@ -248,6 +285,19 @@ def getPackagePids():
         logger.exception(e)
         result = {'status': 0, 'msg': 'No process found, please start the app first.'}
     return result
+
+@api.route('/package/foreground', methods=['post', 'get'])
+def getForegroundPackage():
+    platform = method._request(request, 'platform')
+    device = method._request(request, 'device')
+    if platform != Platform.Android:
+        return {'status': 0, 'msg': 'foreground selection is Android only'}
+    try:
+        deviceId = d.getIdbyDevice(device, platform)
+        return d.getForegroundAndroidApp(deviceId)
+    except Exception as e:
+        logger.exception(e)
+        return {'status': 0, 'msg': str(e)}
 
 @api.route('/package/activity', methods=['post', 'get'])
 def getPackageActivity():
@@ -530,6 +580,8 @@ def getFps():
         logger.exception(e)
         result = {'status': 1, 'fps': 0, 'jank': 0, 'big_jank': 0}
     return result
+
+@api.route('/apm/battery', methods=['post', 'get'])
 def getBattery():
     """get Battery data"""
     platform = method._request(request, 'platform')
@@ -731,9 +783,13 @@ def makeReport():
                 thermal.setCurrentThermalTemp()
 
             record = False if record_switch == 'false' else True
-            if record:
-                video = 1
-                Scrcpy.stop_record()        
+            has_record_artifact = any(
+                os.path.isfile(os.path.join(f.report_dir, name))
+                for name in ('record.mp4', 'record.mkv')
+            )
+            if record or Scrcpy._is_recording() or has_record_artifact:
+                Scrcpy.stop_record()
+                video = f.detect_record_video_flag()
         f.make_report(app=app, devices=devices, video=video, platform=platform, model=model, cores=cores)
         result = {'status': 1}
     except Exception as e:
@@ -1027,7 +1083,7 @@ def getReportList():
                 'model': json_data.get('model', ''),
                 'devices': json_data.get('devices', ''),
                 'ctime': json_data.get('ctime', ''),
-                'video': json_data.get('video', 0),
+                'video': 1 if f.resolve_record_video(dir_name) else 0,
                 'duration': duration,
                 'duration_label': duration_label,
             }
@@ -1153,16 +1209,35 @@ def installLink():
 def start_record():
     device = method._request(request, 'device')
     platform = method._request(request, 'platform')
+    quality = request.args.get('quality', '720p')
+    if quality not in ('1080p', '720p', '480p'):
+        quality = '720p'
     try:
         deviceId = d.getIdbyDevice(device, platform)
-        final = Scrcpy.start_record(deviceId)
+        final = Scrcpy.start_record(deviceId, quality=quality)
         if final == 0:
             result = {'status': 1, 'msg': 'success'}
         else:
-            result = {'status': 0, 'msg': 'record screen failed'}
+            result = {'status': 0, 'msg': Scrcpy.last_record_error() or 'record screen failed'}
     except Exception as e:
         logger.exception(e)
         result = {'status': 0, 'msg': 'record screen failed'}
+    return result
+
+@api.route('/apm/record/status', methods=['post', 'get'])
+def record_status():
+    try:
+        result = Scrcpy.record_status()
+    except Exception as e:
+        logger.exception(e)
+        result = {
+            'status': 0,
+            'recording': False,
+            'healthy': False,
+            'error': str(e),
+            'elapsed_seconds': 0,
+            'elapsed_label': '00:00:00',
+        }
     return result
 
 @api.route('/apm/record/cast', methods=['post', 'get'])
@@ -1204,13 +1279,24 @@ def cast_screen_status():
         result = {'status': 0, 'casting': False, 'recording': False}
     return result
 
+def _record_video_error(scene):
+    if f.resolve_record_video(scene):
+        return None
+    if scene and '..' not in scene and '/' not in scene and '\\' not in scene and not os.path.isabs(scene):
+        scene_dir = os.path.join(f.report_dir, scene)
+        for name, fmt in (('record.mp4', 'mp4'), ('record.mkv', 'mkv')):
+            path = os.path.join(scene_dir, name)
+            if os.path.isfile(path) and not File._is_valid_record_file(path, fmt):
+                return 'video corrupt'
+    return 'video not found'
+
 @api.route('/apm/record/info', methods=['post', 'get'])
 def record_info():
     """Return recording metadata for in-browser vs system player routing."""
     scene = method._request(request, 'scene')
     info = f.resolve_record_video(scene)
     if not info:
-        return {'status': 0, 'msg': 'video not found'}
+        return {'status': 0, 'msg': _record_video_error(scene)}
     return {
         'status': 1,
         'format': info['format'],
@@ -1226,7 +1312,7 @@ def record_stream():
     scene = method._request(request, 'scene')
     info = f.resolve_record_video(scene)
     if not info:
-        return make_response('video not found', 404)
+        return make_response(_record_video_error(scene), 404)
     mimetype = 'video/mp4' if info['format'] == 'mp4' else 'video/x-matroska'
     return send_file(
         info['path'],
@@ -1242,7 +1328,7 @@ def play_record():
     scene = method._request(request, 'scene')
     info = f.resolve_record_video(scene)
     if not info:
-        return {'status': 0, 'msg': 'video not found'}
+        return {'status': 0, 'msg': _record_video_error(scene)}
     try:
         Scrcpy.play_video(info['path'])
         result = {'status': 1, 'msg': 'success', 'format': info['format']}

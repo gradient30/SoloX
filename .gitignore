@@ -140,6 +140,8 @@ report/
 adblog/
 runtime/logs/
 runtime/pids/
+runtime/cache/android-package-labels.json
+runtime/cache/android-package-labels.json.*.tmp
 .solox.pid
 .solox.log
 .solox-*.log

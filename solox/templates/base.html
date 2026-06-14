@@ -4,7 +4,7 @@
 * @Author Rafa Chen
 * Copyright SoloX.2022~now
 -->
-<html lang="en">
+<html lang="{% if lan == 'cn' %}zh-CN{% else %}en{% endif %}">
 <head>
     <meta charset="utf-8"/>
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
@@ -73,12 +73,13 @@
                 </a>
             </div>
             <div class="nav-item dropdown  d-none d-md-flex me-3">
-                <a  class="cursor-pointer" id="tanslate" data-bs-toggle="dropdown" data-bs-auto-close="outside" role="button" aria-expanded="false">
+                <a class="cursor-pointer d-flex align-items-center gap-1" id="tanslate" data-bs-toggle="dropdown" data-bs-auto-close="outside" role="button" aria-expanded="false">
                     <svg t="1677481883820" class="icon" viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg" p-id="2905" width="50" height="50"><path d="M608 416h288c35.36 0 64 28.48 64 64v416c0 35.36-28.48 64-64 64H480c-35.36 0-64-28.48-64-64v-288H128c-35.36 0-64-28.48-64-64V128c0-35.36 28.48-64 64-64h416c35.36 0 64 28.48 64 64v288z m0 64v64c0 35.36-28.48 64-64 64h-64v256.032c0 17.664 14.304 31.968 31.968 31.968H864a31.968 31.968 0 0 0 31.968-31.968V512a31.968 31.968 0 0 0-31.968-31.968H608zM128 159.968V512c0 17.664 14.304 31.968 31.968 31.968H512a31.968 31.968 0 0 0 31.968-31.968V160A31.968 31.968 0 0 0 512.032 128H160A31.968 31.968 0 0 0 128 159.968z m64 244.288V243.36h112.736V176h46.752c6.4 0.928 9.632 1.824 9.632 2.752a10.56 10.56 0 0 1-1.376 4.128c-2.752 7.328-4.128 16.032-4.128 26.112v34.368h119.648v156.768h-50.88v-20.64h-68.768v118.272H306.112v-118.272H238.752v24.768H192z m46.72-122.368v60.48h67.392V281.92H238.752z m185.664 60.48V281.92h-68.768v60.48h68.768z m203.84 488H576L668.128 576h64.64l89.344 254.4h-54.976l-19.264-53.664h-100.384l-19.232 53.632z m33.024-96.256h72.864l-34.368-108.608h-1.376l-37.12 108.608zM896 320h-64a128 128 0 0 0-128-128V128a192 192 0 0 1 192 192zM128 704h64a128 128 0 0 0 128 128v64a192 192 0 0 1-192-192z" fill="#333333" p-id="2906"></path></svg>
+                    <span class="small text-body">{% if lan == 'cn' %}中文{% else %}English{% endif %}</span>
                 </a>
                 <div class="dropdown-menu">
-                    <a onclick="rutePush('cn')" class="dropdown-item">中文</a>
-                    <a onclick="rutePush('en')" class="dropdown-item">English</a>
+                    <a onclick="rutePush('cn')" class="dropdown-item{% if lan == 'cn' %} active{% endif %}">中文</a>
+                    <a onclick="rutePush('en')" class="dropdown-item{% if lan == 'en' %} active{% endif %}">English</a>
                   </div>
             </div>
             <div class="nav-item d-none d-md-flex me-3">
@@ -911,14 +912,10 @@
         $('#curYear').text(getCurDate())
     });
 
-    function rutePush(lan){
-        var cLan = '{{ lan }}';
-        var cRute = window.location.href;
-        if(cLan == lan){
-            window.location.href = cRute
-        }else{
-            window.location.href = cRute.replace('lan='+cLan, 'lan='+lan)
-        }
+    function rutePush(targetLan){
+        var url = new URL(window.location.href);
+        url.searchParams.set('lan', targetLan);
+        window.location.href = url.toString();
     }
 
     function getCurDate(){
@@ -952,7 +949,6 @@
             icon: icon,
             title: title,
             text: text,
-            showLoaderOnConfirm: true,
             showCloseButton: true,
             showConfirmButton: false,
             timer: timer,

@@ -1,7 +1,7 @@
 # SoloX 2026 — 研发 / 产品 / 测试联合验收报告
 
 **版本**: v2.4  
-**日期**: 2026-06-13  
+**日期**: 2026-06-14
 **范围**: 兼容矩阵 · PerfDog 指标 · 报告管理 · UX 汉化/文档 · 混合录屏播放器 · 弱网测试 · **性能验收 A**  
 **发版门禁**: `P0_all_pass`
 
@@ -11,7 +11,7 @@
 
 | 角色 | 结论 | 说明 |
 |------|------|------|
-| **研发 (R&D)** | ✅ **通过 L1/L2** | **143** 自动化用例全绿；报告 API 性能热点已完成定点优化 |
+| **研发 (R&D)** | ✅ **通过 L1/L2** | **192** 自动化用例全绿；报告 API 性能热点已完成定点优化 |
 | **产品 (PM)** | ⚠️ **有条件通过** | 性能方案 A 的 API/报告行为保持兼容；**L3 Root 真机弱网 smoke 待签字** |
 | **测试 (QA)** | ✅ **通过 L1/L2** | 报告管理模块增至 25 个用例；全量回归、兼容矩阵和编译检查通过 |
 
@@ -112,6 +112,18 @@ iOS P0：**2** 条（iOS 18 / iOS 26）
 浏览器验收：实时首页、普通分析、PK 分析、对比分析均正常渲染且无页面控制台错误；
 普通分析空报告场景创建 6 个图表并完成 6 个 `/apm/log` 请求。
 
+### 2.10 Android App / 进程选择优化（v2.6 新增）
+
+| PM 需求 | 实现状态 | 证据 |
+|---------|----------|------|
+| App 列表支持第三方 / 系统 / 全部过滤 | ✅ | Android 首页默认第三方；可切换系统与全部 |
+| App 搜索支持桌面名优先、包名兜底 | ✅ | 列表快返；`/device/package/labels` 异步用 `aapt` 补齐 label；成功结果持久缓存 30 天；Select2 同时匹配 label/package |
+| App 下拉展示不超框 | ✅ | 下拉单行：应用名 · 包名；超长省略；蓝色高亮态统一白字；选中区仅显示应用名 |
+| 旧接口字段兼容 | ✅ | `/device/info`、`/device/package` 保留 `pkgnames` |
+| 单个前台第三方进程自动选中 | ✅ | `/package/foreground` + 前端静默自动选择 |
+| 多前台/多进程时交给用户选择 | ✅ | 多进程返回全量 `pids`，不自动选具体进程 |
+| 系统前台 App 不自动选中 | ✅ | helper 与前端均有保护 |
+
 ---
 
 ## 3. 测试验收 — 自动化覆盖
@@ -124,15 +136,16 @@ iOS P0：**2** 条（iOS 18 / iOS 26）
 | Surface/API 分层 | `test_surface_by_api.py` | 13 | L1 |
 | CPU/Memory mock | `test_apm_cpu_memory.py` | 8 | L1 |
 | `/apm/collect` 集成 | `test_apm_collect_api.py` | 13 | L2 |
+| Android App / 进程选择 | `test_android_app_selection.py` | 15 | L1/L2 |
 | 矩阵 schema | `test_compatibility_matrix.py` | 11 | L1 |
 | 指标统计 / 场景 | `test_metric_stats.py` | 8 | L1 |
 | 报告管理 / 性能 | `test_report_management.py` | 37 | L1/L2 |
-| 录屏播放器 | `test_record_player.py` | 10 | L2 |
+| 录屏播放器 | `test_record_player.py` | 16 | L2 |
 | **弱网引擎** | `test_weak_network.py` | **11** | **L1** |
 | 联合验收 | `test_joint_acceptance.py` | **23** | L1/L2 |
-| 前端性能契约 | `test_frontend_performance.py` | 6 | L1 |
+| 前端性能契约 | `test_frontend_performance.py` | 10 | L1 |
 | 性能遥测 | `test_performance_telemetry.py` | 6 | L1/L2 |
-| **合计** | | **167** | |
+| **合计** | | **192** | |
 
 ### 3.2 CI 门禁
 
@@ -176,6 +189,13 @@ L1 模块清单（10 个）：见 `tests/matrix_loader.py` `_L1_TEST_MODULES`
 | 46 | 独立复核 | P1 | 手动刷新绕过分析页并发队列；CPU 核心刷新目标错误 | 所有刷新统一入队并修正目标 |
 | 47 | 独立复核 | P1 | 超大 `max_points` 可绕过响应点数保护 | 服务端对显式正数参数统一封顶 1500 |
 | 48 | 独立复核 | P2 | 遥测统计自身且路由维度理论上无界 | 排除 telemetry 端点；超限聚合到 `__other__` |
+| 49 | PM | P1 | Android App 只能按包名选择，系统/第三方混杂 | 结构化 App 列表 + 首页过滤 |
+| 50 | PM/QA | P1 | 前台运行 App 仍需手动选择 App 与进程 | 前台第三方 App 单进程自动选中，多进程保留人工选择 |
+| 51 | R&D | P2 | 桌面名解析在不同 ROM 上不稳定 | 包列表快返；独立 label 接口优先 `aapt dump badging`，失败回退包名 |
+| 52 | PM/QA | P2 | 应用名 + 长包名展示换行且高亮包名对比度不足 | Select2 单行 flex 模板 + 省略；高亮态应用名/包名统一白字 |
+| 53 | R&D | P1 | 全量同步解析应用名导致初始化 10s 级阻塞 | 前台/手选 App 优先；label 小批次异步补齐 + 30 天持久缓存 + 单包超时；`/device/package` 不再触发慢扫描 |
+| 54 | 浏览器验收 | P1 | 初始化成功后 SweetAlert loading 可能残留遮挡页面 | Android 初始化/包列表成功路径统一使用 `SwalCloseLoading()` |
+| 55 | PM/QA | P0 | Windows scrcpy 直录 MP4 偶发无 `moov`；MKV 浏览器 seek/duration 不可靠 | 改为 scrcpy 录 MKV 后用 ffmpeg 无损封装 MP4；MP4 校验通过才网页播放，MKV 仅系统播放器兜底 |
 
 ---
 
@@ -246,7 +266,7 @@ L1 模块清单（10 个）：见 `tests/matrix_loader.py` `_L1_TEST_MODULES`
 
 ### 测试 (QA)
 
-- **通过项**：160 自动化；专项、全量、编译、兼容门禁和四类页面浏览器验收通过。
+- **通过项**：192 自动化；专项、全量、编译、兼容门禁和四类页面浏览器验收通过。
 - **待 L3**：L3 清单三项弱网 smoke 真机签字。
 
 ---

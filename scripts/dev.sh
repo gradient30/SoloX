@@ -18,6 +18,52 @@ LEGACY_PID_FILE="$PROJECT_DIR/.solox.pid"
 LEGACY_LOG_FILE="$PROJECT_DIR/.solox.log"
 PYTHON="${SOLOX_PYTHON:-python}"
 
+# ---- python / environment detection -----------------------------------------
+_is_wsl() {
+    [[ -n "${WSL_DISTRO_NAME:-}" ]] || grep -qi microsoft /proc/version 2>/dev/null
+}
+
+_resolve_python() {
+    if command -v "$PYTHON" &>/dev/null 2>&1; then
+        return 0
+    fi
+    local candidate
+    for candidate in python3 py; do
+        if command -v "$candidate" &>/dev/null 2>&1; then
+            PYTHON="$candidate"
+            return 0
+        fi
+    done
+    for candidate in \
+        /mnt/c/Python312/python.exe \
+        /mnt/c/Python311/python.exe \
+        /mnt/c/Python310/python.exe \
+        /c/Python312/python.exe \
+        /c/Python311/python.exe; do
+        if [[ -f "$candidate" ]]; then
+            PYTHON="$candidate"
+            return 0
+        fi
+    done
+    return 1
+}
+
+if ! _resolve_python; then
+    err "Python not found (tried: python, python3, py, Windows Python under /mnt/c)."
+    if _is_wsl; then
+        err "PowerShell 里的 bash 会进入 WSL，WSL 内通常没有 python。"
+        err "请改用:  .\\scripts\\dev.ps1 start"
+        err "或:      SOLOX_PYTHON=/mnt/c/Python312/python.exe SOLOX_PORT=50005 bash scripts/dev.sh start"
+    else
+        err "请设置: SOLOX_PYTHON=/c/Python312/python.exe"
+    fi
+    exit 1
+fi
+
+if _is_wsl && [[ "$PROJECT_DIR" == /mnt/* ]]; then
+    warn "当前为 WSL 环境 ($PROJECT_DIR)。Windows 上推荐 .\\scripts\\dev.ps1 start"
+fi
+
 # ---- color helpers (degrade gracefully on dumb terminals) -------------------
 if [[ -t 1 ]] && command -v tput &>/dev/null; then
     C_GREEN=$(tput setaf 2)
@@ -155,7 +201,7 @@ do_start() {
             # Save the actual process PID (not the nohup wrapper)
             echo "$real_pid" > "$PID_FILE"
             info "SoloX started successfully (PID $real_pid)"
-            info "Web UI: http://127.0.0.1:${PORT}/?platform=Android&lan=en"
+            info "Web UI: http://127.0.0.1:${PORT}/?platform=Android&lan=cn"
             return 0
         fi
     done

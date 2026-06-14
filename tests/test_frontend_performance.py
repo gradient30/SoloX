@@ -188,3 +188,94 @@ def test_compare_and_pk_pages_send_chart_point_limit():
     assert compare_source.count('max_points: chartMaxPoints') == 7
     assert 'var chartMaxPoints = {{ chart_max_points|default(1500) }};' in pk_source
     assert pk_source.count('max_points: chartMaxPoints') == 4
+
+
+def test_android_app_selection_uses_type_filter_label_search_and_foreground_auto_select():
+    source = _template('index.html')
+
+    assert 'id="android-app-type-filter"' in source
+    assert 'data-app-type="user"' in source
+    assert 'data-app-type="system"' in source
+    assert 'data-app-type="all"' in source
+    assert 'var androidPackages = [];' in source
+    assert "var androidAppTypeFilter = 'user';" in source
+    assert 'function appSelectMatcher(' in source
+    assert 'function renderAndroidAppOptions(' in source
+    assert 'function selectForegroundAndroidApp(' in source
+    assert 'function applyForegroundAndroidSelection(' in source
+    assert 'data-label' in source
+    assert 'data-package' in source
+    assert 'data-type' in source
+    assert 'type:androidAppTypeFilter' in source
+    assert 'url: Host + "/package/foreground"' in source
+    assert "data['auto_select_process']" in source
+    assert "androidAppTypeFilter === 'system'" in source
+
+
+def test_android_app_selection_hydrates_labels_without_overflowing_select():
+    source = _template('index.html')
+
+    assert """.select2-results__option .android-app-option {
+        display: flex;""" in source
+    assert 'white-space: nowrap;' in source
+    assert '.select2-results__option--highlighted .android-app-label' in source
+    assert '.select2-results__option--highlighted .android-app-package' in source
+    assert 'color: #fff !important;' in source
+    assert 'function formatAndroidAppOption(' in source
+    assert 'function formatAndroidAppSelection(' in source
+    assert 'function resolveAndroidPackageLabels(' in source
+    assert 'url: Host + "/device/package/labels"' in source
+    assert 'templateResult: formatAndroidAppOption' in source
+    assert 'templateSelection: formatAndroidAppSelection' in source
+    assert 'android-app-option' in source
+    assert 'android-app-label' in source
+    assert 'android-app-package' in source
+    assert 'android-app-selection' in source
+    assert 'text-overflow: ellipsis' in source
+    assert "$('<span class=\"android-app-label\"></span>')" in source
+    assert ".text('\\u00b7 ' + pkg)" in source
+    assert 'data-label-pending' in source
+    assert '.attr(\'title\', item.display)' in source
+    assert 'updateAndroidPackageLabel(' in source
+    assert 'pending.concat(androidLabelQueue)' in source
+
+
+def test_android_initialization_closes_loading_modal_on_success_paths():
+    source = _template('index.html')
+
+    assert 'SwalCloseLoading();\n                    if (androidAppTypeFilter !== \'system\')' in source
+    assert 'SwalCloseLoading();\n                    selectForegroundAndroidApp();' in source
+
+
+def test_android_label_hydration_prioritizes_foreground_before_background_work():
+    source = _template('index.html')
+    render_body = source.split(
+        'function renderAndroidAppOptions(packages) {', 1
+    )[1].split('function renderPackageOptions(data) {', 1)[0]
+
+    assert 'resolveAndroidPackageLabels(visiblePackages);' not in render_body
+    assert 'function hydrateVisibleAndroidPackageLabels()' in source
+    assert 'resolveAndroidPackageLabels([foregroundItem]);' in source
+    assert 'hydrateVisibleAndroidPackageLabels();' in source
+    assert 'if (item && item.label_pending)' in source
+    assert 'resolveAndroidPackageLabels([item]);' in source
+
+
+def test_recording_status_badge_polls_elapsed_duration_and_risk_rules():
+    source = _template('index.html')
+
+    assert 'id="record-status-badge"' in source
+    assert 'id="record-elapsed"' in source
+    assert '已录时长' in source
+    assert 'function formatRecordElapsed(' in source
+    assert 'function startRecordStatusPolling(' in source
+    assert 'function stopRecordStatusPolling(' in source
+    assert 'function pollRecordStatus(' in source
+    assert 'function updateRecordStatusBadge(' in source
+    assert 'url: "/apm/record/status"' in source
+    assert 'var RECORD_WARNING_SECONDS = 15 * 60;' in source
+    assert 'var RECORD_DANGER_SECONDS = 30 * 60;' in source
+    assert 'record-status-warning' in source
+    assert 'record-status-danger' in source
+    assert 'startRecordStatusPolling();' in source
+    assert 'stopRecordStatusPolling(true);' in source

@@ -110,8 +110,8 @@ class TestCpuCollectionMocked(unittest.TestCase):
     def test_getpid_uses_ps_ef_on_api_30_plus(self, mock_sdk):
         mock_sdk.return_value = '30'
         devices = Devices()
-        with patch('solox.public.common.os.popen') as mock_popen:
-            mock_popen.return_value.readlines.return_value = [
+        with patch('solox.public.common.adb.popen_readlines') as mock_popen:
+            mock_popen.return_value = [
                 _ps_ef_line() + '\n'
             ]
             result = devices.getPid(DEVICE, PKG)
@@ -123,8 +123,8 @@ class TestCpuCollectionMocked(unittest.TestCase):
     def test_getpid_uses_legacy_ps_below_api_26(self, mock_sdk):
         mock_sdk.return_value = '25'
         devices = Devices()
-        with patch('solox.public.common.os.popen') as mock_popen:
-            mock_popen.return_value.readlines.return_value = [
+        with patch('solox.public.common.adb.popen_readlines') as mock_popen:
+            mock_popen.return_value = [
                 _legacy_ps_line() + '\n'
             ]
             result = devices.getPid(DEVICE, PKG)

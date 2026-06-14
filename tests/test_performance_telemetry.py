@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 """Runtime performance telemetry acceptance tests."""
 
+import subprocess
 from unittest.mock import MagicMock, patch
 
 
@@ -87,6 +88,26 @@ def test_adb_shell_records_command_duration():
     assert snapshot['adb']['max_ms'] >= 0
 
 
+def test_adb_shell_hides_windows_console():
+    from solox.public.adb import ADB
+
+    adb = ADB.__new__(ADB)
+    adb.adb_path = 'adb'
+    process = MagicMock()
+    process.communicate.return_value = (b'ok', b'')
+
+    with (
+        patch('solox.public.adb.platform.system', return_value='Windows'),
+        patch('solox.public.adb.subprocess.Popen', return_value=process) as popen,
+    ):
+        assert adb.shell('getprop ro.product.model', 'device-1') == 'ok'
+
+    kwargs = popen.call_args.kwargs
+    assert kwargs['creationflags'] & subprocess.CREATE_NO_WINDOW
+    assert kwargs['startupinfo'].dwFlags & subprocess.STARTF_USESHOWWINDOW
+    assert kwargs['startupinfo'].wShowWindow == 0
+
+
 def test_adb_device_discovery_records_command_duration():
     from solox.public.common import Devices
     from solox.public.performance_telemetry import telemetry
@@ -94,19 +115,36 @@ def test_adb_device_discovery_records_command_duration():
     telemetry.reset()
     devices = Devices.__new__(Devices)
     devices.adb = 'adb'
-    stream = MagicMock()
-    stream.readlines.return_value = [
-        'List of devices attached\n',
-        'device-1\tdevice\n',
-        '\n',
-    ]
+    process = MagicMock()
+    process.communicate.return_value = (b'List of devices attached\ndevice-1\tdevice\n\n', b'')
 
-    with patch('solox.public.adb.os.popen', return_value=stream):
+    with patch('solox.public.adb.subprocess.Popen', return_value=process):
         assert devices.getDeviceIds() == ['device-1']
 
     snapshot = telemetry.snapshot()
     assert snapshot['adb']['count'] == 1
     assert snapshot['adb']['active'] == 0
+
+
+def test_adb_popen_readlines_hides_windows_console_and_avoids_os_popen():
+    from solox.public.adb import ADB
+
+    adb = ADB.__new__(ADB)
+    adb.adb_path = 'adb'
+    process = MagicMock()
+    process.communicate.return_value = (b'line-1\nline-2\n', b'')
+
+    with (
+        patch('solox.public.adb.platform.system', return_value='Windows'),
+        patch('solox.public.adb.os.popen', side_effect=AssertionError('os.popen should not be used')),
+        patch('solox.public.adb.subprocess.Popen', return_value=process) as popen,
+    ):
+        assert adb.popen_readlines('adb devices') == ['line-1\n', 'line-2\n']
+
+    kwargs = popen.call_args.kwargs
+    assert kwargs['creationflags'] & subprocess.CREATE_NO_WINDOW
+    assert kwargs['startupinfo'].dwFlags & subprocess.STARTF_USESHOWWINDOW
+    assert kwargs['startupinfo'].wShowWindow == 0
 
 
 def test_api_route_dimensions_are_bounded():

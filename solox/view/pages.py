@@ -12,6 +12,11 @@ m = Method()
 f = File()
 
 
+def _resolve_lan():
+    lan = request.args.get('lan') or 'cn'
+    return lan if lan in ('cn', 'en') else 'cn'
+
+
 def _report_scene_exists(report_dir, scene):
     if (
         not scene
@@ -43,37 +48,39 @@ def _report_result_exists(report_dir, scene):
 
 @page.app_errorhandler(404)
 def page_404(e):
+    lan = _resolve_lan()
     settings = m._settings(request)
     return render_template('404.html', **locals()), 404
 
 @page.app_errorhandler(500)
 def page_500(e):
+    lan = _resolve_lan()
     settings = m._settings(request)
     return render_template('500.html', **locals()), 500
 
 @page.route('/')
 def index():
     platform = request.args.get('platform')
-    lan = request.args.get('lan')
+    lan = _resolve_lan()
     settings = m._settings(request)
     return render_template('index.html', **locals())
 
 @page.route('/pk')
 def pk():
-    lan = request.args.get('lan')
+    lan = _resolve_lan()
     model = request.args.get('model')
     settings = m._settings(request)
     return render_template('pk.html', **locals())
 
 @page.route('/report')
 def report():
-    lan = request.args.get('lan')
+    lan = _resolve_lan()
     settings = m._settings(request)
     return render_template('report.html', **locals())
 
 @page.route('/analysis', methods=['post', 'get'])
 def analysis():
-    lan = request.args.get('lan')
+    lan = _resolve_lan()
     scene = request.args.get('scene')
     app = request.args.get('app')
     platform = request.args.get('platform')
@@ -115,7 +122,7 @@ def analysis():
 
 @page.route('/pk_analysis', methods=['post', 'get'])
 def analysis_pk():
-    lan = request.args.get('lan')
+    lan = _resolve_lan()
     scene = request.args.get('scene')
     app = request.args.get('app')
     model = request.args.get('model')
@@ -138,7 +145,7 @@ def analysis_pk():
 @page.route('/compare_analysis', methods=['post', 'get'])
 def analysis_compare():
     platform = request.args.get('platform')
-    lan = request.args.get('lan')
+    lan = _resolve_lan()
     scene1 = request.args.get('scene1')
     scene2 = request.args.get('scene2')
     app = request.args.get('app')

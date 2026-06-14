@@ -225,7 +225,7 @@ class TestRecordPlayerAcceptance(unittest.TestCase):
     def test_pm_mp4_browser_playable_with_stream(self):
         mp4 = os.path.join(self.tmp, self.scene, 'record.mp4')
         with open(mp4, 'wb') as fh:
-            fh.write(b'\x00' * 512)
+            fh.write(b'\x00' * 4 + b'ftyp' + b'isom' + b'\x00' * 4 + b'\x00' * 2048 + b'moov' + b'\x00' * 64)
         info = self.client.get('/apm/record/info', query_string={'scene': self.scene}).get_json()
         self.assertEqual(info['status'], 1)
         self.assertTrue(info['browser_playable'])
@@ -235,7 +235,7 @@ class TestRecordPlayerAcceptance(unittest.TestCase):
 
     def test_qa_mkv_not_browser_playable(self):
         with open(os.path.join(self.tmp, self.scene, 'record.mkv'), 'wb') as fh:
-            fh.write(b'\x00' * 64)
+            fh.write(b'\x1aE\xdf\xa3' + b'\x00' * 3000)
         info = self.client.get('/apm/record/info', query_string={'scene': self.scene}).get_json()
         self.assertEqual(info['status'], 1)
         self.assertEqual(info['format'], 'mkv')
@@ -245,7 +245,7 @@ class TestRecordPlayerAcceptance(unittest.TestCase):
     def test_qa_system_player_fallback(self, mock_play):
         mp4 = os.path.join(self.tmp, self.scene, 'record.mp4')
         with open(mp4, 'wb') as fh:
-            fh.write(b'\x00' * 32)
+            fh.write(b'\x00' * 4 + b'ftyp' + b'isom' + b'\x00' * 4 + b'\x00' * 2048 + b'moov' + b'\x00' * 64)
         resp = self.client.get('/apm/record/play', query_string={'scene': self.scene})
         self.assertEqual(resp.get_json()['status'], 1)
         mock_play.assert_called_once_with(mp4)

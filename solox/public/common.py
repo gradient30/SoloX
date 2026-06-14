@@ -4,6 +4,7 @@ import platform
 import re
 import shutil
 import subprocess
+import tempfile
 import threading
 import time
 import requests
@@ -29,6 +30,24 @@ from solox.public.metric_stats import (
 from solox.public.performance_telemetry import telemetry
 
 
+def _windows_hidden_process_kwargs():
+    if platform.system() != "Windows":
+        return {}
+    startupinfo = subprocess.STARTUPINFO()
+    startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+    startupinfo.wShowWindow = 0
+    return {
+        "startupinfo": startupinfo,
+        "creationflags": getattr(subprocess, "CREATE_NO_WINDOW", 0),
+    }
+
+
+def _hidden_run_kwargs(**kwargs):
+    kwargs.setdefault("stdin", subprocess.DEVNULL)
+    kwargs.update(_windows_hidden_process_kwargs())
+    return kwargs
+
+
 class Platform:
     Android = 'Android'
     iOS = 'iOS'
@@ -38,6 +57,20 @@ class Platform:
 
 # Chart API default cap — keeps ApexCharts responsive on long sessions
 CHART_DEFAULT_MAX_POINTS = 1500
+
+# Android package list / launcher label cache (per device, in-process)
+_ANDROID_PACKAGE_LABEL_CACHE = {}
+_ANDROID_PACKAGE_LIST_CACHE = {}
+_ANDROID_PACKAGE_LABEL_CACHE_LOCK = threading.RLock()
+ANDROID_PACKAGE_CACHE_TTL_SEC = 300
+ANDROID_PACKAGE_LABEL_PERSISTENT_TTL_SEC = 30 * 24 * 60 * 60
+ANDROID_PACKAGE_LABEL_RESOLVE_LIMIT = 60
+ANDROID_PACKAGE_LABEL_CACHE_FILE = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
+    'runtime',
+    'cache',
+    'android-package-labels.json',
+)
 
 class Devices:
 
@@ -156,6 +189,502 @@ class Devices:
             pkginfo = adb.popen_readlines(f"{self.adb} -s {deviceId} shell pm list packages")
             pkglist = [p.lstrip('package').lstrip(":").strip() for p in pkginfo]
             return pkglist
+
+    def _normalize_android_package_type(self, package_type):
+        if package_type in ('user', 'system', 'all'):
+            return package_type
+        return 'all'
+
+    def _parse_android_package_lines(self, lines):
+        packages = []
+        for line in lines or []:
+            value = str(line).strip()
+            if not value:
+                continue
+            if value.startswith('package:'):
+                value = value[len('package:'):]
+            if '=' in value:
+                value = value.rsplit('=', 1)[-1]
+            value = value.strip()
+            if value:
+                packages.append(value)
+        return packages
+
+    def _get_android_package_names(self, deviceId, package_type='all'):
+        package_type = self._normalize_android_package_type(package_type)
+        flag = {
+            'user': '-3',
+            'system': '-s',
+            'all': '',
+        }[package_type]
+        flag_text = f' {flag}' if flag else ''
+        lines = adb.popen_readlines(
+            f"{self.adb} -s {deviceId} shell pm list packages{flag_text} --user 0"
+        )
+        packages = self._parse_android_package_lines(lines)
+        if packages or package_type == 'all':
+            return packages
+        fallback = adb.popen_readlines(
+            f"{self.adb} -s {deviceId} shell pm list packages{flag_text}"
+        )
+        return self._parse_android_package_lines(fallback)
+
+    def _is_safe_android_package_name(self, package_name):
+        return bool(re.match(r'^[A-Za-z0-9_.$]+$', package_name or ''))
+
+    def _dedupe_android_package_names(self, package_names, limit=None):
+        names = []
+        seen = set()
+        for package_name in package_names or []:
+            name = str(package_name or '').strip()
+            if not self._is_safe_android_package_name(name) or name in seen:
+                continue
+            seen.add(name)
+            names.append(name)
+            if limit and len(names) >= limit:
+                break
+        return names
+
+    def _get_cached_android_package_labels(self, deviceId, package_names):
+        with _ANDROID_PACKAGE_LABEL_CACHE_LOCK:
+            cached = _ANDROID_PACKAGE_LABEL_CACHE.get(deviceId)
+            if cached and (time.monotonic() - cached[0]) < ANDROID_PACKAGE_CACHE_TTL_SEC:
+                label_map = cached[1]
+            else:
+                label_map = self._load_persistent_android_package_labels(deviceId)
+                if label_map:
+                    _ANDROID_PACKAGE_LABEL_CACHE[deviceId] = (time.monotonic(), label_map)
+        if not label_map:
+            return {}
+        return {
+            name: label_map[name]
+            for name in package_names or []
+            if name in label_map and label_map[name] != name
+        }
+
+    def _read_android_package_label_cache_file(self):
+        try:
+            with open(ANDROID_PACKAGE_LABEL_CACHE_FILE, 'r', encoding='utf-8') as cache_file:
+                payload = json.load(cache_file)
+        except FileNotFoundError:
+            return {'version': 1, 'devices': {}}
+        except (OSError, ValueError, TypeError) as e:
+            logger.warning('failed to read Android package label cache: %s', e)
+            return {'version': 1, 'devices': {}}
+        if not isinstance(payload, dict) or payload.get('version') != 1:
+            return {'version': 1, 'devices': {}}
+        if not isinstance(payload.get('devices'), dict):
+            payload['devices'] = {}
+        return payload
+
+    def _load_persistent_android_package_labels(self, deviceId):
+        payload = self._read_android_package_label_cache_file()
+        entry = payload.get('devices', {}).get(deviceId, {})
+        updated_at = entry.get('updated_at', 0) if isinstance(entry, dict) else 0
+        if (
+            not isinstance(updated_at, (int, float)) or
+            time.time() - updated_at >= ANDROID_PACKAGE_LABEL_PERSISTENT_TTL_SEC
+        ):
+            return {}
+        return {
+            name: label
+            for name, label in (entry.get('labels') or {}).items()
+            if (
+                self._is_safe_android_package_name(name) and
+                isinstance(label, str) and
+                label and
+                label != name
+            )
+        }
+
+    def _persist_android_package_labels(self, deviceId, labels):
+        cache_path = ANDROID_PACKAGE_LABEL_CACHE_FILE
+        temp_path = '{}.{}.{}.tmp'.format(
+            cache_path,
+            os.getpid(),
+            threading.get_ident(),
+        )
+        with _ANDROID_PACKAGE_LABEL_CACHE_LOCK:
+            try:
+                payload = self._read_android_package_label_cache_file()
+                devices = payload.setdefault('devices', {})
+                entry = devices.get(deviceId, {})
+                stored_labels = (
+                    dict(entry.get('labels') or {})
+                    if isinstance(entry, dict)
+                    else {}
+                )
+                stored_labels.update(labels)
+                devices[deviceId] = {
+                    'updated_at': time.time(),
+                    'labels': stored_labels,
+                }
+                os.makedirs(os.path.dirname(cache_path), exist_ok=True)
+                with open(temp_path, 'w', encoding='utf-8') as cache_file:
+                    json.dump(payload, cache_file, ensure_ascii=False, sort_keys=True)
+                os.replace(temp_path, cache_path)
+            except (OSError, ValueError, TypeError) as e:
+                logger.warning('failed to persist Android package label cache: %s', e)
+            finally:
+                if os.path.exists(temp_path):
+                    try:
+                        os.remove(temp_path)
+                    except OSError:
+                        pass
+
+    def _cache_android_package_labels(self, deviceId, label_map):
+        labels = {
+            name: label
+            for name, label in (label_map or {}).items()
+            if self._is_safe_android_package_name(name) and label and label != name
+        }
+        if not labels:
+            return
+        with _ANDROID_PACKAGE_LABEL_CACHE_LOCK:
+            cached = _ANDROID_PACKAGE_LABEL_CACHE.get(deviceId)
+            store = (
+                dict(cached[1])
+                if cached and (time.monotonic() - cached[0]) < ANDROID_PACKAGE_CACHE_TTL_SEC
+                else {}
+            )
+            store.update(labels)
+            _ANDROID_PACKAGE_LABEL_CACHE[deviceId] = (time.monotonic(), store)
+        self._persist_android_package_labels(deviceId, labels)
+        for key in list(_ANDROID_PACKAGE_LIST_CACHE):
+            if key[0] == deviceId:
+                _ANDROID_PACKAGE_LIST_CACHE.pop(key, None)
+
+    @staticmethod
+    def _clean_android_package_label(raw):
+        label = (raw or '').strip().strip('\'"')
+        if not label or label.lower() in ('null', 'none', '0'):
+            return ''
+        return label
+
+    def _parse_package_labels_from_dumpsys(self, output):
+        """Parse package -> launcher/application label from one dumpsys package dump."""
+        labels = {}
+        if not output:
+            return labels
+        blocks = re.split(r'(?=^\s*Package \[)', output, flags=re.MULTILINE)
+        inline_patterns = (
+            re.compile(r'applicationLabel=(.+?)(?:\s+flags=|\s+icon=|\s+labelRes=|\s+theme=|\s*$|\r|\n|})'),
+            re.compile(r'nonLocalizedLabel=(.+?)(?:\s+labelRes=|\s+icon=|\s+flags=|})'),
+            re.compile(r'(?:^|\s)label=(.+?)(?:\s+labelRes=|\s+icon=|\s+flags=|})'),
+        )
+        for block in blocks:
+            header = re.match(r'^\s*Package \[([^\]/\s]+)', block)
+            if not header:
+                continue
+            pkg = header.group(1).strip()
+            for pattern in inline_patterns:
+                match = pattern.search(block)
+                if not match:
+                    continue
+                label = self._clean_android_package_label(match.group(1))
+                if label:
+                    labels[pkg] = label
+                    break
+        return labels
+
+    def _fill_missing_android_package_labels(self, deviceId, package_names, label_map):
+        """Fill labels still equal to package name via chunked on-device dumpsys grep."""
+        missing = [
+            name for name in package_names
+            if self._is_safe_android_package_name(name) and label_map.get(name, name) == name
+        ]
+        if not missing:
+            return label_map
+
+        merged = dict(label_map)
+        chunk_size = 25
+        for offset in range(0, len(missing), chunk_size):
+            chunk = missing[offset:offset + chunk_size]
+            pkg_args = ' '.join(f'"{pkg}"' for pkg in chunk)
+            cmd = (
+                f'for pkg in {pkg_args}; do '
+                'lbl=$(dumpsys package "$pkg" 2>/dev/null | grep -m1 applicationLabel= '
+                '| sed "s/.*applicationLabel=//" | sed "s/ flags=.*//" | sed "s/ icon=.*//" | sed "s/ labelRes=.*//"); '
+                'echo "$pkg|$lbl"; '
+                'done'
+            )
+            try:
+                output = adb.shell(cmd=cmd, deviceId=deviceId)
+            except Exception:
+                logger.warning('chunk label lookup failed for device %s', deviceId)
+                continue
+            for line in (output or '').splitlines():
+                if '|' not in line:
+                    continue
+                pkg, raw_label = line.split('|', 1)
+                pkg = pkg.strip()
+                label = self._clean_android_package_label(raw_label.strip())
+                if pkg and label:
+                    merged[pkg] = label
+        return merged
+
+    def _get_android_package_labels_batch(self, deviceId, package_names):
+        """Resolve desktop/application labels in one ADB round-trip."""
+        names = self._dedupe_android_package_names(package_names)
+        if not names:
+            return {}
+
+        cached_labels = self._get_cached_android_package_labels(deviceId, names)
+        if all(name in cached_labels for name in names):
+            return {name: cached_labels.get(name, name) for name in names}
+
+        label_map = {name: name for name in names}
+        try:
+            output = adb.shell(cmd='dumpsys package', deviceId=deviceId)
+            label_map.update(self._parse_package_labels_from_dumpsys(output))
+        except Exception:
+            logger.warning('batch package label lookup failed for device %s', deviceId)
+
+        label_map = self._fill_missing_android_package_labels(deviceId, names, label_map)
+        resolved = {name: label_map.get(name, name) for name in names}
+        self._cache_android_package_labels(deviceId, resolved)
+        return resolved
+
+    def getAndroidPackageLabel(self, deviceId, packageName):
+        """Best-effort launcher label lookup; falls back to the package name."""
+        if not self._is_safe_android_package_name(packageName):
+            return packageName
+
+        cached = self._get_cached_android_package_labels(deviceId, [packageName])
+        if packageName in cached:
+            return cached[packageName]
+
+        packages = self.resolveAndroidPackageLabels(deviceId, [packageName])
+        if packages:
+            return packages[0].get('label') or packageName
+        return packageName
+
+    def _resolve_android_label_from_dumpsys(self, deviceId, packageName):
+        try:
+            output = adb.shell(cmd=f'dumpsys package {packageName}', deviceId=deviceId)
+        except Exception:
+            return ''
+        patterns = (
+            r'applicationLabel=([^\r\n]+)',
+            r'nonLocalizedLabel=([^\r\n}]+?)(?:\s+labelRes=|\s+icon=|\s+flags=|})',
+            r'label=([^\r\n}]+?)(?:\s+labelRes=|\s+icon=|\s+flags=|})',
+        )
+        for pattern in patterns:
+            match = re.search(pattern, output or '')
+            if not match:
+                continue
+            label = self._clean_android_package_label(match.group(1))
+            if label:
+                return label
+        return ''
+
+    def _find_aapt_binary(self):
+        candidates = [
+            os.environ.get('SOLOX_AAPT'),
+            shutil.which('aapt'),
+            shutil.which('aapt.exe'),
+        ]
+        adb_dir = os.path.dirname(self.adb) if self.adb else ''
+        if adb_dir:
+            candidates.extend([
+                os.path.join(adb_dir, 'aapt.exe'),
+                os.path.join(adb_dir, 'aapt'),
+            ])
+        for candidate in candidates:
+            if candidate and os.path.isfile(candidate):
+                return candidate
+            if candidate and os.path.basename(candidate).lower().startswith('aapt'):
+                return candidate
+        return ''
+
+    def _get_android_package_apk_path(self, deviceId, packageName):
+        lines = adb.popen_readlines(f"{self.adb} -s {deviceId} shell pm path {packageName}")
+        paths = []
+        for line in lines or []:
+            value = str(line).strip()
+            if value.startswith('package:'):
+                value = value[len('package:'):]
+            if value:
+                paths.append(value)
+        for path in paths:
+            if path.endswith('/base.apk') or path.endswith('base.apk'):
+                return path
+        return paths[0] if paths else ''
+
+    def _parse_aapt_application_label(self, output):
+        labels = {}
+        for line in (output or '').splitlines():
+            match = re.match(r"application-label(?:-([A-Za-z]{2}(?:-r?[A-Za-z0-9]+)?))?:'(.+)'", line.strip())
+            if not match:
+                continue
+            locale = (match.group(1) or '').lower()
+            label = self._clean_android_package_label(match.group(2))
+            if label:
+                labels[locale] = label
+        for locale in ('zh-cn', 'zh-rCN'.lower(), 'zh'):
+            if locale in labels:
+                return labels[locale]
+        if '' in labels:
+            return labels['']
+        return next(iter(labels.values()), '')
+
+    def _resolve_android_label_with_aapt(self, deviceId, packageName):
+        aapt_path = self._find_aapt_binary()
+        if not aapt_path:
+            return ''
+        remote_path = self._get_android_package_apk_path(deviceId, packageName)
+        if not remote_path:
+            return ''
+        with tempfile.TemporaryDirectory(prefix='solox-apk-') as tmp_dir:
+            local_apk = os.path.join(tmp_dir, f'{packageName}.apk')
+            pull = subprocess.run(
+                [self.adb, '-s', deviceId, 'pull', remote_path, local_apk],
+                **_hidden_run_kwargs(capture_output=True, text=True, timeout=8),
+            )
+            if pull.returncode != 0:
+                return ''
+            badging = subprocess.run(
+                [aapt_path, 'dump', 'badging', local_apk],
+                **_hidden_run_kwargs(capture_output=True, text=True, timeout=5),
+            )
+            if badging.returncode != 0:
+                return ''
+            return self._parse_aapt_application_label(badging.stdout)
+
+    def _allow_android_label_aapt(self):
+        return os.environ.get('SOLOX_ANDROID_LABEL_USE_AAPT', '').lower() in ('1', 'true', 'yes')
+
+    def resolveAndroidPackageLabels(self, deviceId, package_names):
+        """Resolve labels for selected packages asynchronously from the package list path."""
+        names = self._dedupe_android_package_names(
+            package_names,
+            limit=ANDROID_PACKAGE_LABEL_RESOLVE_LIMIT,
+        )
+        cached_labels = self._get_cached_android_package_labels(deviceId, names)
+        resolved = dict(cached_labels)
+        for name in names:
+            if name in resolved:
+                continue
+            label = ''
+            try:
+                label = self._resolve_android_label_from_dumpsys(deviceId, name)
+                if not label and self._allow_android_label_aapt():
+                    label = self._resolve_android_label_with_aapt(deviceId, name)
+            except Exception as e:
+                logger.warning('failed to resolve label for %s on %s: %s', name, deviceId, e)
+            if label and label != name:
+                resolved[name] = label
+        self._cache_android_package_labels(deviceId, resolved)
+        return [
+            self._android_label_result_item(name, resolved.get(name, name))
+            for name in names
+        ]
+
+    def _android_label_result_item(self, packageName, label):
+        label = label or packageName
+        display = packageName if label == packageName else f'{label} ({packageName})'
+        return {
+            'package': packageName,
+            'label': label,
+            'display': display,
+            'label_pending': label == packageName,
+        }
+
+    def _android_package_item(self, deviceId, packageName, package_type, label_map=None):
+        if label_map is None:
+            label = self.getAndroidPackageLabel(deviceId, packageName)
+        else:
+            label = label_map.get(packageName, packageName)
+        display = packageName if label == packageName else f'{label} ({packageName})'
+        return {
+            'package': packageName,
+            'label': label,
+            'type': package_type,
+            'display': display,
+            'label_pending': label == packageName,
+        }
+
+    def _build_android_package_list(self, deviceId, package_type, names):
+        label_map = self._get_cached_android_package_labels(deviceId, names)
+        return [
+            self._android_package_item(deviceId, name, package_type, label_map)
+            for name in names
+        ]
+
+    def getAndroidPackages(self, deviceId, package_type='all'):
+        """Return Android packages with type and launcher/application display labels."""
+        package_type = self._normalize_android_package_type(package_type)
+        cache_key = (deviceId, package_type)
+        cached = _ANDROID_PACKAGE_LIST_CACHE.get(cache_key)
+        if cached and (time.monotonic() - cached[0]) < ANDROID_PACKAGE_CACHE_TTL_SEC:
+            return cached[1]
+
+        if package_type == 'user':
+            names = self._get_android_package_names(deviceId, 'user')
+            result = self._build_android_package_list(deviceId, 'user', names)
+        elif package_type == 'system':
+            names = self._get_android_package_names(deviceId, 'system')
+            result = self._build_android_package_list(deviceId, 'system', names)
+        else:
+            all_names = self._get_android_package_names(deviceId, 'all')
+            user_names = set(self._get_android_package_names(deviceId, 'user'))
+            system_names = set(self._get_android_package_names(deviceId, 'system'))
+            label_map = self._get_cached_android_package_labels(deviceId, all_names)
+            result = []
+            for name in all_names:
+                item_type = 'user' if name in user_names else 'system'
+                if name not in user_names and name not in system_names:
+                    item_type = 'system'
+                result.append(self._android_package_item(deviceId, name, item_type, label_map))
+
+        _ANDROID_PACKAGE_LIST_CACHE[cache_key] = (time.monotonic(), result)
+        return result
+
+    def _package_from_activity(self, activity):
+        activity = (activity or '').strip().replace('}', '')
+        match = re.search(r'([A-Za-z0-9_.$]+)/', activity)
+        if match:
+            return match.group(1)
+        if self._is_safe_android_package_name(activity):
+            return activity
+        return ''
+
+    def getForegroundAndroidApp(self, deviceId):
+        """Return the current foreground third-party Android app and processes."""
+        try:
+            activity = self.getCurrentActivity(deviceId)
+            package_name = self._package_from_activity(activity)
+            if not package_name:
+                return {'status': 0, 'msg': 'no foreground app found'}
+            user_names = set(self._get_android_package_names(deviceId, 'user'))
+            if package_name not in user_names:
+                return {
+                    'status': 0,
+                    'msg': 'foreground app is not a third-party app',
+                    'pkgname': package_name,
+                }
+            label_map = self._get_cached_android_package_labels(deviceId, [package_name])
+            app_info = self._android_package_item(
+                deviceId, package_name, 'user', label_map,
+            )
+            pids = self.getPid(deviceId, package_name)
+            if not pids:
+                return {
+                    'status': 0,
+                    'msg': 'foreground app process not found',
+                    'pkgname': package_name,
+                    'package': app_info,
+                }
+            return {
+                'status': 1,
+                'pkgname': package_name,
+                'package': app_info,
+                'pids': pids,
+                'auto_select_process': len(pids) == 1,
+            }
+        except Exception as e:
+            logger.exception(e)
+            return {'status': 0, 'msg': str(e)}
 
     def getDeviceInfoByiOS(self):
         """Get a list of all successfully connected iOS devices"""
@@ -715,9 +1244,8 @@ class File:
         if os.path.exists(self.report_dir):
             for f in os.listdir(self.report_dir):
                 filename = os.path.join(self.report_dir, f)
-                if f.split(".")[-1] in ['log', 'json', 'mkv', 'mp4']:
+                if os.path.isfile(filename) and f.split(".")[-1] in ['log', 'json', 'mkv', 'mp4']:
                     os.remove(filename)
-        Scrcpy.stop_record()            
         logger.info('Clean up useless files success')            
 
     def export_excel(self, platform, scene):
@@ -869,6 +1397,56 @@ class File:
             os.mkdir(report_dir)
         return report_dir
 
+    @staticmethod
+    def _is_valid_record_file(path, fmt='mp4'):
+        """Return True when recording looks finalized (not truncated by force-kill)."""
+        try:
+            size = os.path.getsize(path)
+            if size < 2048:
+                return False
+            with open(path, 'rb') as fh:
+                header = fh.read(12)
+            if len(header) < 8:
+                return False
+            if fmt == 'mp4':
+                if header[4:8] != b'ftyp':
+                    return False
+                window = 2097152
+                with open(path, 'rb') as fh:
+                    head_blob = fh.read(window)
+                    if b'moov' in head_blob:
+                        return True
+                    if size > window:
+                        fh.seek(max(0, size - window))
+                        return b'moov' in fh.read(window)
+                return False
+            if fmt == 'mkv':
+                return header[:4] == b'\x1aE\xdf\xa3'
+            return True
+        except OSError:
+            return False
+
+    def wait_for_record_file(self, directory=None, timeout=18.0, interval=0.25):
+        """Poll until a finalized recording appears in report dir (after scrcpy stop)."""
+        directory = directory or self.report_dir
+        deadline = time.time() + timeout
+        while time.time() < deadline:
+            for name, fmt in (('record.mp4', 'mp4'), ('record.mkv', 'mkv')):
+                path = os.path.join(directory, name)
+                if os.path.isfile(path) and self._is_valid_record_file(path, fmt):
+                    return path
+            time.sleep(interval)
+        return None
+
+    def detect_record_video_flag(self, directory=None):
+        """Return 1 when a playable finalized recording exists in directory."""
+        directory = directory or self.report_dir
+        for name, fmt in (('record.mp4', 'mp4'), ('record.mkv', 'mkv')):
+            path = os.path.join(directory, name)
+            if os.path.isfile(path) and self._is_valid_record_file(path, fmt):
+                return 1
+        return 0
+
     def resolve_record_video(self, scene):
         """Locate screen recording for a report scene; None if missing or unsafe path."""
         if not scene or '..' in scene or '/' in scene or '\\' in scene or os.path.isabs(scene):
@@ -884,7 +1462,7 @@ class File:
             ('record.mkv', 'mkv', False),
         ):
             path = os.path.join(scene_dir, name)
-            if os.path.isfile(path):
+            if os.path.isfile(path) and self._is_valid_record_file(path, fmt):
                 size = os.path.getsize(path)
                 return {
                     'path': path,
@@ -1014,6 +1592,15 @@ class File:
             "video": video,
             "cores":cores
         }
+        record_error = ''
+        try:
+            scrcpy = globals().get('Scrcpy')
+            if scrcpy and hasattr(scrcpy, 'record_result_error'):
+                record_error = scrcpy.record_result_error()
+        except Exception:
+            record_error = ''
+        if record_error:
+            result_dict['record_error'] = record_error
         content = json.dumps(result_dict)
         self.create_file(filename='result.json', content=content)
         report_new_dir = os.path.join(self.report_dir, f'apm_{current_time}')
@@ -1022,11 +1609,28 @@ class File:
 
         for f in os.listdir(self.report_dir):
             filename = os.path.join(self.report_dir, f)
-            if f.split(".")[-1] in ['log', 'json', 'mkv', 'mp4']:
-                shutil.move(filename, report_new_dir)        
+            if os.path.isfile(filename) and f.split(".")[-1] in ['log', 'json', 'mkv', 'mp4']:
+                shutil.move(filename, report_new_dir)
+        scene_name = f'apm_{current_time}'
+        if not video:
+            video = self.detect_record_video_flag(report_new_dir)
+        if video or record_error:
+            result_path = os.path.join(report_new_dir, 'result.json')
+            try:
+                with open(result_path, encoding='utf-8') as fp:
+                    result_dict = json.load(fp)
+                result_dict['video'] = video
+                if video:
+                    result_dict.pop('record_error', None)
+                elif record_error:
+                    result_dict['record_error'] = record_error
+                with open(result_path, 'w', encoding='utf-8') as fp:
+                    json.dump(result_dict, fp)
+            except Exception as e:
+                logger.warning('failed to patch result.json recording fields: {}'.format(e))
         logger.info('Generating test results success: {}'.format(report_new_dir))
-        self.finalize_report_stats(f'apm_{current_time}', platform)
-        return f'apm_{current_time}'        
+        self.finalize_report_stats(scene_name, platform)
+        return scene_name
 
     def instance_type(self, data):
         if isinstance(data, float):
@@ -1791,6 +2395,15 @@ class Scrcpy:
     _cast_running = False
     _cast_quality = 'medium'
     _record_process = None
+    _record_stderr = None
+    _record_error = ''
+    _record_report_error = ''
+    _record_started_at = None
+    _record_file = ''
+    _record_device = ''
+    _record_quality = ''
+    RECORD_WARNING_SECONDS = 15 * 60
+    RECORD_DANGER_SECONDS = 30 * 60
 
     @classmethod
     def scrcpy_path(cls):
@@ -1798,10 +2411,110 @@ class Scrcpy:
         path = cls.DEFAULT_SCRCPY_PATH["default"]
         if platform.system().lower().__contains__('windows'):
             if bit.__contains__('64'):
-                path =  cls.DEFAULT_SCRCPY_PATH["64"]
+                path = cls.DEFAULT_SCRCPY_PATH["64"]
             elif bit.__contains__('32'):
-                path =  cls.DEFAULT_SCRCPY_PATH["32"]
+                path = cls.DEFAULT_SCRCPY_PATH["32"]
+            if not os.path.isfile(path):
+                path = cls.DEFAULT_SCRCPY_PATH["default"]
         return path
+
+    @classmethod
+    def _find_ffmpeg_binary(cls):
+        env_ffmpeg = os.environ.get('SOLOX_FFMPEG')
+        candidates = [
+            env_ffmpeg,
+            os.path.join(cls.STATICPATH, 'ffmpeg', 'bin', 'ffmpeg.exe'),
+            os.path.join(cls.STATICPATH, 'ffmpeg', 'bin', 'ffmpeg'),
+            os.path.join(cls.STATICPATH, 'ffmpeg', 'ffmpeg.exe'),
+            os.path.join(cls.STATICPATH, 'ffmpeg', 'ffmpeg'),
+            shutil.which('ffmpeg'),
+            shutil.which('ffmpeg.exe'),
+        ]
+        for candidate in candidates:
+            if not candidate:
+                continue
+            has_directory = bool(os.path.dirname(candidate))
+            if os.path.isfile(candidate):
+                return candidate
+            if not has_directory and os.path.basename(candidate).lower() in ('ffmpeg', 'ffmpeg.exe'):
+                resolved = shutil.which(candidate)
+                if resolved:
+                    return resolved
+        return ''
+
+    @classmethod
+    def last_record_error(cls):
+        return cls._record_error
+
+    @classmethod
+    def record_result_error(cls):
+        return cls._record_report_error or cls._record_error
+
+    @classmethod
+    def _set_record_error(cls, message, report=False):
+        cls._record_error = message or ''
+        if report:
+            cls._record_report_error = cls._record_error
+        if message:
+            logger.error(message)
+
+    @classmethod
+    def _clear_record_error(cls):
+        cls._record_error = ''
+        cls._record_report_error = ''
+
+    @classmethod
+    def _reset_record_runtime(cls):
+        cls._record_started_at = None
+        cls._record_file = ''
+        cls._record_device = ''
+        cls._record_quality = ''
+
+    @classmethod
+    def _remove_stale_record_files(cls, directory):
+        for name in ('record.mp4', 'record.mkv'):
+            path = os.path.join(directory, name)
+            if os.path.isfile(path):
+                try:
+                    os.remove(path)
+                except OSError:
+                    pass
+
+    @classmethod
+    def _windows_stop_scrcpy_console(cls, proc):
+        """Deliver Ctrl+C to scrcpy's own console so MP4/MKV is finalized on Windows."""
+        import ctypes
+        kernel32 = ctypes.windll.kernel32
+        if proc.poll() is not None:
+            return True
+        try:
+            kernel32.FreeConsole()
+            if kernel32.AttachConsole(proc.pid):
+                kernel32.SetConsoleCtrlHandler(None, True)
+                kernel32.GenerateConsoleCtrlEvent(0, 0)
+                kernel32.FreeConsole()
+                kernel32.SetConsoleCtrlHandler(None, False)
+            proc.wait(timeout=30)
+            return proc.poll() is not None
+        except subprocess.TimeoutExpired:
+            return False
+        finally:
+            try:
+                kernel32.FreeConsole()
+            except Exception:
+                pass
+
+    @classmethod
+    def _windows_send_ctrl_event(cls, proc):
+        """Legacy helper for cast cleanup — prefer _windows_stop_scrcpy_console for recording."""
+        if proc.poll() is not None:
+            return True
+        try:
+            os.kill(proc.pid, signal.CTRL_BREAK_EVENT)
+            proc.wait(timeout=10)
+            return proc.poll() is not None
+        except (OSError, subprocess.TimeoutExpired):
+            return proc.poll() is not None
 
     @classmethod
     def _is_recording(cls):
@@ -1810,15 +2523,98 @@ class Scrcpy:
             return True
         return False
 
+    @classmethod
+    def _record_elapsed_seconds(cls, now=None):
+        if cls._record_started_at is None:
+            return 0
+        now = time.time() if now is None else now
+        return max(0, int(now - cls._record_started_at))
+
+    @staticmethod
+    def _format_record_elapsed(seconds):
+        seconds = max(0, int(seconds or 0))
+        hours = seconds // 3600
+        minutes = (seconds % 3600) // 60
+        sec = seconds % 60
+        return '{:02d}:{:02d}:{:02d}'.format(hours, minutes, sec)
+
+    @classmethod
+    def _record_risk_level(cls, elapsed_seconds):
+        if elapsed_seconds >= cls.RECORD_DANGER_SECONDS:
+            return 'danger'
+        if elapsed_seconds >= cls.RECORD_WARNING_SECONDS:
+            return 'warning'
+        return 'normal'
+
+    @classmethod
+    def _record_finalize_timeout(cls, elapsed_seconds):
+        if elapsed_seconds >= cls.RECORD_DANGER_SECONDS:
+            return 180.0
+        if elapsed_seconds >= cls.RECORD_WARNING_SECONDS:
+            return 90.0
+        return 20.0
+
+    @classmethod
+    def _record_file_size(cls):
+        if cls._record_file and os.path.isfile(cls._record_file):
+            try:
+                return os.path.getsize(cls._record_file)
+            except OSError:
+                return 0
+        return 0
+
+    @classmethod
+    def _record_file_valid(cls):
+        if not cls._record_file or not os.path.isfile(cls._record_file):
+            return False
+        fmt = os.path.splitext(cls._record_file)[1].lstrip('.').lower()
+        return File._is_valid_record_file(cls._record_file, fmt)
+
+    @classmethod
+    def record_status(cls):
+        process_alive = cls._is_recording()
+        started = cls._record_started_at is not None or bool(cls._record_file) or cls._record_process is not None
+        elapsed = cls._record_elapsed_seconds()
+        error = cls._record_error
+        if started and not process_alive and not cls._record_file_valid():
+            error = error or 'recording process is not running and no valid recording file is available'
+            cls._record_error = error
+            cls._record_report_error = cls._record_report_error or error
+
+        return {
+            'status': 1,
+            'recording': process_alive,
+            'process_alive': process_alive,
+            'started': started,
+            'healthy': not bool(error),
+            'error': error,
+            'elapsed_seconds': elapsed,
+            'elapsed_label': cls._format_record_elapsed(elapsed),
+            'risk_level': cls._record_risk_level(elapsed),
+            'file_size': cls._record_file_size(),
+            'file_size_mb': round(cls._record_file_size() / 1024 / 1024, 2),
+            'device': cls._record_device,
+            'quality': cls._record_quality,
+        }
+
     # Use software encoder by default to avoid hardware encoder crashes
     # (OMX.qcom.video.encoder.avc crashes with 0x80001009 on many Qualcomm devices)
     _use_sw_encoder = True
 
+    # Recording resolution/bitrate presets (H.264). Higher = clearer but larger.
+    # Rough size: 1080p ~120MB/min, 720p ~60MB/min, 480p ~30MB/min.
+    RECORD_PRESETS = {
+        '1080p': {'max_size': 1080, 'bitrate': '16M'},
+        '720p':  {'max_size': 720,  'bitrate': '8M'},
+        '480p':  {'max_size': 480,  'bitrate': '4M'},
+    }
+
     @classmethod
-    def _get_cast_params(cls, device, for_recording=False, quality='medium'):
+    def _get_cast_params(cls, device, for_recording=False, quality='medium',
+                         record_quality='720p'):
         """Get optimized scrcpy parameters based on current state and quality setting.
 
-        quality: 'high', 'medium', 'low'
+        quality: 'high', 'medium', 'low' (cast); record_quality: '1080p'/'720p'/'480p'.
         When data collection + recording run simultaneously,
         use lower quality settings to reduce USB bandwidth pressure.
         Uses software encoder (c2.android.avc.encoder) by default to avoid
@@ -1831,8 +2627,12 @@ class Scrcpy:
             params.append('--video-encoder=c2.android.avc.encoder')
 
         if for_recording:
-            # Recording mode: no display, lower quality to avoid USB contention
-            params.extend(['--no-playback', '--max-size=720', '--video-bit-rate=2M'])
+            # Recording mode: no display; cap fps to shrink file size and ease USB load
+            preset = cls.RECORD_PRESETS.get(record_quality, cls.RECORD_PRESETS['720p'])
+            params.extend(['--no-playback',
+                           '--max-size={}'.format(preset['max_size']),
+                           '--max-fps=30',
+                           '--video-bit-rate={}'.format(preset['bitrate'])])
         else:
             # Cast mode quality presets (bitrates lowered to reduce encoder stress)
             quality_presets = {
@@ -1855,106 +2655,256 @@ class Scrcpy:
         return params
 
     @classmethod
-    def start_record(cls, device):
-        f = File()
-        logger.info('start record screen')
-        video_path = os.path.join(f.report_dir, 'record.mp4')
-        params = cls._get_cast_params(device, for_recording=True)
-        params.extend(['--record={}'.format(video_path)])
+    def start_record(cls, device, quality='720p'):
+        """Record via scrcpy (captures SurfaceView / game content correctly).
 
+        On Windows the recorder runs in a minimized console so we can deliver a
+        real Ctrl+C through AttachConsole — the only reliable way to finalize MP4.
+        ``adb shell screenrecord`` cannot capture many game engines (Cocos/Unity).
+        """
+        f = File()
+        cls._clear_record_error()
+        cls._reset_record_runtime()
+        if quality not in cls.RECORD_PRESETS:
+            quality = '720p'
+        ffmpeg_path = cls._find_ffmpeg_binary()
+        if not ffmpeg_path:
+            cls._set_record_error(
+                'ffmpeg not found; install ffmpeg or set SOLOX_FFMPEG to enable browser-playable recording'
+            )
+            return 1
+        if cls._record_process and cls._record_process.poll() is None:
+            cls._graceful_stop_process(cls._record_process, 'record')
+        cls._record_process = None
+        cls._close_record_stderr()
+        cls._remove_stale_record_files(f.report_dir)
+
+        scrcpy_bin = cls.scrcpy_path()
+        if scrcpy_bin != cls.DEFAULT_SCRCPY_PATH["default"] and not os.path.isfile(scrcpy_bin):
+            logger.error('bundled scrcpy not found: {}'.format(scrcpy_bin))
+            return 1
+
+        video_path = os.path.join(f.report_dir, 'record.mkv')
+        cls._record_file = video_path
+        cls._record_device = device
+        cls._record_quality = quality
+        params = cls._get_cast_params(device, for_recording=True, record_quality=quality)
+        params.extend(['--record={}'.format(video_path), '--record-format=mkv'])
+        logger.info('start record screen via scrcpy (quality={})'.format(quality))
+
+        cls._record_stderr = open(os.path.join(f.report_dir, 'scrcpy_record.log'), 'wb')
         try:
-            if platform.system().lower().__contains__('windows'):
+            is_windows = platform.system().lower().__contains__('windows')
+            if is_windows:
+                startupinfo = subprocess.STARTUPINFO()
+                startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+                startupinfo.wShowWindow = 6  # SW_MINIMIZE — own console for Ctrl+C
                 cls._record_process = subprocess.Popen(
-                    params, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE,
-                    creationflags=subprocess.CREATE_NO_WINDOW | subprocess.CREATE_NEW_PROCESS_GROUP
+                    params, stdout=subprocess.DEVNULL, stderr=cls._record_stderr,
+                    creationflags=subprocess.CREATE_NEW_CONSOLE,
+                    startupinfo=startupinfo,
                 )
             else:
                 cls._record_process = subprocess.Popen(
-                    params, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE
-                )
-            # Wait briefly to check if process started OK
+                    params, stdout=subprocess.DEVNULL, stderr=cls._record_stderr)
+            cls._record_started_at = time.time()
             import time as _time
-            _time.sleep(1)
+            _time.sleep(1.2)
             if cls._record_process.poll() is not None:
-                stderr = cls._record_process.stderr.read().decode('utf-8', errors='replace')
-                logger.error('scrcpy record failed: {}'.format(stderr))
+                cls._close_record_stderr()
                 cls._record_process = None
+                cls._reset_record_runtime()
+                logger.error('scrcpy record failed to start (see scrcpy_record.log)')
                 return 1
-            logger.info("record screen success : {}".format(video_path))
+            logger.info('record screen success : {}'.format(video_path))
             return 0
         except Exception as e:
-            logger.error("scrcpy record launch failed: {}".format(e))
-            logger.info("Please install scrcpy: brew install scrcpy (macOS) or download from github.com/Genymobile/scrcpy")
+            cls._close_record_stderr()
+            cls._record_process = None
+            cls._reset_record_runtime()
+            logger.error('scrcpy record launch failed: {}'.format(e))
             return 1
 
     @classmethod
+    def _close_record_stderr(cls):
+        if cls._record_stderr is not None:
+            try:
+                cls._record_stderr.close()
+            except Exception:
+                pass
+            cls._record_stderr = None
+
+    @classmethod
+    def _remux_recording_to_mp4(cls, directory):
+        mkv_path = os.path.join(directory, 'record.mkv')
+        mp4_path = os.path.join(directory, 'record.mp4')
+        temp_mp4_path = os.path.join(directory, 'record.tmp.mp4')
+        if not File._is_valid_record_file(mkv_path, 'mkv'):
+            cls._set_record_error('record.mkv is missing or invalid; cannot remux to mp4')
+            return None
+        ffmpeg_path = cls._find_ffmpeg_binary()
+        if not ffmpeg_path:
+            cls._set_record_error(
+                'ffmpeg not found; install ffmpeg or set SOLOX_FFMPEG to remux recording'
+            )
+            return None
+        if os.path.exists(temp_mp4_path):
+            try:
+                os.remove(temp_mp4_path)
+            except OSError:
+                pass
+        cmd = [
+            ffmpeg_path,
+            '-y',
+            '-i', mkv_path,
+            '-map', '0:v:0',
+            '-an',
+            '-c', 'copy',
+            '-movflags', '+faststart',
+            temp_mp4_path,
+        ]
+        log_path = os.path.join(directory, 'ffmpeg_remux.log')
+        try:
+            with open(log_path, 'ab') as remux_log:
+                remux_log.write(b'\n--- ffmpeg remux ---\n')
+                result = subprocess.run(
+                    cmd,
+                    stdout=remux_log,
+                    stderr=remux_log,
+                    **_hidden_run_kwargs(timeout=120),
+                )
+        except (OSError, subprocess.TimeoutExpired) as e:
+            cls._set_record_error('ffmpeg remux failed: {}'.format(e))
+            return None
+        if result.returncode != 0:
+            suffix = '; see {}'.format(log_path)
+            cls._set_record_error('ffmpeg remux failed{}'.format(suffix))
+            return None
+        if not File._is_valid_record_file(temp_mp4_path, 'mp4'):
+            cls._set_record_error('ffmpeg remux output is not a valid mp4')
+            try:
+                os.remove(temp_mp4_path)
+            except OSError:
+                pass
+            return None
+        os.replace(temp_mp4_path, mp4_path)
+        cls._clear_record_error()
+        return mp4_path
+
+    @classmethod
     def _graceful_stop_process(cls, proc, name='scrcpy'):
-        """Gracefully stop a scrcpy process using SIGINT to allow file finalization."""
+        """Gracefully stop scrcpy (SIGINT / Ctrl+C) so the recorder can flush."""
         if proc is None or proc.poll() is not None:
             return
         try:
             if platform.system().lower().__contains__('windows'):
-                # Windows: send CTRL_BREAK_EVENT (works with CREATE_NEW_PROCESS_GROUP)
-                import ctypes
-                kernel32 = ctypes.windll.kernel32
-                kernel32.GenerateConsoleCtrlEvent(1, proc.pid)  # CTRL_BREAK_EVENT=1
+                if name == 'record':
+                    if cls._windows_stop_scrcpy_console(proc):
+                        logger.info('{} process exited after Ctrl+C'.format(name))
+                        return
+                elif cls._windows_send_ctrl_event(proc):
+                    logger.info('{} process exited after stop signal'.format(name))
+                    return
             else:
-                # Unix: send SIGINT for graceful shutdown
-                import signal as _signal
-                proc.send_signal(_signal.SIGINT)
-
-            # Wait up to 10 seconds for scrcpy to finalize the video container
-            proc.wait(timeout=10)
-            logger.info('{} process stopped gracefully (video finalized)'.format(name))
+                proc.send_signal(signal.SIGINT)
+                proc.wait(timeout=25)
+                logger.info('{} process exited after SIGINT'.format(name))
+                return
         except subprocess.TimeoutExpired:
             logger.warning('{} did not stop gracefully, forcing termination'.format(name))
-            try:
-                proc.terminate()
-                proc.wait(timeout=3)
-            except Exception:
-                try:
-                    proc.kill()
-                except Exception:
-                    pass
         except Exception as e:
             logger.warning('{} graceful stop failed: {}, using terminate'.format(name, e))
+        try:
+            proc.terminate()
+            proc.wait(timeout=3)
+        except Exception:
             try:
-                proc.terminate()
-                proc.wait(timeout=3)
+                proc.kill()
             except Exception:
-                try:
-                    proc.kill()
-                except Exception:
-                    pass
+                pass
+
+    @classmethod
+    def _record_finalize_error(cls, directory, timeout):
+        candidates = []
+        if cls._record_file:
+            candidates.append(cls._record_file)
+        candidates.extend([
+            os.path.join(directory, 'record.mp4'),
+            os.path.join(directory, 'record.mkv'),
+        ])
+        seen = set()
+        for path in candidates:
+            if not path or path in seen or not os.path.isfile(path):
+                continue
+            seen.add(path)
+            try:
+                size = os.path.getsize(path)
+            except OSError:
+                size = 0
+            if size == 0:
+                return 'recording source file is empty; scrcpy may have exited before finalizing video'
+            fmt = os.path.splitext(path)[1].lstrip('.').lower()
+            valid = File._is_valid_record_file(path, fmt)
+            size_mb = round(size / 1024 / 1024, 1)
+            return 'recording source file is invalid: {} ({:.1f} MB, valid={})'.format(
+                os.path.basename(path), size_mb, valid)
+        return 'record file not finalized within {:.0f}s'.format(timeout)
+
+    @classmethod
+    def _cleanup_scrcpy_processes(cls, prefer_graceful=False, exclude_pid=None):
+        """Stop leftover scrcpy processes; prefer CTRL+C before terminate on Windows."""
+        import signal as _signal
+        for proc in psutil.process_iter(['pid', 'name']):
+            try:
+                if exclude_pid and proc.pid == exclude_pid:
+                    continue
+                if 'scrcpy' not in (proc.info.get('name') or '').lower():
+                    continue
+                if prefer_graceful and platform.system().lower().__contains__('windows'):
+                    try:
+                        os.kill(proc.pid, _signal.CTRL_BREAK_EVENT)
+                        proc.wait(timeout=5)
+                        continue
+                    except (OSError, psutil.TimeoutExpired, psutil.NoSuchProcess):
+                        pass
+                proc.terminate()
+                logger.info('stopped remaining scrcpy pid: {}'.format(proc.pid))
+            except (psutil.NoSuchProcess, psutil.AccessDenied):
+                pass
 
     @classmethod
     def stop_record(cls):
         logger.info('stop scrcpy record process')
-        # Gracefully stop record process (SIGINT lets scrcpy finalize the video file)
+        record_pid = cls._record_process.pid if cls._record_process else None
+        elapsed = cls._record_elapsed_seconds()
+        finalize_timeout = cls._record_finalize_timeout(elapsed)
         if cls._record_process and cls._record_process.poll() is None:
             cls._graceful_stop_process(cls._record_process, 'record')
-            cls._record_process = None
+        cls._record_process = None
+        cls._close_record_stderr()
 
-        # Also stop any cast process
+        f = File()
+        finalized = f.wait_for_record_file(timeout=finalize_timeout)
+        mp4_path = None
+        if finalized and finalized.endswith('.mkv'):
+            logger.info('record mkv ready: {}'.format(finalized))
+            mp4_path = cls._remux_recording_to_mp4(f.report_dir)
+            if mp4_path:
+                logger.info('record mp4 ready: {}'.format(mp4_path))
+            else:
+                logger.warning('record mkv kept for system-player fallback: {}'.format(finalized))
+        elif finalized:
+            mp4_path = finalized
+            logger.info('record file ready: {}'.format(finalized))
+        else:
+            cls._set_record_error(
+                cls._record_finalize_error(f.report_dir, finalize_timeout),
+                report=True,
+            )
+
         cls._stop_cast_process()
-
-        # Fallback: kill any remaining scrcpy processes (backward compat)
-        pids = psutil.pids()
-        try:
-            for pid in pids:
-                try:
-                    p = psutil.Process(pid)
-                    if p.name().__contains__('scrcpy'):
-                        if platform.system().lower().__contains__('windows'):
-                            p.terminate()
-                        else:
-                            import signal as _signal
-                            os.kill(pid, _signal.SIGINT)
-                        logger.info('stopped remaining scrcpy pid: {}'.format(pid))
-                except (psutil.NoSuchProcess, psutil.AccessDenied):
-                    pass
-        except Exception as e:
-            logger.exception(e)
+        cls._cleanup_scrcpy_processes(prefer_graceful=True, exclude_pid=record_pid)
+        cls._reset_record_runtime()
 
     @classmethod
     def _stop_cast_process(cls):
