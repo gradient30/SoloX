@@ -4,7 +4,10 @@
 import unittest
 from unittest.mock import patch
 
+import pytest
+
 from solox.public.weak_network import ProbeResult, WeakNetworkManager, WEAKNET_PRESETS
+from solox.public.weaknet.models import DirectionProfile, WeakNetworkProfile
 
 
 SAMPLE_PING = """
@@ -71,6 +74,74 @@ class TestNetemArgs(unittest.TestCase):
 
     def test_build_empty_returns_empty(self):
         self.assertEqual(WeakNetworkManager._build_netem_args(0, 0, 0, None), '')
+
+
+class TestWeakNetworkProfile:
+
+    def test_legacy_profile_maps_to_both_directions(self):
+        profile = WeakNetworkProfile.from_legacy(
+            delay_ms=200,
+            jitter_ms=50,
+            loss_pct=2,
+            rate='5mbit',
+        )
+
+        assert profile.uplink.delay_ms == 200
+        assert profile.downlink.delay_ms == 200
+        assert profile.uplink.jitter_ms == 50
+        assert profile.downlink.loss_pct == 2
+        assert profile.uplink.bandwidth_kbps == 5000
+        assert profile.downlink.bandwidth_kbps == 5000
+
+    @pytest.mark.parametrize(
+        ('rate', 'expected'),
+        [
+            (None, None),
+            ('', None),
+            ('1500kbit', 1500),
+            ('5mbit', 5000),
+            ('2048', 2048),
+            (2048, 2048),
+        ],
+    )
+    def test_legacy_rate_parsing(self, rate, expected):
+        profile = WeakNetworkProfile.from_legacy(rate=rate)
+        assert profile.uplink.bandwidth_kbps == expected
+
+    def test_profile_rejects_invalid_loss(self):
+        with pytest.raises(ValueError, match='loss'):
+            DirectionProfile(loss_pct=101)
+
+    def test_profile_rejects_negative_delay(self):
+        with pytest.raises(ValueError, match='delay'):
+            DirectionProfile(delay_ms=-1)
+
+    def test_profile_serializes_without_legacy_rate_strings(self):
+        profile = WeakNetworkProfile.from_legacy(
+            delay_ms=100,
+            jitter_ms=20,
+            loss_pct=1.5,
+            rate='256kbit',
+        )
+
+        assert profile.to_dict() == {
+            'uplink': {
+                'delay_ms': 100,
+                'jitter_ms': 20,
+                'loss_pct': 1.5,
+                'bandwidth_kbps': 256,
+                'burst_loss_pct': 0.0,
+            },
+            'downlink': {
+                'delay_ms': 100,
+                'jitter_ms': 20,
+                'loss_pct': 1.5,
+                'bandwidth_kbps': 256,
+                'burst_loss_pct': 0.0,
+            },
+            'protocol': 'all',
+            'ip_filter': [],
+        }
 
 
 class TestWeakNetApplyClear(unittest.TestCase):

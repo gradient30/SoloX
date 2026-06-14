@@ -8,9 +8,9 @@ import threading
 from dataclasses import dataclass
 from typing import Any
 
-from logzero import logger
-
 from solox.public.adb import adb
+from solox.public.weaknet.models import WeakNetworkProfile
+from solox.public.weaknet.root_tc import RootTcWeakNetworkEngine
 
 # PerfDog-style presets: delay / jitter / loss / egress rate limit
 WEAKNET_PRESETS: dict[str, dict[str, Any]] = {
@@ -118,6 +118,18 @@ class WeakNetworkManager:
     DEFAULT_PROBE_HOST = '8.8.8.8'
 
     @classmethod
+    def _root_engine(cls) -> RootTcWeakNetworkEngine:
+        return RootTcWeakNetworkEngine(
+            has_root=cls._has_root,
+            tc_available=cls._tc_available,
+            detect_interface=cls._detect_interface,
+            detect_interface_no_root=cls._detect_interface_no_root,
+            run_root=cls._run_root,
+            active=_active,
+            lock=_lock,
+        )
+
+    @classmethod
     def list_presets(cls, lan: str = 'cn') -> list[dict[str, Any]]:
         label_key = 'label_cn' if lan == 'cn' else 'label_en'
         items = []
@@ -136,33 +148,11 @@ class WeakNetworkManager:
 
     @classmethod
     def get_capabilities(cls, device_id: str) -> dict[str, Any]:
-        rooted = cls._has_root(device_id)
-        iface = cls._detect_interface(device_id) if rooted else cls._detect_interface_no_root(device_id)
-        tc_ok = False
-        if rooted and iface:
-            tc_ok = cls._tc_available(device_id)
-        with _lock:
-            active = _active.get(device_id)
-        return {
-            'root_available': rooted,
-            'tc_available': tc_ok,
-            'simulation_supported': bool(rooted and iface and tc_ok),
-            'interface': iface,
-            'active_preset': active.get('preset') if active else None,
-            'active_params': active.get('params') if active else None,
-            'mode': 'simulation' if active else ('probe_only' if not rooted else 'idle'),
-        }
+        return cls._root_engine().capabilities(device_id)
 
     @classmethod
     def get_status(cls, device_id: str) -> dict[str, Any]:
-        cap = cls.get_capabilities(device_id)
-        with _lock:
-            active = _active.get(device_id)
-        cap['active'] = active is not None
-        if active:
-            cap['applied_at'] = active.get('applied_at')
-            cap['interface'] = active.get('interface', cap.get('interface'))
-        return cap
+        return cls._root_engine().status(device_id)
 
     @classmethod
     def apply_preset(cls, device_id: str, preset_id: str) -> dict[str, Any]:
@@ -186,56 +176,22 @@ class WeakNetworkManager:
         rate: str | None = None,
         interface: str | None = None,
     ) -> dict[str, Any]:
-        if not cls._has_root(device_id):
-            raise RuntimeError(
-                'simulation requires root (su). Use network probe mode or root your test device.'
-            )
-        iface = interface or cls._detect_interface(device_id)
-        if not iface:
-            raise RuntimeError('cannot detect active network interface (wlan0/rmnet*)')
-        if not cls._tc_available(device_id):
-            raise RuntimeError('tc/netem not available on device kernel')
-
-        netem = cls._build_netem_args(delay_ms, jitter_ms, loss_pct, rate)
-        if not netem:
-            return cls.clear(device_id)
-
-        cls._run_root(device_id, f'tc qdisc replace dev {iface} root netem {netem}')
-        verify = cls._run_root(device_id, f'tc qdisc show dev {iface}')
-        if 'netem' not in verify.lower():
-            raise RuntimeError(f'tc apply failed: {verify[:200]}')
-
-        import time as _time
-        state = {
-            'preset': preset_id,
-            'interface': iface,
-            'params': {
-                'delay_ms': delay_ms,
-                'jitter_ms': jitter_ms,
-                'loss_pct': loss_pct,
-                'rate': rate,
-            },
-            'applied_at': _time.time(),
-        }
-        with _lock:
-            _active[device_id] = state
-        logger.info('[WeakNet] applied %s on %s dev=%s', preset_id, device_id, iface)
-        return {'status': 1, 'msg': 'weak network applied', **state}
+        profile = WeakNetworkProfile.from_legacy(
+            delay_ms=delay_ms,
+            jitter_ms=jitter_ms,
+            loss_pct=loss_pct,
+            rate=rate,
+        )
+        return cls._root_engine().apply(
+            device_id,
+            profile,
+            preset_id=preset_id,
+            interface=interface,
+        )
 
     @classmethod
     def clear(cls, device_id: str) -> dict[str, Any]:
-        with _lock:
-            prev = _active.pop(device_id, None)
-        iface = (prev or {}).get('interface') or cls._detect_interface(device_id)
-        cleared = False
-        if iface and cls._has_root(device_id):
-            out = cls._run_root(
-                device_id,
-                f'tc qdisc del dev {iface} root 2>/dev/null; echo cleared',
-            )
-            cleared = 'cleared' in out or 'Cannot find' in out or 'RTNETLINK' in out
-        logger.info('[WeakNet] cleared %s iface=%s', device_id, iface)
-        return {'status': 1, 'msg': 'weak network cleared', 'cleared': cleared, 'interface': iface}
+        return cls._root_engine().clear(device_id)
 
     @classmethod
     def probe(cls, device_id: str, host: str | None = None, count: int = 10) -> ProbeResult:
@@ -280,20 +236,13 @@ class WeakNetworkManager:
         loss_pct: float,
         rate: str | None,
     ) -> str:
-        parts = []
-        delay_ms = max(0, int(delay_ms or 0))
-        jitter_ms = max(0, int(jitter_ms or 0))
-        loss_pct = max(0.0, min(float(loss_pct or 0), 100.0))
-        if delay_ms:
-            if jitter_ms:
-                parts.append(f'delay {delay_ms}ms {jitter_ms}ms')
-            else:
-                parts.append(f'delay {delay_ms}ms')
-        if loss_pct:
-            parts.append(f'loss {loss_pct:g}%')
-        if rate:
-            parts.append(f'rate {rate}')
-        return ' '.join(parts)
+        profile = WeakNetworkProfile.from_legacy(
+            delay_ms=max(0, int(delay_ms or 0)),
+            jitter_ms=max(0, int(jitter_ms or 0)),
+            loss_pct=max(0.0, min(float(loss_pct or 0), 100.0)),
+            rate=rate,
+        )
+        return RootTcWeakNetworkEngine.build_netem_args(profile)
 
     @classmethod
     def _has_root(cls, device_id: str) -> bool:
