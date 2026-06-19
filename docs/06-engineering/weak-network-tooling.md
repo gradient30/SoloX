@@ -22,7 +22,7 @@ flowchart LR
     Manager --> AgentCtl["AndroidAgentController"]
     Manager --> RootTc["RootTcWeakNetworkEngine"]
     AgentCtl --> ADB["ADB forward localabstract socket"]
-    ADB --> Agent["SoloX Network Agent APK"]
+    ADB --> Agent["QAS Network Agent APK"]
     Agent --> VPN["Android VpnService"]
     VPN --> Native["Rust native runtime"]
     Native --> T2P["tun2proxy"]

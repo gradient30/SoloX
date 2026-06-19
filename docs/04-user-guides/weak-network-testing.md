@@ -10,7 +10,7 @@
 - 自定义参数：延迟、抖动、丢包、带宽限制。
 - 上下行独立配置：Agent 模式支持上行/下行分别设置。
 - 网络质量探测：RTT、丢包、抖动。
-- 非 Root Android App 级弱网：通过 SoloX Network Agent + VPN 授权实现。
+- 非 Root Android App 级弱网：通过 QAS Network Agent + VPN 授权实现。
 
 ## 选择哪种模式
 
