@@ -70,8 +70,9 @@ curl "http://localhost:50003/apm/collect?platform=iOS&pkgname={bundle}&target=fp
 | ☐ | **Big Jank** | 3D 高负载场景 `big_jank` API/log Σ > 0 |
 | ☐ | **Excel 导出** | 报告页导出 `.xls` 含 `scene_tags` / `scene_stats` / `big_jank` sheet |
 | ☐ | **弱网探测** | 非 Root 设备：弱网面板 → 探测 → 返回 RTT/丢包 |
-| ☐ | **弱网模拟（Root）** | 应用「3G」预设 → `adb shell su -c "tc qdisc show dev wlan0"` 含 netem → ping RTT 升高 |
-| ☐ | **弱网清除** | 停止采集后 tc 规则清除，ping 恢复基线 |
+| ☐ | **弱网模拟（Agent 非 Root）** | 安装 QAS Network Agent → 授权 VPN → 对目标 App 应用弱网 → `dumpsys connectivity` 显示 `tun0` 绑定目标 UID |
+| ☐ | **弱网模拟（Root tc 兼容）** | Root 设备应用「3G」预设 → `adb shell su -c "tc qdisc show dev wlan0"` 含 netem → ping RTT 升高 |
+| ☐ | **弱网清除** | Agent 模式 clear 后无 `tun0/VPN` 残留；Root tc 模式清除 tc 规则，网络恢复基线 |
 
 ---
 

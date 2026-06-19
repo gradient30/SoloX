@@ -12,10 +12,12 @@
 | 角色 | 结论 | 说明 |
 |------|------|------|
 | **研发 (R&D)** | ✅ **通过 L1/L2** | **192** 自动化用例全绿；报告 API 性能热点已完成定点优化 |
-| **产品 (PM)** | ⚠️ **有条件通过** | 性能方案 A 的 API/报告行为保持兼容；**L3 Root 真机弱网 smoke 待签字** |
+| **产品 (PM)** | ⚠️ **有条件通过** | 性能方案 A 的 API/报告行为保持兼容；**L3 弱网 Agent/Root tc smoke 待签字** |
 | **测试 (QA)** | ✅ **通过 L1/L2** | 报告管理模块增至 25 个用例；全量回归、兼容矩阵和编译检查通过 |
 
-**综合判定**: **可进入预发布（RC）**。正式发布需 L3 P0 真机 + 第 5 节 smoke（含录屏回放 + 弱网 Root 设备）签字。
+**综合判定**: **可进入预发布（RC）**。正式发布需 L3 P0 真机 + 第 5 节 smoke（含录屏回放 + 弱网 Agent 非 Root 路径；Root tc 兼容路径按设备条件补测）签字。
+
+> 当前 main 分支补充：Android 弱网已不再只是 Root 设备能力。QAS Network Agent 已作为内置 APK 提供非 Root、按目标 App UID 生效的弱网路径；Root `tc netem` 保留为兼容引擎，Probe 保留为网络质量探测。
 
 ---
 
@@ -72,7 +74,7 @@
 | 自定义延迟/抖动/丢包/带宽 | ✅ | offcanvas 自定义区 + `/apm/weaknet/apply` |
 | 网络质量探测 RTT/丢包/抖动 | ✅ | `/apm/weaknet/probe` · 无 Root 可用 |
 | 无 Root 明确提示「仅探测模式」 | ✅ | `capabilities.simulation_supported` + UI 告警 |
-| Android Agent Preview 显式安装/授权 | ✅ | `/apm/weaknet/agent/*` · UI Agent Preview |
+| QAS Network Agent 显式安装/授权 | ✅ | `/apm/weaknet/agent/*` · 内置 `qas-network-agent-0.1.0.apk` |
 | Agent APK 完整性校验 | ✅ | `checksums.json` · 安装前 SHA-256 校验 |
 | Linux gateway 校准契约 | ✅ | `scripts/weaknet_gateway/*.sh` dry-run |
 | Android Agent 真机验收 harness | ✅ | `scripts/android_agent/acceptance.py` 单元门槛判断 |
@@ -235,7 +237,7 @@ L1 模块清单（10 个）：见 `tests/matrix_loader.py` `_L1_TEST_MODULES`
 | **弱网 smoke（Root 机）**：应用 3G 预设 → ping RTT 明显升高 | QA | ☐ |
 | **弱网 smoke**：停止采集 → `tc qdisc` 已清除 | QA | ☐ |
 | **弱网 smoke（非 Root）**：探测模式可用，应用按钮禁用 | QA | ☐ |
-| **弱网 Agent Preview smoke**：安装 APK → VPN 授权 → 控制通道 idle → start 失败不误报 active | QA | ☐ |
+| **QAS Network Agent smoke**：安装 APK → VPN 授权 → 控制通道 idle → 指定目标包 start/clear 后无 `tun0/VPN` 残留 | QA | ☐ |
 | **弱网 Agent Stable 前置**：真实 TCP/UDP/IPv6/QUIC 与 gateway 偏差达标 | QA | ☐ |
 
 ---

@@ -61,6 +61,13 @@ Agent APK 内置在：
 solox/public/android_agent/
 ```
 
+当前内置 APK 为 `qas-network-agent-0.1.0.apk`，Android 包名保持 `io.solox.networkagent`，应用显示为 `QAS Network Agent`。手机端界面为轻量原生 4 Tab：
+
+- `总览`：VPN 授权、后台服务状态、授权并启动、停止服务、刷新。
+- `弱网`：目标包名来源、UID 捕获、TUN/tun2proxy/SOCKS5 数据面说明。
+- `日志`：Agent 端日志流，支持全部、错误、警告、信息、调试筛选。
+- `设置`：版本、包名、控制 socket、后台运行说明。
+
 页面点击“安装 Agent”时，SoloX 会校验 `checksums.json` 中的 SHA-256 后安装 APK。
 
 如果手机提示“已安装相同版本”，选择“重新安装”。
@@ -211,6 +218,15 @@ $apk = "D:\workDir\githubwork\SoloX\solox\public\android_agent\qas-network-agent
 $apksigner = "D:\workDir\githubwork\SoloX\runtime\android-toolchain\android-sdk\build-tools\36.0.0\apksigner.bat"
 & $apksigner verify --verbose $apk
 ```
+
+APK 元数据校验：
+
+```powershell
+$aapt2 = "D:\workDir\githubwork\SoloX\runtime\android-toolchain\android-sdk\build-tools\36.0.0\aapt2.exe"
+& $aapt2 dump badging $apk | Select-String -Pattern "package:|application:"
+```
+
+期望包名为 `io.solox.networkagent`，应用 label 为 `QAS Network Agent`。
 
 ## 常见问题
 

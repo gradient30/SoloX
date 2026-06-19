@@ -44,6 +44,14 @@ flowchart LR
 | `scripts/android_agent/package.ps1` | release APK 打包并生成 checksum |
 | `solox/public/android_agent/` | Web 端内置分发 APK 与 `checksums.json` |
 
+当前公开 APK：
+
+- 文件名：`solox/public/android_agent/qas-network-agent-0.1.0.apk`
+- Android 包名：`io.solox.networkagent`
+- 应用 label：`QAS Network Agent`
+- Agent 端 UI：顶部标题栏 + 内容卡片流 + `总览` / `弱网` / `日志` / `设置` 四个底部 Tab
+- 后台运行：`VpnService` 前台服务、常驻通知、`START_STICKY`
+
 ## Android Agent 数据面
 
 Agent 使用 Android 官方 `VpnService` 创建 TUN fd，并通过 `addAllowedApplication(targetPackage)` 只捕获目标 App UID。native 层直接把 TUN fd 交给 `tun2proxy::general_run_async`，再将 tun2proxy 的上游代理指向进程内本地 SOCKS5 服务。
@@ -57,6 +65,8 @@ Agent 使用 Android 官方 `VpnService` 创建 TUN fd，并通过 `addAllowedAp
 5. tun2proxy 将 UDP 通过 SOCKS5 `UDP ASSOCIATE` 转给内置 shaper。
 6. shaper 按上下行 profile 注入延迟、抖动、丢包、带宽限制。
 7. shaper 使用 Agent 进程自身 socket 访问真实网络。Agent 包不在 VPN allow-list 中，避免回环。
+
+Agent 端 UI 不负责选择弱网模板。模板、目标包名和 profile 仍由 SoloX Web/API 控制端下发，手机端只展示状态、操作入口、日志和诊断信息。
 
 关键约束：
 

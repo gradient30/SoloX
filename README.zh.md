@@ -17,9 +17,9 @@
 
 ## 🔎 简介
 
-SoloX 是一个专业的移动应用性能监控工具，可以实时收集 Android/iOS 性能数据。
+SoloX 是一个专业的移动应用性能监控与分析工具，可以实时收集 Android/iOS 性能数据。
 
-快速定位分析性能问题，提升应用的性能和品质。无需 ROOT/越狱，即插即用。
+快速定位分析性能问题，提升应用的性能和品质。核心性能采集无需 Android Root 或 iOS 越狱，即插即用。Android 弱网模拟已支持非 Root 的 QAS Network Agent，也保留 Root `tc netem` 兼容引擎和网络探测模式。
 
 ![SoloX 界面](https://github.com/smart-test-ti/SoloX/assets/24454096/603895cd-730f-434c-807f-22333d10e633)
 
@@ -94,10 +94,11 @@ battery = apm.collectBattery()  # 电池信息
 
 ## 🔥 核心功能
 
-* **无需 ROOT/越狱**: Android 设备无需 ROOT，iOS 设备无需越狱
-* **全面监控**: 支持 CPU、内存、网络、FPS、电池、GPU 等多维度监控
+* **核心监控无需 Root/越狱**: Android/iOS 性能采集无需设备 Root 或越狱
+* **全面监控**: 支持 CPU、内存、网络、FPS/Jank、电池、GPU、磁盘、温度等多维度监控
 * **实时分析**: 美观的实时数据可视化和性能分析
 * **跨平台支持**: 同时支持 Android 和 iOS 平台
+* **Android 弱网测试**: QAS Network Agent 支持非 Root、按 App 生效的弱网模拟；Root `tc netem` 与探测模式保留
 * **易于集成**: 提供 Python API 和 RESTful 接口，便于 CI/CD 集成
 * **美观报告**: 详细的性能分析报告和数据可视化
 
@@ -116,6 +117,7 @@ battery = apm.collectBattery()  # 电池信息
 
 - 🚀 [快速启动指南](./docs/02-development/quick-start.md)
 - 📊 [API 接口文档](./docs/04-user-guides/api-documentation.md)
+- 📶 [弱网测试用户指南](./docs/04-user-guides/weak-network-testing.md)
 - ✅ [联合验收报告](./docs/acceptance/joint-review-2026-compatibility.md)
 - 🔧 [脚本与发版门禁](./scripts/README.md)
 - 🔧 [故障排除指南](./docs/05-issues/troubleshooting.md)
@@ -142,12 +144,13 @@ http://localhost:50003/apm/collect?platform=Android&deviceid=ca6bd5a5&pkgname=co
 # iOS
 http://localhost:50003/apm/collect?platform=iOS&pkgname=com.example.app&target=cpu
 
-# 支持的监控目标: cpu, memory, network, fps, battery, gpu
+# 支持的监控目标包括: cpu, memory, network, fps, battery, gpu
 ```
 
 ## 🎯 应用场景
 
 - **移动应用性能测试**: 启动性能分析、内存泄漏检测、CPU 监控
+- **Android 弱网测试**: 通过 QAS Network Agent 或 Root `tc netem` 模拟指定 App 网络退化
 - **自动化测试集成**: CI/CD 流水线集成、性能回归测试
 - **开发调试辅助**: 实时性能监控、问题定位分析
 - **竞品性能分析**: 不同应用间的性能对比测试
@@ -162,6 +165,7 @@ http://localhost:50003/apm/collect?platform=iOS&pkgname=com.example.app&target=c
 | 🎮 FPS 帧率 | ✅ | ✅ | 界面渲染帧率和卡顿检测 |
 | 🔋 电池信息 | ✅ | ✅ | 电量、温度、功耗等 |
 | 🎨 GPU 使用率 | ✅ | ❌ | GPU 占用率（仅 Android） |
+| 📶 弱网模拟 | ✅ | 外部工具 | Android 支持 Agent / Root tc / 探测；iOS 使用 Network Link Conditioner 等外部方案 |
 
 ## 🤝 参与贡献
 

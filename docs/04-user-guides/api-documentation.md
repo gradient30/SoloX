@@ -533,7 +533,7 @@ print(f"批量任务: {batch_result}")
 | `/apm/weaknet/capabilities` | GET | `platform` + `device` + `engine=auto|agent|root_tc` → root/tc/Agent/网卡/是否已应用 |
 | `/apm/weaknet/status` | GET | 当前弱网状态 |
 | `/apm/weaknet/apply` | GET/POST | `preset` 或 `delay_ms`/`jitter_ms`/`loss_pct`/`rate`；Agent 模式必须传 `target_package`，可传 `uplink_*` / `downlink_*` |
-| `/apm/weaknet/clear` | GET/POST | 清除 tc 规则 |
+| `/apm/weaknet/clear` | GET/POST | 清除当前弱网；Agent 模式停止 VPN/native runtime，Root tc 模式清除 tc 规则 |
 | `/apm/weaknet/probe` | GET | `host`（默认 8.8.8.8）、`count` → RTT/丢包/抖动 |
 | `/apm/weaknet/agent/status` | GET | 查询 Agent 安装、授权和控制通道状态 |
 | `/apm/weaknet/agent/install` | POST | 显式安装内置 Agent APK，安装前校验 SHA-256 |
@@ -548,7 +548,7 @@ curl "http://localhost:50003/apm/weaknet/probe?platform=Android&device=DEVICE_ID
 ```
 
 实验室校准使用 `scripts/weaknet_gateway/*.sh` 在 Linux 网关上配置双向 netem + IFB。
-真机验收入口为 `python scripts/android_agent/acceptance.py --device SERIAL --package PACKAGE --profile lte_weak --smoke`。
+真机验收入口为 `python scripts/android_agent/acceptance.py --device SERIAL --package PACKAGE --profile lte_weak --smoke`。内置 APK 当前公开文件名为 `qas-network-agent-0.1.0.apk`，包名保持 `io.solox.networkagent`。
 
 ## 🎬 录屏回放 API
 

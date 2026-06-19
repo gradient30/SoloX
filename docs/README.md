@@ -8,7 +8,7 @@
 |------|------------|
 | 新用户 | [快速启动](./02-development/quick-start.md) → [API](./04-user-guides/api-documentation.md) |
 | 开发者 | [CLAUDE.md](../CLAUDE.md) → [开发指南](./02-development/development-guide.md) → [脚本索引](../scripts/README.md) |
-| 发版/测试 | [兼容矩阵](./compatibility-matrix.md) → [预发布审核](./06-engineering/pre-publish-checklist.md) → `bash scripts/release_gate.sh` |
+| 发版/测试 | [兼容矩阵](./compatibility-matrix.md) → [弱网用户指南](./04-user-guides/weak-network-testing.md) → [预发布审核](./06-engineering/pre-publish-checklist.md) |
 | 运维 | [部署指南](./03-deployment/deployment-guide.md) → [故障排除](./05-issues/troubleshooting.md) |
 
 ## 目录
@@ -49,7 +49,7 @@
 
 ## 监控指标（摘要）
 
-CPU · Memory · Network · FPS/Jank · Battery · GPU(Android) · Disk · Thermal · **弱网(Android Root+探测)** · 录屏回放 · 场景标签 · Big Jank
+CPU · Memory · Network · FPS/Jank · Battery · GPU(Android) · Disk · Thermal · **弱网(Android Agent 非 Root / Root tc / Probe)** · 录屏回放 · 场景标签 · Big Jank
 
 ## 本地门禁
 
@@ -59,4 +59,4 @@ python scripts/validate_compatibility_matrix.py
 python -m pytest tests/ -q --disable-warnings
 ```
 
-*最后更新: 2026-06-13 · 文档 v2.4*
+*最后更新: 2026-06-20 · 文档 v2.5*

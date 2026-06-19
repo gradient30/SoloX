@@ -29,7 +29,7 @@ SoloX/
 | `view/pages.py` | HTML 页面路由 |
 | `public/apm.py` | 指标采集类 |
 | `public/android_fps.py` | Android FPS / 游戏 Surface |
-| `public/weak_network.py` | 弱网 tc/netem + ping 探测 |
+| `public/weak_network.py` | 弱网统一入口、能力探测、引擎选择 |
 | `public/weaknet/` | 弱网 profile、Root tc 引擎、Android Agent controller |
 | `public/common.py` | 设备、报告 I/O、Scrcpy、Logcat |
 | `templates/` | Jinja2 前端 |
@@ -74,7 +74,7 @@ SoloX/
 | 特性 | 代码 | 文档 / 验收 |
 |------|------|-------------|
 | 兼容矩阵 + 发版门禁 | `tests/compatibility_matrix.yaml` | `docs/compatibility-matrix.md` |
-| 弱网测试 | `weak_network.py` · `weaknet/` · `/apm/weaknet/*` | 帮助手册 · 联合验收 · Android Agent Preview |
+| 弱网测试 | `weak_network.py` · `weaknet/` · `/apm/weaknet/*` | 用户指南 · QAS Network Agent · Root tc · Probe |
 | 弱网校准 | `scripts/weaknet_gateway/` · `scripts/android_agent/acceptance.py` | Linux gateway IFB/netem · 真机 smoke |
 | 混合录屏播放器 | `/apm/record/*` | 联合验收 v2.2 |
 | 报告时长 / 降采样 | `common.py` · `/apm/report/list` | 联合验收 v2.1 |
@@ -91,4 +91,4 @@ bash scripts/release_gate.sh
 
 ---
 
-*最后更新: 2026-06-13*
+*最后更新: 2026-06-20*

@@ -63,7 +63,7 @@ bash scripts/release_gate.sh
 | 风险 | 缓解 |
 |------|------|
 | 无 API 鉴权 | 内网部署或反向代理加认证 |
-| 弱网需 Root | 文档与 UI 已说明 |
+| 弱网授权与作用范围 | Agent 模式需用户授权 VPN 且仅作用目标 App UID；Root tc 兼容模式需 Root；文档与 UI 已说明 |
 | Docker healthcheck 依赖 `/health` | 已实现 |
 | PyPI 发布需 `PYPI_API_TOKEN` | 仅 CI secret，不入库 |
 

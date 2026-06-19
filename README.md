@@ -17,9 +17,9 @@
 
 ## 🔎 Preview
 
-SoloX - Real-time collection tool for Android/iOS performance data.
+SoloX - Real-time collection and analysis tool for Android/iOS performance data.
 
-Quickly locate and analyze performance issues to improve application performance and quality. No need for ROOT/jailbreak, plug and play.
+Quickly locate and analyze performance issues to improve application performance and quality. Core performance collection is plug and play without Android Root or iOS jailbreak. Android weak-network simulation is also available through the non-Root QAS Network Agent, while the older Root `tc netem` engine remains for compatible rooted devices.
 
 ![SoloX Interface](https://github.com/smart-test-ti/SoloX/assets/24454096/61a0b801-23b4-4711-8215-51cd7bc9dc04)
 
@@ -94,10 +94,11 @@ battery = apm.collectBattery()  # Battery info
 
 ## 🔥 Features
 
-* **No ROOT/Jailbreak**: No need for Root on Android devices or Jailbreak on iOS devices
-* **Comprehensive Monitoring**: CPU, Memory, Network, FPS, Battery, GPU and more
+* **No Root/Jailbreak for core monitoring**: Android/iOS performance collection runs without device Root or jailbreak
+* **Comprehensive Monitoring**: CPU, Memory, Network, FPS/Jank, Battery, GPU, Disk, Thermal and more
 * **Real-time Analysis**: Beautiful real-time data visualization and analysis
 * **Cross-platform**: Support both Android and iOS platforms
+* **Android Weak Network**: QAS Network Agent supports per-App non-Root weak-network simulation with explicit VPN authorization; Root `tc netem` and probe modes remain available
 * **Easy Integration**: Python API and RESTful interface for CI/CD integration
 * **Beautiful Reports**: Detailed performance analysis reports
 
@@ -115,6 +116,7 @@ battery = apm.collectBattery()  # Battery info
 
 - 🚀 [Quick Start Guide](./docs/02-development/quick-start.md)
 - 📊 [API Documentation](./docs/04-user-guides/api-documentation.md)
+- 📶 [Weak Network Testing](./docs/04-user-guides/weak-network-testing.md)
 - 🔧 [Troubleshooting](./docs/05-issues/troubleshooting.md)
 - ❓ [FAQ](./docs/05-issues/faq.md)
 
@@ -139,12 +141,13 @@ http://localhost:50003/apm/collect?platform=Android&deviceid=ca6bd5a5&pkgname=co
 # iOS
 http://localhost:50003/apm/collect?platform=iOS&pkgname=com.example.app&target=cpu
 
-# Available targets: cpu, memory, network, fps, battery, gpu
+# Available targets include: cpu, memory, network, fps, battery, gpu
 ```
 
 ## 🎯 Use Cases
 
 - **Mobile App Performance Testing**: Startup performance, memory leaks, CPU monitoring
+- **Android Weak-Network Testing**: Per-App network degradation through QAS Network Agent or Root `tc netem`
 - **Automated Testing Integration**: CI/CD pipeline integration, regression testing
 - **Development Debugging**: Real-time monitoring, performance optimization
 - **Competitive Analysis**: Performance comparison between different apps
@@ -159,6 +162,7 @@ http://localhost:50003/apm/collect?platform=iOS&pkgname=com.example.app&target=c
 | 🎮 FPS | ✅ | ✅ | Frame rate and jank detection |
 | 🔋 Battery | ✅ | ✅ | Battery level, temperature, power |
 | 🎨 GPU | ✅ | ❌ | GPU usage (Android only) |
+| 📶 Weak Network | ✅ | External tools | Android Agent / Root tc / probe; iOS uses Network Link Conditioner or similar external tooling |
 
 ## 🤝 Contributing
 
