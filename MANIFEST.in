@@ -6,4 +6,5 @@ recursive-include solox/view *.html *.js *.css *.png *.py
 recursive-include solox/public/adb *
 recursive-include solox/public/scrcpy *
 recursive-include solox/public/ffmpeg *
+recursive-include solox/public/android_agent *
 recursive-include solox/public/report_template *
