@@ -4,7 +4,10 @@
 import unittest
 from unittest.mock import patch
 
+import pytest
+
 from solox.public.weak_network import ProbeResult, WeakNetworkManager, WEAKNET_PRESETS
+from solox.public.weaknet.models import DirectionProfile, WeakNetworkProfile
 
 
 SAMPLE_PING = """
@@ -73,6 +76,74 @@ class TestNetemArgs(unittest.TestCase):
         self.assertEqual(WeakNetworkManager._build_netem_args(0, 0, 0, None), '')
 
 
+class TestWeakNetworkProfile:
+
+    def test_legacy_profile_maps_to_both_directions(self):
+        profile = WeakNetworkProfile.from_legacy(
+            delay_ms=200,
+            jitter_ms=50,
+            loss_pct=2,
+            rate='5mbit',
+        )
+
+        assert profile.uplink.delay_ms == 200
+        assert profile.downlink.delay_ms == 200
+        assert profile.uplink.jitter_ms == 50
+        assert profile.downlink.loss_pct == 2
+        assert profile.uplink.bandwidth_kbps == 5000
+        assert profile.downlink.bandwidth_kbps == 5000
+
+    @pytest.mark.parametrize(
+        ('rate', 'expected'),
+        [
+            (None, None),
+            ('', None),
+            ('1500kbit', 1500),
+            ('5mbit', 5000),
+            ('2048', 2048),
+            (2048, 2048),
+        ],
+    )
+    def test_legacy_rate_parsing(self, rate, expected):
+        profile = WeakNetworkProfile.from_legacy(rate=rate)
+        assert profile.uplink.bandwidth_kbps == expected
+
+    def test_profile_rejects_invalid_loss(self):
+        with pytest.raises(ValueError, match='loss'):
+            DirectionProfile(loss_pct=101)
+
+    def test_profile_rejects_negative_delay(self):
+        with pytest.raises(ValueError, match='delay'):
+            DirectionProfile(delay_ms=-1)
+
+    def test_profile_serializes_without_legacy_rate_strings(self):
+        profile = WeakNetworkProfile.from_legacy(
+            delay_ms=100,
+            jitter_ms=20,
+            loss_pct=1.5,
+            rate='256kbit',
+        )
+
+        assert profile.to_dict() == {
+            'uplink': {
+                'delay_ms': 100,
+                'jitter_ms': 20,
+                'loss_pct': 1.5,
+                'bandwidth_kbps': 256,
+                'burst_loss_pct': 0.0,
+            },
+            'downlink': {
+                'delay_ms': 100,
+                'jitter_ms': 20,
+                'loss_pct': 1.5,
+                'bandwidth_kbps': 256,
+                'burst_loss_pct': 0.0,
+            },
+            'protocol': 'all',
+            'ip_filter': [],
+        }
+
+
 class TestWeakNetApplyClear(unittest.TestCase):
 
     def setUp(self):
@@ -95,7 +166,7 @@ class TestWeakNetApplyClear(unittest.TestCase):
     @patch.object(WeakNetworkManager, '_has_root', return_value=False)
     def test_apply_requires_root(self, *_mocks):
         with self.assertRaises(RuntimeError) as ctx:
-            WeakNetworkManager.apply_preset('dev1', '3g')
+            WeakNetworkManager.apply_preset('dev1', '3g', engine='root_tc')
         self.assertIn('root', str(ctx.exception).lower())
 
     @patch.object(WeakNetworkManager, '_has_root', return_value=True)
@@ -116,6 +187,167 @@ class TestWeakNetApplyClear(unittest.TestCase):
         self.assertEqual(r.loss_pct, 10.0)
         mock_shell.assert_called_once()
         self.assertIn('ping -c 10', mock_shell.call_args[1]['cmd'])
+
+
+class FakeAgentController:
+
+    def __init__(self, capabilities=None, apply_error=None, status=None):
+        self.capability_result = capabilities or {
+            'installed': True,
+            'reachable': True,
+            'simulation_supported': True,
+            'state': 'idle',
+        }
+        self.apply_error = apply_error
+        self.status_result = status or {'state': 'idle'}
+        self.apply_calls = []
+        self.clear_calls = []
+
+    def capabilities(self, device_id):
+        return dict(self.capability_result)
+
+    def apply(self, device_id, target_package, profile):
+        self.apply_calls.append((device_id, target_package, profile))
+        if self.apply_error:
+            raise self.apply_error
+        return {
+            'status': 1,
+            'engine': 'agent',
+            'active': True,
+            'session_id': 'session-1',
+            'target_package': target_package,
+            'profile': profile.to_dict(),
+        }
+
+    def status(self, _device_id):
+        return dict(self.status_result)
+
+    def clear(self, device_id):
+        self.clear_calls.append(device_id)
+        return {'status': 1, 'engine': 'agent', 'state': 'idle'}
+
+
+class TestWeakNetEngineSelection(unittest.TestCase):
+
+    def setUp(self):
+        import solox.public.weak_network as weak_network
+
+        self.previous_agent = getattr(WeakNetworkManager, '_agent_controller', None)
+        weak_network._active_engines.clear()
+
+    def tearDown(self):
+        import solox.public.weak_network as weak_network
+
+        WeakNetworkManager._agent_controller = self.previous_agent
+        weak_network._active_engines.clear()
+
+    @patch.object(WeakNetworkManager, '_has_root', return_value=False)
+    @patch.object(
+        WeakNetworkManager,
+        '_detect_interface_no_root',
+        return_value='wlan0',
+    )
+    def test_auto_prefers_healthy_agent(self, *_mocks):
+        agent = FakeAgentController()
+        WeakNetworkManager._agent_controller = agent
+
+        result = WeakNetworkManager.apply_custom(
+            'dev1',
+            engine='auto',
+            target_package='com.example.app',
+            delay_ms=120,
+        )
+
+        self.assertEqual(result['engine'], 'agent')
+        self.assertEqual(agent.apply_calls[0][1], 'com.example.app')
+        self.assertEqual(agent.apply_calls[0][2].uplink.delay_ms, 120)
+
+    @patch.object(WeakNetworkManager, '_has_root', return_value=True)
+    @patch.object(WeakNetworkManager, '_tc_available', return_value=True)
+    @patch.object(WeakNetworkManager, '_detect_interface', return_value='wlan0')
+    @patch.object(WeakNetworkManager, '_run_root')
+    def test_auto_falls_back_to_root_before_start(self, mock_run, *_mocks):
+        mock_run.side_effect = ['', 'qdisc netem delay 100ms']
+        WeakNetworkManager._agent_controller = FakeAgentController({
+            'installed': False,
+            'reachable': False,
+            'simulation_supported': False,
+            'state': 'not_installed',
+        })
+
+        result = WeakNetworkManager.apply_custom(
+            'dev1',
+            engine='auto',
+            delay_ms=100,
+        )
+
+        self.assertEqual(result['engine'], 'root_tc')
+        self.assertTrue(result['active'])
+
+    @patch.object(WeakNetworkManager, '_has_root', return_value=True)
+    @patch.object(WeakNetworkManager, '_tc_available', return_value=True)
+    @patch.object(WeakNetworkManager, '_detect_interface', return_value='wlan0')
+    @patch.object(WeakNetworkManager, '_run_root')
+    def test_agent_start_failure_does_not_fallback_to_root(self, mock_run, *_mocks):
+        WeakNetworkManager._agent_controller = FakeAgentController(
+            apply_error=RuntimeError('native start failed'),
+        )
+
+        with self.assertRaisesRegex(RuntimeError, 'native start failed'):
+            WeakNetworkManager.apply_custom(
+                'dev1',
+                engine='auto',
+                target_package='com.example.app',
+                delay_ms=100,
+            )
+
+        mock_run.assert_not_called()
+
+    def test_explicit_agent_requires_target_package(self):
+        WeakNetworkManager._agent_controller = FakeAgentController()
+
+        with self.assertRaisesRegex(ValueError, 'target package'):
+            WeakNetworkManager.apply_custom(
+                'dev1',
+                engine='agent',
+                delay_ms=100,
+            )
+
+    def test_agent_receives_independent_direction_profiles(self):
+        agent = FakeAgentController()
+        WeakNetworkManager._agent_controller = agent
+
+        WeakNetworkManager.apply_custom(
+            'dev1',
+            engine='agent',
+            target_package='com.example.app',
+            uplink_delay_ms=20,
+            downlink_delay_ms=200,
+            uplink_rate='512kbit',
+            downlink_rate='5mbit',
+        )
+
+        profile = agent.apply_calls[0][2]
+        self.assertEqual(profile.uplink.delay_ms, 20)
+        self.assertEqual(profile.downlink.delay_ms, 200)
+        self.assertEqual(profile.uplink.bandwidth_kbps, 512)
+        self.assertEqual(profile.downlink.bandwidth_kbps, 5000)
+
+    def test_agent_status_cannot_override_normalized_activity(self):
+        import solox.public.weak_network as weak_network
+
+        WeakNetworkManager._agent_controller = FakeAgentController(status={
+            'state': 'idle',
+            'engine': 'untrusted',
+            'active': True,
+        })
+        weak_network._active_engines['dev1'] = 'agent'
+
+        result = WeakNetworkManager.get_status('dev1')
+
+        self.assertEqual(result['engine'], 'agent')
+        self.assertEqual(result['active_engine'], 'agent')
+        self.assertFalse(result['active'])
 
 
 if __name__ == '__main__':

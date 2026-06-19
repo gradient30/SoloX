@@ -149,6 +149,7 @@ runtime/*.py
 runtime/*.log
 runtime/*.stderr.log
 runtime/*.stdout.log
+runtime/android-toolchain/
 .solox.pid
 .solox.log
 .solox-*.log
@@ -165,3 +166,10 @@ solox/public/ffmpeg/ffprobe
 solox/public/ffmpeg/ffprobe.exe
 solox/public/ffmpeg/ffplay
 solox/public/ffmpeg/ffplay.exe
+
+# Android weak-network Agent build output
+android-agent/.gradle/
+android-agent/.kotlin/
+android-agent/local.properties
+android-agent/**/build/
+android-agent/**/.cxx/

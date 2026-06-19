@@ -260,7 +260,7 @@ graph TD
 |------|----------|------|
 | 报告管理 | `/apm/report/*` | 分页列表、导出、时长 |
 | 录屏回放 | `/apm/record/*` | info / stream(Range) / play |
-| 弱网测试 | `/apm/weaknet/*` | 预设、apply、probe |
+| 弱网测试 | `/apm/weaknet/*` | 预设、Root tc、Android Agent Preview、probe |
 | Logcat | `/apm/logcat/*` | 结构化日志流 |
 | 健康检查 | `GET /health` | Docker / 运维探活 |
 
@@ -270,7 +270,7 @@ graph TD
 |------|----------|------|
 | 表现层 | `templates/` · `view/pages.py` | Web UI、报告/分析页 |
 | API 层 | `view/apis.py` | REST 采集、报告、弱网、录屏 |
-| 采集层 | `public/apm.py` · `android_fps.py` · `weak_network.py` | 指标与 FPS、弱网 |
+| 采集层 | `public/apm.py` · `android_fps.py` · `weak_network.py` · `weaknet/` | 指标与 FPS、Root tc / Android Agent 弱网 |
 | 基础设施 | `public/common.py` · `adb.py` | 设备、报告 I/O、Scrcpy、Logcat |
 | 数据 | `report/` · `*.log` | 时序 log、result.json、录屏文件 |
 

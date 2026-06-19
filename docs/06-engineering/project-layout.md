@@ -30,6 +30,7 @@ SoloX/
 | `public/apm.py` | 指标采集类 |
 | `public/android_fps.py` | Android FPS / 游戏 Surface |
 | `public/weak_network.py` | 弱网 tc/netem + ping 探测 |
+| `public/weaknet/` | 弱网 profile、Root tc 引擎、Android Agent controller |
 | `public/common.py` | 设备、报告 I/O、Scrcpy、Logcat |
 | `templates/` | Jinja2 前端 |
 | `public/scrcpy/` | 内置 scrcpy 二进制（Windows） |
@@ -44,6 +45,7 @@ SoloX/
 | `runtime/cache/` | Android 应用名持久化缓存（按设备） | 忽略（保留 `cache/.gitkeep`） |
 | `runtime/*.py` | 个人临时启动脚本 | 忽略 |
 | `solox/public/ffmpeg/bin/` | 可选内置 ffmpeg（录屏 remux） | 忽略二进制；见 `ffmpeg/README.md` |
+| `solox/public/android_agent/` | 内置 Android Agent APK 与 `checksums.json` | 跟随发版打包 |
 | `report/apm_*/` | 单次采集的 `*.log`、`result.json`、录屏 | 忽略 |
 | `solox/logs/` | 应用内部日志目录 | 忽略 |
 | `adblog/` | Logcat 导出 | 忽略 |
@@ -72,7 +74,8 @@ SoloX/
 | 特性 | 代码 | 文档 / 验收 |
 |------|------|-------------|
 | 兼容矩阵 + 发版门禁 | `tests/compatibility_matrix.yaml` | `docs/compatibility-matrix.md` |
-| 弱网测试 | `weak_network.py` · `/apm/weaknet/*` | 帮助手册 · 联合验收 v2.3 |
+| 弱网测试 | `weak_network.py` · `weaknet/` · `/apm/weaknet/*` | 帮助手册 · 联合验收 · Android Agent Preview |
+| 弱网校准 | `scripts/weaknet_gateway/` · `scripts/android_agent/acceptance.py` | Linux gateway IFB/netem · 真机 smoke |
 | 混合录屏播放器 | `/apm/record/*` | 联合验收 v2.2 |
 | 报告时长 / 降采样 | `common.py` · `/apm/report/list` | 联合验收 v2.1 |
 | Big Jank / 场景标签 | `apm.py` · `metric_stats.py` | API 文档 · Excel 导出 |

@@ -72,6 +72,10 @@
 | 自定义延迟/抖动/丢包/带宽 | ✅ | offcanvas 自定义区 + `/apm/weaknet/apply` |
 | 网络质量探测 RTT/丢包/抖动 | ✅ | `/apm/weaknet/probe` · 无 Root 可用 |
 | 无 Root 明确提示「仅探测模式」 | ✅ | `capabilities.simulation_supported` + UI 告警 |
+| Android Agent Preview 显式安装/授权 | ✅ | `/apm/weaknet/agent/*` · UI Agent Preview |
+| Agent APK 完整性校验 | ✅ | `checksums.json` · 安装前 SHA-256 校验 |
+| Linux gateway 校准契约 | ✅ | `scripts/weaknet_gateway/*.sh` dry-run |
+| Android Agent 真机验收 harness | ✅ | `scripts/android_agent/acceptance.py` 单元门槛判断 |
 | 停止采集自动恢复网络 | ✅ | `stopTask()` → `clearWeakNet(true)` |
 | 帮助手册弱网说明 | ✅ | `base.html` 中英文章节 |
 | iOS 边界说明 | ✅ | capabilities 返回 Android-only 提示 |
@@ -231,6 +235,8 @@ L1 模块清单（10 个）：见 `tests/matrix_loader.py` `_L1_TEST_MODULES`
 | **弱网 smoke（Root 机）**：应用 3G 预设 → ping RTT 明显升高 | QA | ☐ |
 | **弱网 smoke**：停止采集 → `tc qdisc` 已清除 | QA | ☐ |
 | **弱网 smoke（非 Root）**：探测模式可用，应用按钮禁用 | QA | ☐ |
+| **弱网 Agent Preview smoke**：安装 APK → VPN 授权 → 控制通道 idle → start 失败不误报 active | QA | ☐ |
+| **弱网 Agent Stable 前置**：真实 TCP/UDP/IPv6/QUIC 与 gateway 偏差达标 | QA | ☐ |
 
 ---
 

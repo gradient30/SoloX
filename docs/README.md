@@ -28,6 +28,7 @@
 
 - [部署指南](./03-deployment/deployment-guide.md)
 - [API 文档](./04-user-guides/api-documentation.md) — 含弱网、录屏、Logcat
+- [弱网测试用户指南](./04-user-guides/weak-network-testing.md)
 - [性能监控](./04-user-guides/performance-monitoring.md)
 - [FAQ](./05-issues/faq.md) · [故障排除](./05-issues/troubleshooting.md) · [贡献指南](./05-issues/contribution-guide.md)
 
@@ -35,6 +36,7 @@
 
 - [实施与验收计划](./plans/README.md) — 性能验收等过程文档
 - [项目目录与日志](./06-engineering/project-layout.md)
+- [弱网工具技术说明](./06-engineering/weak-network-tooling.md)
 - [本地开发 vs 线上发布](./06-engineering/release-and-dev-standards.md)
 - [预发布审核清单](./06-engineering/pre-publish-checklist.md)
 - [兼容矩阵与发版门禁](./compatibility-matrix.md)

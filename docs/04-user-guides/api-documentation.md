@@ -522,23 +522,33 @@ print(f"批量任务: {batch_result}")
 
 ## 📶 弱网测试 API（Android）
 
-> 模拟需 Root + `tc netem`；探测无需 Root。详见帮助手册「弱网测试」章节。
+> Root `tc netem` 保持兼容；Android Agent 需要显式安装 APK
+> 并由用户在手机上授权 VPN。探测无需 Root。使用说明见
+> [弱网测试用户指南](./weak-network-testing.md)，研发说明见
+> [弱网工具技术说明](../06-engineering/weak-network-tooling.md)。
 
 | 接口 | 方法 | 说明 |
 |------|------|------|
 | `/apm/weaknet/presets` | GET | 预设列表，`lan=cn\|en` |
-| `/apm/weaknet/capabilities` | GET | `platform` + `device` → root/tc/网卡/是否已应用 |
+| `/apm/weaknet/capabilities` | GET | `platform` + `device` + `engine=auto|agent|root_tc` → root/tc/Agent/网卡/是否已应用 |
 | `/apm/weaknet/status` | GET | 当前弱网状态 |
-| `/apm/weaknet/apply` | GET/POST | `preset` 或 `delay_ms`/`jitter_ms`/`loss_pct`/`rate` |
+| `/apm/weaknet/apply` | GET/POST | `preset` 或 `delay_ms`/`jitter_ms`/`loss_pct`/`rate`；Agent 模式必须传 `target_package`，可传 `uplink_*` / `downlink_*` |
 | `/apm/weaknet/clear` | GET/POST | 清除 tc 规则 |
 | `/apm/weaknet/probe` | GET | `host`（默认 8.8.8.8）、`count` → RTT/丢包/抖动 |
+| `/apm/weaknet/agent/status` | GET | 查询 Agent 安装、授权和控制通道状态 |
+| `/apm/weaknet/agent/install` | POST | 显式安装内置 Agent APK，安装前校验 SHA-256 |
+| `/apm/weaknet/agent/prepare` | POST | 显式启动手机端 VPN 授权页 |
 
 ```bash
 curl "http://localhost:50003/apm/weaknet/presets?lan=cn"
 curl "http://localhost:50003/apm/weaknet/capabilities?platform=Android&device=DEVICE_ID"
 curl "http://localhost:50003/apm/weaknet/apply?platform=Android&device=DEVICE_ID&preset=3g"
+curl "http://localhost:50003/apm/weaknet/apply?platform=Android&device=DEVICE_ID&engine=agent&target_package=com.example.app&preset=lte_weak"
 curl "http://localhost:50003/apm/weaknet/probe?platform=Android&device=DEVICE_ID&host=8.8.8.8"
 ```
+
+实验室校准使用 `scripts/weaknet_gateway/*.sh` 在 Linux 网关上配置双向 netem + IFB。
+真机验收入口为 `python scripts/android_agent/acceptance.py --device SERIAL --package PACKAGE --profile lte_weak --smoke`。
 
 ## 🎬 录屏回放 API
 

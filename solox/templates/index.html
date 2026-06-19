@@ -824,6 +824,26 @@ SoloX - Application Performance Monitoring
         <div id="weaknet-cap-hint" class="alert alert-warning mb-3" style="display:none;font-size:13px;"></div>
         <div class="row g-3">
             <div class="col-md-5">
+                <label class="form-label">{% if lan == 'cn' %}弱网引擎{% else %}Engine{% endif %}</label>
+                <select id="weaknet-engine" class="form-select form-select-sm mb-2">
+                    <option value="auto">Auto</option>
+                    <option value="agent">Agent Preview</option>
+                    <option value="root_tc">Root tc</option>
+                </select>
+                <div class="card mb-3">
+                    <div class="card-body py-2">
+                        <div class="d-flex align-items-center justify-content-between gap-2">
+                            <div>
+                                <div class="fw-bold" style="font-size:13px;">Agent Preview</div>
+                                <div id="weaknet-agent-status" class="text-muted" style="font-size:12px;">{% if lan == 'cn' %}未查询{% else %}Not checked{% endif %}</div>
+                            </div>
+                            <div class="btn-list">
+                                <button type="button" class="btn btn-outline-primary btn-sm" onclick="installWeakNetAgent()">{% if lan == 'cn' %}安装{% else %}Install{% endif %}</button>
+                                <button type="button" class="btn btn-outline-success btn-sm" onclick="prepareWeakNetAgent()">{% if lan == 'cn' %}授权{% else %}Authorize{% endif %}</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
                 <label class="form-label">{% if lan == 'cn' %}网络预设{% else %}Preset{% endif %}</label>
                 <select id="weaknet-preset" class="form-select form-select-sm"></select>
                 <div class="mt-2 text-muted" style="font-size:12px;" id="weaknet-preset-desc"></div>
@@ -835,16 +855,24 @@ SoloX - Application Performance Monitoring
                         <div class="col-6"><label class="form-label form-label-sm">{% if lan == 'cn' %}丢包(%){% else %}Loss(%){% endif %}</label><input type="number" id="weaknet-loss" class="form-control form-control-sm" min="0" max="100" step="0.1" value="2"></div>
                         <div class="col-6"><label class="form-label form-label-sm">{% if lan == 'cn' %}带宽限制{% else %}Rate{% endif %}</label><input type="text" id="weaknet-rate" class="form-control form-control-sm" placeholder="5mbit"></div>
                     </div>
+                    <div class="row g-2 mt-2">
+                        <div class="col-12 text-muted" style="font-size:12px;">{% if lan == 'cn' %}上下行覆盖（可选）{% else %}Directional override (optional){% endif %}</div>
+                        <div class="col-6"><label class="form-label form-label-sm">{% if lan == 'cn' %}上行延迟{% else %}Uplink delay{% endif %}</label><input type="number" id="weaknet-uplink-delay" class="form-control form-control-sm" min="0"></div>
+                        <div class="col-6"><label class="form-label form-label-sm">{% if lan == 'cn' %}下行延迟{% else %}Downlink delay{% endif %}</label><input type="number" id="weaknet-downlink-delay" class="form-control form-control-sm" min="0"></div>
+                        <div class="col-6"><label class="form-label form-label-sm">{% if lan == 'cn' %}上行带宽{% else %}Uplink rate{% endif %}</label><input type="text" id="weaknet-uplink-rate" class="form-control form-control-sm" placeholder="512kbit"></div>
+                        <div class="col-6"><label class="form-label form-label-sm">{% if lan == 'cn' %}下行带宽{% else %}Downlink rate{% endif %}</label><input type="text" id="weaknet-downlink-rate" class="form-control form-control-sm" placeholder="5mbit"></div>
+                    </div>
                 </details>
                 <div class="btn-list mt-3">
                     <button type="button" class="btn btn-primary btn-sm" id="weaknet-apply-btn" onclick="applyWeakNet()">{% if lan == 'cn' %}应用弱网{% else %}Apply{% endif %}</button>
                     <button type="button" class="btn btn-default btn-sm" onclick="clearWeakNet()">{% if lan == 'cn' %}恢复网络{% else %}Clear{% endif %}</button>
+                    <button type="button" class="btn btn-danger btn-sm" onclick="emergencyClearWeakNet()">{% if lan == 'cn' %}紧急恢复{% else %}Emergency restore{% endif %}</button>
                 </div>
                 <p class="text-muted mt-2 mb-0" style="font-size:11px;">
                     {% if lan == 'cn' %}
-                    模拟需在已 Root 设备上通过 tc/netem 生效；无 Root 时可使用右侧网络探测。
+                    Agent 为 Preview，需先安装并授权 VPN；Root tc 保持原行为。页面初始化不会自动安装或弹授权。
                     {% else %}
-                    Simulation requires rooted device (tc/netem). Without root, use probe only.
+                    Agent is Preview and requires explicit install plus VPN authorization. Root tc keeps existing behavior. Page initialization never installs or prompts.
                     {% endif %}
                 </p>
             </div>
@@ -4631,6 +4659,31 @@ adb kill-server &amp;&amp; adb start-server</code></pre>
         return $('.select-device').val();
     }
 
+    function weakNetSelectedPackage() {
+        return $('.select-app').val() || '';
+    }
+
+    function updateWeakNetAgentStatus(agent) {
+        var $status = $('#weaknet-agent-status');
+        if (!$status.length) return;
+        if (!agent) {
+            $status.text(lan === 'cn' ? '未查询' : 'Not checked');
+            return;
+        }
+        var parts = [];
+        parts.push(agent.installed ? (lan === 'cn' ? '已安装' : 'installed') : (lan === 'cn' ? '未安装' : 'not installed'));
+        if (agent.reachable) {
+            parts.push(lan === 'cn' ? '控制通道可用' : 'control ready');
+        }
+        if (agent.authorized || agent.vpn_authorized) {
+            parts.push(lan === 'cn' ? 'VPN已授权' : 'VPN authorized');
+        }
+        if (agent.state) {
+            parts.push('state=' + agent.state);
+        }
+        $status.text(parts.join(' · '));
+    }
+
     function initWeakNetPanel() {
         if (platform !== 'Android') return;
         var device = weakNetDevice();
@@ -4661,24 +4714,32 @@ adb kill-server &amp;&amp; adb start-server</code></pre>
             });
             $sel.trigger('change');
         });
+        $('#weaknet-engine').off('change.weaknet').on('change.weaknet', refreshWeakNetStatus);
         refreshWeakNetStatus();
     }
 
     function refreshWeakNetStatus() {
         var device = weakNetDevice();
         if (!device || platform !== 'Android') return;
-        $.get('/apm/weaknet/capabilities', { platform: platform, device: device }, function (data) {
+        $.get('/apm/weaknet/capabilities', { platform: platform, device: device, engine: $('#weaknet-engine').val() }, function (data) {
             if (data.status !== 1) return;
             var $hint = $('#weaknet-cap-hint');
             var $badge = $('#weaknet-status-badge');
             var $apply = $('#weaknet-apply-btn');
-            if (data.simulation_supported) {
+            updateWeakNetAgentStatus(data.agent);
+            var selectedEngine = $('#weaknet-engine').val();
+            var agentReady = data.agent && data.agent.simulation_supported;
+            var rootReady = (data.available_engines || []).indexOf('root_tc') >= 0 || data.engine === 'root_tc';
+            var canApply = data.simulation_supported;
+            if (selectedEngine === 'agent') canApply = !!agentReady;
+            if (selectedEngine === 'root_tc') canApply = !!rootReady;
+            if (canApply) {
                 $hint.hide();
                 $apply.prop('disabled', false);
             } else {
                 var msg = lan === 'cn'
-                    ? '当前设备不支持弱网模拟（需 Root + tc/netem）。仍可使用网络探测。'
-                    : 'Simulation unavailable (needs root + tc/netem). Probe still works.';
+                    ? '当前引擎暂不可用。Agent 需先安装并授权；Root tc 需 Root + tc/netem。仍可使用网络探测。'
+                    : 'Selected engine is unavailable. Agent needs install and authorization; Root tc needs root + tc/netem. Probe still works.';
                 $hint.text(msg).show();
                 $apply.prop('disabled', true);
             }
@@ -4690,6 +4751,38 @@ adb kill-server &amp;&amp; adb start-server</code></pre>
         });
     }
 
+    function installWeakNetAgent() {
+        var device = weakNetDevice();
+        if (!device) {
+            SwalFire('warning', lan === 'cn' ? '请先选择设备' : 'Select device', '', 2000);
+            return;
+        }
+        $.post('/apm/weaknet/agent/install', { platform: platform, device: device }, function (data) {
+            if (data.status === 1) {
+                SwalFire('success', lan === 'cn' ? 'Agent 已安装' : 'Agent installed', '', 1500);
+                refreshWeakNetStatus();
+            } else {
+                SwalFire('error', lan === 'cn' ? '安装失败' : 'Install failed', data.msg || '', 3000);
+            }
+        });
+    }
+
+    function prepareWeakNetAgent() {
+        var device = weakNetDevice();
+        if (!device) {
+            SwalFire('warning', lan === 'cn' ? '请先选择设备' : 'Select device', '', 2000);
+            return;
+        }
+        $.post('/apm/weaknet/agent/prepare', { platform: platform, device: device }, function (data) {
+            if (data.status === 1) {
+                SwalFire('success', lan === 'cn' ? '请在手机上确认 VPN 授权' : 'Confirm VPN authorization on device', '', 2500);
+                refreshWeakNetStatus();
+            } else {
+                SwalFire('error', lan === 'cn' ? '授权启动失败' : 'Authorize failed', data.msg || '', 3000);
+            }
+        });
+    }
+
     function applyWeakNet() {
         var device = weakNetDevice();
         if (!device) {
@@ -4697,18 +4790,30 @@ adb kill-server &amp;&amp; adb start-server</code></pre>
             return;
         }
         var preset = $('#weaknet-preset').val();
+        var engine = $('#weaknet-engine').val();
+        var targetPackage = weakNetSelectedPackage();
+        if (engine === 'agent' && !targetPackage) {
+            SwalFire('warning', lan === 'cn' ? '请先选择应用' : 'Select app first', '', 2000);
+            return;
+        }
         var params = {
             platform: platform,
             device: device,
             preset: preset,
+            engine: $('#weaknet-engine').val(),
+            target_package: targetPackage,
             delay_ms: $('#weaknet-delay').val(),
             jitter_ms: $('#weaknet-jitter').val(),
             loss_pct: $('#weaknet-loss').val(),
-            rate: $('#weaknet-rate').val()
+            rate: $('#weaknet-rate').val(),
+            uplink_delay_ms: $('#weaknet-uplink-delay').val(),
+            uplink_rate: $('#weaknet-uplink-rate').val(),
+            downlink_delay_ms: $('#weaknet-downlink-delay').val(),
+            downlink_rate: $('#weaknet-downlink-rate').val()
         };
         $.get('/apm/weaknet/apply', params, function (data) {
             if (data.status === 1) {
-                SwalFire('success', lan === 'cn' ? '弱网已应用' : 'Applied', data.preset || '', 1500);
+                SwalFire('success', lan === 'cn' ? '弱网已应用' : 'Applied', data.engine || data.preset || '', 1500);
                 refreshWeakNetStatus();
             } else {
                 SwalFire('error', lan === 'cn' ? '应用失败' : 'Failed', data.msg || '', 3000);
@@ -4726,6 +4831,10 @@ adb kill-server &amp;&amp; adb start-server</code></pre>
                 SwalFire('success', lan === 'cn' ? '网络已恢复' : 'Cleared', '', 1500);
             }
         });
+    }
+
+    function emergencyClearWeakNet() {
+        clearWeakNet(false);
     }
 
     function probeWeakNet() {

@@ -318,11 +318,65 @@ class TestWeakNetAcceptance(unittest.TestCase):
             'platform': 'Android',
             'device': 'dev',
             'preset': '3g',
+            'engine': 'auto',
+            'target_package': 'com.example.app',
         })
         data = resp.get_json()
         self.assertEqual(data['status'], 1)
         self.assertEqual(data['preset'], '3g')
-        mock_apply.assert_called_once_with('test_device', '3g')
+        mock_apply.assert_called_once_with(
+            'test_device',
+            '3g',
+            engine='auto',
+            target_package='com.example.app',
+        )
+
+    @patch('solox.public.weak_network.WeakNetworkManager.apply_custom')
+    def test_rd_custom_api_forwards_directional_profile(self, mock_apply):
+        mock_apply.return_value = {
+            'status': 1,
+            'engine': 'agent',
+            'active': True,
+        }
+
+        resp = self.client.post('/apm/weaknet/apply', data={
+            'platform': 'Android',
+            'device': 'dev',
+            'preset': 'custom',
+            'engine': 'agent',
+            'target_package': 'com.example.app',
+            'uplink_delay_ms': '20',
+            'uplink_rate': '512kbit',
+            'downlink_delay_ms': '200',
+            'downlink_rate': '5mbit',
+            'protocol': 'tcp',
+            'ip_filter': '1.1.1.1, 8.8.8.8',
+        })
+
+        self.assertEqual(resp.get_json()['status'], 1)
+        mock_apply.assert_called_once_with(
+            'test_device',
+            preset_id='custom',
+            delay_ms=0,
+            jitter_ms=0,
+            loss_pct=0.0,
+            rate=None,
+            interface=None,
+            engine='agent',
+            target_package='com.example.app',
+            uplink_delay_ms=20,
+            uplink_jitter_ms=None,
+            uplink_loss_pct=None,
+            uplink_rate='512kbit',
+            uplink_burst_loss_pct=0.0,
+            downlink_delay_ms=200,
+            downlink_jitter_ms=None,
+            downlink_loss_pct=None,
+            downlink_rate='5mbit',
+            downlink_burst_loss_pct=0.0,
+            protocol='tcp',
+            ip_filter=('1.1.1.1', '8.8.8.8'),
+        )
 
     @patch('solox.public.weak_network.WeakNetworkManager.clear')
     def test_rd_clear_on_stop_lifecycle(self, mock_clear):
@@ -343,6 +397,75 @@ class TestWeakNetAcceptance(unittest.TestCase):
         self.assertEqual(data['status'], 1)
         self.assertFalse(data['simulation_supported'])
         self.assertIn('Android-only', data['msg'])
+
+    @patch('solox.view.apis.WeakNetworkManager.agent_status')
+    def test_agent_status_endpoint(self, mock_status):
+        mock_status.return_value = {
+            'installed': True,
+            'reachable': True,
+            'state': 'idle',
+        }
+
+        response = self.client.get('/apm/weaknet/agent/status', query_string={
+            'platform': 'Android',
+            'device': 'dev',
+        })
+
+        self.assertEqual(response.get_json()['status'], 1)
+        mock_status.assert_called_once_with('test_device')
+
+    @patch('solox.view.apis.WeakNetworkManager.agent_install')
+    def test_agent_install_endpoint_is_explicit(self, mock_install):
+        mock_install.return_value = {'installed': True}
+
+        response = self.client.post('/apm/weaknet/agent/install', data={
+            'platform': 'Android',
+            'device': 'dev',
+        })
+
+        self.assertEqual(response.get_json()['status'], 1)
+        mock_install.assert_called_once_with('test_device')
+
+    @patch('solox.view.apis.WeakNetworkManager.agent_prepare')
+    def test_agent_prepare_endpoint_is_explicit(self, mock_prepare):
+        mock_prepare.return_value = {'started': True}
+
+        response = self.client.post('/apm/weaknet/agent/prepare', data={
+            'platform': 'Android',
+            'device': 'dev',
+        })
+
+        self.assertEqual(response.get_json()['status'], 1)
+        mock_prepare.assert_called_once_with('test_device')
+
+    def test_preview_ui_exposes_agent_flow_without_prompting_on_init(self):
+        template = open(
+            os.path.join(_TESTS_DIR, '..', 'solox', 'templates', 'index.html'),
+            encoding='utf-8',
+        ).read()
+
+        self.assertIn('id="weaknet-engine"', template)
+        self.assertIn('value="auto"', template)
+        self.assertIn('value="agent"', template)
+        self.assertIn('Agent Preview', template)
+        self.assertIn('value="root_tc"', template)
+        self.assertIn('id="weaknet-agent-status"', template)
+        self.assertIn('installWeakNetAgent()', template)
+        self.assertIn('prepareWeakNetAgent()', template)
+        self.assertIn('emergencyClearWeakNet()', template)
+        self.assertIn('id="weaknet-uplink-delay"', template)
+        self.assertIn('id="weaknet-downlink-delay"', template)
+        self.assertIn('target_package', template)
+        self.assertIn('engine: $(\'#weaknet-engine\').val()', template)
+        self.assertIn('uplink_delay_ms', template)
+        self.assertIn('downlink_delay_ms', template)
+
+        init_body = template[
+            template.index('function initWeakNetPanel()'):
+            template.index('function refreshWeakNetStatus()')
+        ]
+        self.assertNotIn('/apm/weaknet/agent/install', init_body)
+        self.assertNotIn('/apm/weaknet/agent/prepare', init_body)
 
 
 class TestL1CoverageCompleteness(unittest.TestCase):
