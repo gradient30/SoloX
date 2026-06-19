@@ -305,13 +305,18 @@ def test_main_activity_renders_operational_console_controls_and_logs():
     assert 'ScrollView' in activity
     assert 'LinearLayout' in activity
     assert 'Button' in activity
-    assert 'renderDashboard' in activity
-    assert 'Status' in activity
-    assert 'VPN authorization' in activity
-    assert 'Target package' in activity
-    assert 'Weak network profile' in activity
-    assert 'Background service' in activity
-    assert 'Agent logs' in activity
+    assert 'renderShell' in activity
+    assert 'renderCurrentPage' in activity
+    assert 'renderOverviewPage' in activity
+    assert 'renderWeakNetworkPage' in activity
+    assert 'renderLogsPage' in activity
+    assert 'renderSettingsPage' in activity
+    for text in ('总览', '弱网', '日志', '设置'):
+        assert text in activity
+    assert 'VPN 授权' in activity
+    assert '目标包名' in activity
+    assert '弱网数据面' in activity
+    assert '后台运行' in activity
     assert 'ERROR' in activity
     assert 'WARN' in activity
     assert 'INFO' in activity
@@ -326,7 +331,7 @@ def test_main_activity_renders_operational_console_controls_and_logs():
     assert 'startForegroundService' in activity
     assert 'stopService' in activity
     assert 'QAS Network Agent' in notification
-    assert 'Background service' in activity
+    assert '弱网代理正在后台运行' in notification
 
 
 def test_vpn_service_builds_tun_and_starts_native_before_reporting_active():

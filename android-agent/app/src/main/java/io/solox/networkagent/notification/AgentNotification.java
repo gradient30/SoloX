@@ -19,7 +19,7 @@ public final class AgentNotification {
                 : new Notification.Builder(context);
         return builder
                 .setContentTitle("QAS Network Agent")
-                .setContentText("Ready for weak-network preview control")
+                .setContentText("弱网代理正在后台运行")
                 .setSmallIcon(SMALL_ICON)
                 .setOngoing(true)
                 .build();
@@ -37,7 +37,7 @@ public final class AgentNotification {
                 CHANNEL_ID,
                 "QAS Network Agent",
                 NotificationManager.IMPORTANCE_LOW);
-        channel.setDescription("QAS Network Agent weak-network preview foreground service");
+        channel.setDescription("QAS 弱网代理前台服务");
         manager.createNotificationChannel(channel);
     }
 }

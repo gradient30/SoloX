@@ -106,6 +106,51 @@ def test_android_agent_uses_qas_product_identity():
     assert 'QAS Network Agent' in activity
 
 
+def test_android_agent_main_ui_is_chinese_four_tab_console():
+    activity = read('app/src/main/java/io/solox/networkagent/MainActivity.java')
+
+    for text in ('总览', '弱网', '日志', '设置'):
+        assert text in activity
+
+    assert 'Demo' not in activity
+    assert 'demo' not in activity
+    assert 'renderOverviewPage' in activity
+    assert 'renderWeakNetworkPage' in activity
+    assert 'renderLogsPage' in activity
+    assert 'renderSettingsPage' in activity
+    assert 'requestVpnAuthorization' in activity
+    assert 'selectedLogLevel' in activity
+
+
+def test_android_agent_user_visible_copy_is_chinese_with_allowed_protocol_terms():
+    manifest = read('app/src/main/AndroidManifest.xml')
+    notification = read(
+        'app/src/main/java/io/solox/networkagent/notification/AgentNotification.java',
+    )
+    activity = read('app/src/main/java/io/solox/networkagent/MainActivity.java')
+    combined = activity + notification
+
+    assert 'QAS Network Agent' in manifest
+    assert 'QAS Network Agent' in notification
+    for text in (
+        '弱网代理正在后台运行',
+        '准备接收 SoloX 弱网控制',
+        '授权并启动',
+        '停止服务',
+    ):
+        assert text in combined
+
+    for forbidden in (
+        'Authorize VPN and start service',
+        'Target package',
+        'Weak network profile',
+        'Background service',
+        'Agent logs',
+        'No Agent logs recorded yet',
+    ):
+        assert forbidden not in activity
+
+
 def test_android_agent_declares_custom_launcher_icon_resources():
     manifest = read('app/src/main/AndroidManifest.xml')
     foreground = AGENT / 'app/src/main/res/drawable/ic_launcher_foreground.xml'
