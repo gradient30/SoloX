@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- person pulling network cable with both hands -->
+    <path
+        android:fillColor="@android:color/transparent"
+        android:strokeColor="#D7F3EE"
+        android:strokeWidth="7"
+        android:strokeLineCap="round"
+        android:pathData="M17,61C30,49 42,47 54,55C66,63 78,57 91,46" />
+    <path
+        android:fillColor="@android:color/transparent"
+        android:strokeColor="#79D9CE"
+        android:strokeWidth="4"
+        android:strokeLineCap="round"
+        android:pathData="M17,61L11,67M91,46L99,39" />
+    <path
+        android:fillColor="#E9F8F4"
+        android:pathData="M54,16C59.5,16 64,20.5 64,26C64,31.5 59.5,36 54,36C48.5,36 44,31.5 44,26C44,20.5 48.5,16 54,16Z" />
+    <path
+        android:fillColor="#25A89A"
+        android:pathData="M40,44C40,38 45,34 54,34C63,34 68,38 68,44V67C68,72 64,76 59,76H49C44,76 40,72 40,67Z" />
+    <path
+        android:fillColor="@android:color/transparent"
+        android:strokeColor="#E9F8F4"
+        android:strokeWidth="7"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:pathData="M42,49L30,58M66,49L80,52" />
+    <path
+        android:fillColor="#E9F8F4"
+        android:pathData="M25,55C28.3,55 31,57.7 31,61C31,64.3 28.3,67 25,67C21.7,67 19,64.3 19,61C19,57.7 21.7,55 25,55Z" />
+    <path
+        android:fillColor="#E9F8F4"
+        android:pathData="M80,47C83.3,47 86,49.7 86,53C86,56.3 83.3,59 80,59C76.7,59 74,56.3 74,53C74,49.7 76.7,47 80,47Z" />
+    <path
+        android:fillColor="@android:color/transparent"
+        android:strokeColor="#E9F8F4"
+        android:strokeWidth="6"
+        android:strokeLineCap="round"
+        android:pathData="M49,75L45,91M59,75L64,91" />
+</vector>

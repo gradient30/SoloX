@@ -3,6 +3,7 @@
 
 from pathlib import Path
 import json
+import re
 import subprocess
 
 import pytest
@@ -64,6 +65,49 @@ def test_android_agent_uses_qas_product_identity():
     assert 'android:label="QAS Network Agent"' in manifest
     assert 'QAS Network Agent' in notification
     assert 'QAS Network Agent' in activity
+
+
+def test_android_agent_declares_custom_launcher_icon_resources():
+    manifest = read('app/src/main/AndroidManifest.xml')
+    foreground = AGENT / 'app/src/main/res/drawable/ic_launcher_foreground.xml'
+    resources = (
+        AGENT / 'app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml',
+        AGENT / 'app/src/main/res/mipmap-anydpi-v26/ic_launcher_round.xml',
+        foreground,
+        AGENT / 'app/src/main/res/drawable/ic_launcher_background.xml',
+    )
+    aapt2 = (
+        ROOT
+        / 'runtime'
+        / 'android-toolchain'
+        / 'android-sdk'
+        / 'build-tools'
+        / '36.0.0'
+        / 'aapt2.exe'
+    )
+    apk = ROOT / 'solox' / 'public' / 'android_agent' / 'qas-network-agent-0.1.0.apk'
+
+    assert 'android:icon="@mipmap/ic_launcher"' in manifest
+    assert 'android:roundIcon="@mipmap/ic_launcher_round"' in manifest
+    for resource in resources:
+        assert resource.is_file()
+
+    foreground_xml = foreground.read_text(encoding='utf-8')
+    assert 'person' in foreground_xml
+    assert 'network cable' in foreground_xml
+
+    if not aapt2.is_file():
+        pytest.skip(f'Android aapt2 is not available at {aapt2}')
+
+    result = subprocess.run(
+        [str(aapt2), 'dump', 'badging', str(apk)],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    application_line = re.search(r"^application: .*$", result.stdout, re.MULTILINE)
+    assert application_line is not None
+    assert re.search(r"\bicon='[^']+'", application_line.group(0))
 
 
 def test_manifest_declares_only_required_vpn_and_foreground_permissions():
