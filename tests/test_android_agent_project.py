@@ -3,6 +3,7 @@
 
 from pathlib import Path
 import json
+import os
 import re
 import subprocess
 
@@ -13,8 +14,46 @@ ROOT = Path(__file__).resolve().parents[1]
 AGENT = ROOT / 'android-agent'
 
 
+def find_aapt2() -> Path | None:
+    executable = 'aapt2.exe' if os.name == 'nt' else 'aapt2'
+    for variable in ('ANDROID_HOME', 'ANDROID_SDK_ROOT'):
+        sdk_root = os.environ.get(variable)
+        if not sdk_root:
+            continue
+        build_tools = Path(sdk_root) / 'build-tools'
+        candidates = sorted(build_tools.glob(f'*/{executable}'), reverse=True)
+        for candidate in candidates:
+            if candidate.is_file():
+                return candidate
+
+    bundled = (
+        ROOT
+        / 'runtime'
+        / 'android-toolchain'
+        / 'android-sdk'
+        / 'build-tools'
+        / '36.0.0'
+        / executable
+    )
+    if bundled.is_file():
+        return bundled
+
+    return None
+
+
 def read(relative_path: str) -> str:
     return (AGENT / relative_path).read_text(encoding='utf-8')
+
+
+def test_aapt2_resolver_prefers_android_home_build_tools(tmp_path, monkeypatch):
+    executable = 'aapt2.exe' if os.name == 'nt' else 'aapt2'
+    aapt2 = tmp_path / 'sdk' / 'build-tools' / '36.0.0' / executable
+    aapt2.parent.mkdir(parents=True)
+    aapt2.write_text('', encoding='utf-8')
+    monkeypatch.setenv('ANDROID_HOME', str(tmp_path / 'sdk'))
+    monkeypatch.delenv('ANDROID_SDK_ROOT', raising=False)
+
+    assert find_aapt2() == aapt2
 
 
 def test_android_project_pins_supported_toolchain():
@@ -71,20 +110,14 @@ def test_android_agent_declares_custom_launcher_icon_resources():
     manifest = read('app/src/main/AndroidManifest.xml')
     foreground = AGENT / 'app/src/main/res/drawable/ic_launcher_foreground.xml'
     resources = (
+        AGENT / 'app/src/main/res/mipmap-anydpi/ic_launcher.xml',
+        AGENT / 'app/src/main/res/mipmap-anydpi/ic_launcher_round.xml',
         AGENT / 'app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml',
         AGENT / 'app/src/main/res/mipmap-anydpi-v26/ic_launcher_round.xml',
         foreground,
         AGENT / 'app/src/main/res/drawable/ic_launcher_background.xml',
     )
-    aapt2 = (
-        ROOT
-        / 'runtime'
-        / 'android-toolchain'
-        / 'android-sdk'
-        / 'build-tools'
-        / '36.0.0'
-        / 'aapt2.exe'
-    )
+    aapt2 = find_aapt2()
     apk = ROOT / 'solox' / 'public' / 'android_agent' / 'qas-network-agent-0.1.0.apk'
 
     assert 'android:icon="@mipmap/ic_launcher"' in manifest
@@ -96,8 +129,11 @@ def test_android_agent_declares_custom_launcher_icon_resources():
     assert 'person' in foreground_xml
     assert 'network cable' in foreground_xml
 
-    if not aapt2.is_file():
-        pytest.skip(f'Android aapt2 is not available at {aapt2}')
+    if aapt2 is None:
+        pytest.skip(
+            'Android aapt2 is not available from ANDROID_HOME, '
+            'ANDROID_SDK_ROOT, or the bundled runtime toolchain',
+        )
 
     result = subprocess.run(
         [str(aapt2), 'dump', 'badging', str(apk)],
@@ -245,18 +281,13 @@ def test_android_agent_package_metadata_contract():
 
 
 def test_public_android_agent_apk_matches_qas_identity():
-    aapt2 = (
-        ROOT
-        / 'runtime'
-        / 'android-toolchain'
-        / 'android-sdk'
-        / 'build-tools'
-        / '36.0.0'
-        / 'aapt2.exe'
-    )
+    aapt2 = find_aapt2()
     apk = ROOT / 'solox' / 'public' / 'android_agent' / 'qas-network-agent-0.1.0.apk'
-    if not aapt2.is_file():
-        pytest.skip(f'Android aapt2 is not available at {aapt2}')
+    if aapt2 is None:
+        pytest.skip(
+            'Android aapt2 is not available from ANDROID_HOME, '
+            'ANDROID_SDK_ROOT, or the bundled runtime toolchain',
+        )
 
     result = subprocess.run(
         [str(aapt2), 'dump', 'badging', str(apk)],
