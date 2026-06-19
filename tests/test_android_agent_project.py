@@ -5,6 +5,8 @@ from pathlib import Path
 import json
 import subprocess
 
+import pytest
+
 
 ROOT = Path(__file__).resolve().parents[1]
 AGENT = ROOT / 'android-agent'
@@ -209,6 +211,8 @@ def test_public_android_agent_apk_matches_qas_identity():
         / 'aapt2.exe'
     )
     apk = ROOT / 'solox' / 'public' / 'android_agent' / 'qas-network-agent-0.1.0.apk'
+    if not aapt2.is_file():
+        pytest.skip(f'Android aapt2 is not available at {aapt2}')
 
     result = subprocess.run(
         [str(aapt2), 'dump', 'badging', str(apk)],
