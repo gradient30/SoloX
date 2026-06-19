@@ -7,6 +7,8 @@ import android.os.Build;
 import android.os.Bundle;
 import android.widget.TextView;
 
+import io.solox.networkagent.logging.AgentLogEntry;
+import io.solox.networkagent.runtime.AgentRuntime;
 import io.solox.networkagent.vpn.SoloXVpnService;
 
 public final class MainActivity extends Activity {
@@ -59,5 +61,20 @@ public final class MainActivity extends Activity {
         } else {
             startService(serviceIntent);
         }
+    }
+
+    public String renderLogs() {
+        StringBuilder builder = new StringBuilder();
+        for (AgentLogEntry entry : AgentRuntime.latestLogs()) {
+            builder.append(entry.sequence())
+                    .append(' ')
+                    .append(entry.level().name())
+                    .append(' ')
+                    .append(entry.source())
+                    .append(": ")
+                    .append(entry.message())
+                    .append('\n');
+        }
+        return builder.toString();
     }
 }

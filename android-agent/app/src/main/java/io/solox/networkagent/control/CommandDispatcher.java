@@ -2,6 +2,7 @@ package io.solox.networkagent.control;
 
 import io.solox.networkagent.model.Json;
 import io.solox.networkagent.model.WeakNetworkProfile;
+import io.solox.networkagent.runtime.AgentRuntime;
 import io.solox.networkagent.state.AgentState;
 import io.solox.networkagent.state.AgentStateStore;
 
@@ -69,11 +70,14 @@ public final class CommandDispatcher {
                 return ok(requestId, stateStore.state().wireName(), null, null);
             }
             if ("stop".equals(command)) {
+                AgentRuntime.info("dispatcher", "stop requested");
                 tunnelController.stop();
                 forceIdle(nowMs);
+                AgentRuntime.info("dispatcher", "stop completed");
                 return ok(requestId, AgentState.IDLE.wireName(), null, null);
             }
             if ("start".equals(command)) {
+                AgentRuntime.info("dispatcher", "start requested");
                 return start(requestId, requestJson, nowMs);
             }
             return error(requestId, "unknown command: " + command, stateStore.state().wireName());
@@ -87,16 +91,20 @@ public final class CommandDispatcher {
         String sessionId = Json.stringValue(requestJson, "session_id", "");
         String digest = Json.stringValue(requestJson, "profile_digest", "");
         if (targetPackage.isBlank()) {
+            AgentRuntime.warn("dispatcher", "target_package is required");
             return error(requestId, "target_package is required", stateStore.state().wireName());
         }
         if (sessionId.isBlank()) {
+            AgentRuntime.warn("dispatcher", "session_id is required");
             return error(requestId, "session_id is required", stateStore.state().wireName());
         }
         if (!packageVerifier.isInstalled(targetPackage)) {
+            AgentRuntime.warn("dispatcher", "target package is not installed: " + targetPackage);
             return error(requestId, "target package is not installed: " + targetPackage, stateStore.state().wireName());
         }
         if (!tunnelController.isAuthorized()) {
             moveToPermissionRequired(nowMs);
+            AgentRuntime.warn("dispatcher", "permission required for VPN start");
             return ok(requestId, AgentState.PERMISSION_REQUIRED.wireName(), sessionId, digest);
         }
         WeakNetworkProfile profile = WeakNetworkProfile.fromJson(requestJson);
@@ -110,9 +118,11 @@ public final class CommandDispatcher {
         if (!startResult.ok) {
             tunnelController.stop();
             forceIdle(nowMs);
+            AgentRuntime.error("dispatcher", startResult.error == null ? "native data plane unavailable" : startResult.error);
             return error(requestId, startResult.error, AgentState.IDLE.wireName());
         }
         stateStore.activate(sessionId, targetPackage, profile, nowMs);
+        AgentRuntime.info("dispatcher", "start completed");
         return ok(requestId, AgentState.ACTIVE.wireName(), sessionId, digest);
     }
 
