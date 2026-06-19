@@ -3,6 +3,7 @@
 
 from pathlib import Path
 import json
+import subprocess
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -195,6 +196,29 @@ def test_android_agent_package_metadata_contract():
     assert len(metadata['sha256']) == 64
     assert 'solox/public/android_agent *' in manifest
     assert 'public/android_agent/**/*' in pyproject
+
+
+def test_public_android_agent_apk_matches_qas_identity():
+    aapt2 = (
+        ROOT
+        / 'runtime'
+        / 'android-toolchain'
+        / 'android-sdk'
+        / 'build-tools'
+        / '36.0.0'
+        / 'aapt2.exe'
+    )
+    apk = ROOT / 'solox' / 'public' / 'android_agent' / 'qas-network-agent-0.1.0.apk'
+
+    result = subprocess.run(
+        [str(aapt2), 'dump', 'badging', str(apk)],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+
+    assert "package: name='io.solox.networkagent'" in result.stdout
+    assert "application: label='QAS Network Agent'" in result.stdout
 
 
 

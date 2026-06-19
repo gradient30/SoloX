@@ -1,0 +1,20 @@
+[package]
+name = "solox-network-agent-native"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+
+[lib]
+name = "solox_network_agent_native"
+path = "src/lib.rs"
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+clap = "4.6.1"
+tokio = { version = "1.52.3", features = ["full"] }
+tokio-util = "0.7.18"
+tun2proxy = { path = "third_party/tun2proxy", default-features = false }
+
+# tun2proxy pinned source for the Android data-plane integration:
+# https://github.com/tun2proxy/tun2proxy
+# rev eed123fbbec06295bf83f9be36d5a0f64ed9a8cb
