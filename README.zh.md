@@ -1,5 +1,5 @@
 <p align="center">
-  <a>中文</a> | <a href="./README.md">English</a> | <a href="./docs/05-issues/faq.md">FAQ</a> | <a href="./docs/README.md">📖 完整文档</a>
+  <a>中文</a> | <a href="./docs/05-issues/faq.md">FAQ</a> | <a href="./docs/README.md">📖 完整文档</a>
 </p>
 
 <p align="center">
@@ -10,7 +10,7 @@
 </p>
 
 <p align="center">
-<a href="https://pypi.org/project/solox/" target="__blank"><img src="https://img.shields.io/pypi/v/solox" alt="solox preview"></a>
+<a href="https://pypi.org/project/solox/" target="__blank"><img src="https://img.shields.io/pypi/v/solox" alt="SoloX 版本"></a>
 <a href="https://pepy.tech/project/solox" target="__blank"><img src="https://static.pepy.tech/personalized-badge/solox?period=total&units=international_system&left_color=grey&right_color=orange&left_text=downloads"></a>
 <br>
 </p>

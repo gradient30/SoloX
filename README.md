@@ -1,5 +1,5 @@
 <p align="center">
-  <a>English</a> | <a href="./README.zh.md">中文</a> | <a href="./docs/05-issues/faq.md">FAQ</a> | <a href="./docs/README.md">📖 完整文档</a>
+  <a>中文</a> | <a href="./docs/05-issues/faq.md">FAQ</a> | <a href="./docs/README.md">📖 完整文档</a>
 </p>
 
 <p align="center">
@@ -10,72 +10,72 @@
 </p>
 
 <p align="center">
-<a href="https://pypi.org/project/solox/" target="__blank"><img src="https://img.shields.io/pypi/v/solox" alt="solox preview"></a>
+<a href="https://pypi.org/project/solox/" target="__blank"><img src="https://img.shields.io/pypi/v/solox" alt="SoloX 版本"></a>
 <a href="https://pepy.tech/project/solox" target="__blank"><img src="https://static.pepy.tech/personalized-badge/solox?period=total&units=international_system&left_color=grey&right_color=orange&left_text=downloads"></a>
 <br>
 </p>
 
-## 🔎 Preview
+## 🔎 简介
 
-SoloX - Real-time collection and analysis tool for Android/iOS performance data.
+SoloX 是一个专业的移动应用性能监控与分析工具，可以实时收集 Android/iOS 性能数据。
 
-Quickly locate and analyze performance issues to improve application performance and quality. Core performance collection is plug and play without Android Root or iOS jailbreak. Android weak-network simulation is also available through the non-Root QAS Network Agent, while the older Root `tc netem` engine remains for compatible rooted devices.
+快速定位分析性能问题，提升应用的性能和品质。核心性能采集无需 Android Root 或 iOS 越狱，即插即用。Android 弱网模拟已支持非 Root 的 QAS Network Agent，也保留 Root `tc netem` 兼容引擎和网络探测模式。
 
-![SoloX Interface](https://github.com/smart-test-ti/SoloX/assets/24454096/61a0b801-23b4-4711-8215-51cd7bc9dc04)
+![SoloX 界面](https://github.com/smart-test-ti/SoloX/assets/24454096/603895cd-730f-434c-807f-22333d10e633)
 
-## 📦 Requirements
+## 📦 环境要求
 
-- Install Python 3.10+ [**Download**](https://www.python.org/downloads/)
-- Install adb and configure environment variables [**Download**](https://developer.android.com/studio/releases/platform-tools)
+- 安装 Python 3.10+ [**下载**](https://www.python.org/downloads/)
+- 安装 adb 和配置环境变量 [**下载**](https://developer.android.com/studio/releases/platform-tools)
 
-💡 Windows users need to install iTunes for iOS testing [**Documentation**](https://github.com/alibaba/taobao-iphone-device) (iOS 17 not supported)
+💡 Windows 用户测试 iOS 需要先安装 iTunes [**参考**](https://github.com/alibaba/taobao-iphone-device) （不支持 iOS 17）
 
-## 📥 Installation
+## 📥 安装
 
-### Default
+### 默认安装
 
 ```shell
 pip install -U solox
 ```
 
-### Using mirrors
+### 使用镜像
 
 ```shell
 pip install -i https://mirrors.ustc.edu.cn/pypi/web/simple -U solox
 ```
 
-💡 If your network cannot download through `pip install -U solox`, try using mirrors, but SoloX may not be the latest version.
+💡 如果网络无法通过 `pip install -U solox` 下载，可以尝试使用镜像下载，但可能不是最新版本。
 
-## 🚀 Quick Start
+## 🚀 快速启动
 
-### Default
+### 默认启动
 
 ```shell
 python -m solox
 ```
 
-### Customize
+### 自定义启动
 
 ```shell
-python -m solox --host=ip --port=port
+python -m solox --host={ip} --port={port}
 ```
 
-## 🐍 Python API
+## 🐍 Python API 使用
 
 ```python
 from solox.public.apm import AppPerformanceMonitor
 from solox.public.common import Devices
 
-# Get device list
+# 获取设备列表
 d = Devices()
 devices = d.getDeviceIds()
-print(f"Connected devices: {devices}")
+print(f"连接的设备: {devices}")
 
-# Get app processes
+# 获取应用进程
 processes = d.getPid(deviceId='ca6bd5a5', pkgName='com.example.app')
-print(f"App processes: {processes}")
+print(f"应用进程: {processes}")
 
-# Create performance monitor
+# 创建性能监控实例
 apm = AppPerformanceMonitor(
     pkgName='com.example.app',
     platform='Android',
@@ -84,55 +84,58 @@ apm = AppPerformanceMonitor(
     noLog=False
 )
 
-# Collect performance data
-cpu = apm.collectCpu()          # CPU usage %
-memory = apm.collectMemory()    # Memory usage MB
-network = apm.collectNetwork()  # Network traffic KB
-fps = apm.collectFps()          # FPS Hz
-battery = apm.collectBattery()  # Battery info
+# 收集性能数据
+cpu = apm.collectCpu()          # CPU 使用率 %
+memory = apm.collectMemory()    # 内存使用 MB
+network = apm.collectNetwork()  # 网络流量 KB
+fps = apm.collectFps()          # FPS 帧率
+battery = apm.collectBattery()  # 电池信息
 ```
 
-## 🔥 Features
+## 🔥 核心功能
 
-* **No Root/Jailbreak for core monitoring**: Android/iOS performance collection runs without device Root or jailbreak
-* **Comprehensive Monitoring**: CPU, Memory, Network, FPS/Jank, Battery, GPU, Disk, Thermal and more
-* **Real-time Analysis**: Beautiful real-time data visualization and analysis
-* **Cross-platform**: Support both Android and iOS platforms
-* **Android Weak Network**: QAS Network Agent supports per-App non-Root weak-network simulation with explicit VPN authorization; Root `tc netem` and probe modes remain available
-* **Easy Integration**: Python API and RESTful interface for CI/CD integration
-* **Beautiful Reports**: Detailed performance analysis reports
+* **核心监控无需 Root/越狱**: Android/iOS 性能采集无需设备 Root 或越狱
+* **全面监控**: 支持 CPU、内存、网络、FPS/Jank、电池、GPU、磁盘、温度等多维度监控
+* **实时分析**: 美观的实时数据可视化和性能分析
+* **跨平台支持**: 同时支持 Android 和 iOS 平台
+* **Android 弱网测试**: QAS Network Agent 支持非 Root、按 App 生效的弱网模拟；Root `tc netem` 与探测模式保留
+* **易于集成**: 提供 Python API 和 RESTful 接口，便于 CI/CD 集成
+* **美观报告**: 详细的性能分析报告和数据可视化
 
-## 📚 Documentation
+## 📚 文档中心
 
-### 📖 [Complete Documentation](./docs/README.md)
+### 📖 [完整文档](./docs/README.md)
 
-- 📐 [**Architecture**](./docs/01-architecture/) - Technical architecture and system design
-- 🛠️ [**Development**](./docs/02-development/) - Development guide and environment setup  
-- 🚀 [**Deployment**](./docs/03-deployment/) - Production deployment and Docker
-- 📖 [**User Guides**](./docs/04-user-guides/) - API documentation and monitoring guides
-- ❓ [**Issues**](./docs/05-issues/) - Troubleshooting and FAQ
+- 📐 [**架构设计**](./docs/01-architecture/) - 技术架构和系统设计
+- 🛠️ [**开发指南**](./docs/02-development/) - 开发环境和编码规范
+- 🏗️ [**工程化 / 发布规范**](./docs/06-engineering/release-and-dev-standards.md) · [预发布审核](./docs/06-engineering/pre-publish-checklist.md)
+- 🚀 [**部署运维**](./docs/03-deployment/) - 生产部署和 Docker 配置
+- 📖 [**用户指南**](./docs/04-user-guides/) - API 文档和监控指南
+- ❓ [**问题解决**](./docs/05-issues/) - 故障排除和常见问题
 
-### Quick Links
+### 快速链接
 
-- 🚀 [Quick Start Guide](./docs/02-development/quick-start.md)
-- 📊 [API Documentation](./docs/04-user-guides/api-documentation.md)
-- 📶 [Weak Network Testing](./docs/04-user-guides/weak-network-testing.md)
-- 🔧 [Troubleshooting](./docs/05-issues/troubleshooting.md)
-- ❓ [FAQ](./docs/05-issues/faq.md)
+- 🚀 [快速启动指南](./docs/02-development/quick-start.md)
+- 📊 [API 接口文档](./docs/04-user-guides/api-documentation.md)
+- 📶 [弱网测试用户指南](./docs/04-user-guides/weak-network-testing.md)
+- ✅ [联合验收报告](./docs/acceptance/joint-review-2026-compatibility.md)
+- 🔧 [脚本与发版门禁](./scripts/README.md)
+- 🔧 [故障排除指南](./docs/05-issues/troubleshooting.md)
+- ❓ [常见问题 FAQ](./docs/05-issues/faq.md)
 
-## 🔧 Service API
+## 🔧 API 服务
 
-### Start service in background
+### 后台启动服务
 
 ```shell
 # macOS/Linux
 nohup python3 -m solox &
 
-# Windows  
+# Windows
 start /min python3 -m solox &
 ```
 
-### Request performance data
+### 通过 API 请求数据
 
 ```shell
 # Android
@@ -141,42 +144,48 @@ http://localhost:50003/apm/collect?platform=Android&deviceid=ca6bd5a5&pkgname=co
 # iOS
 http://localhost:50003/apm/collect?platform=iOS&pkgname=com.example.app&target=cpu
 
-# Available targets include: cpu, memory, network, fps, battery, gpu
+# 支持的监控目标包括: cpu, memory, network, fps, battery, gpu
 ```
 
-## 🎯 Use Cases
+## 🎯 应用场景
 
-- **Mobile App Performance Testing**: Startup performance, memory leaks, CPU monitoring
-- **Android Weak-Network Testing**: Per-App network degradation through QAS Network Agent or Root `tc netem`
-- **Automated Testing Integration**: CI/CD pipeline integration, regression testing
-- **Development Debugging**: Real-time monitoring, performance optimization
-- **Competitive Analysis**: Performance comparison between different apps
+- **移动应用性能测试**: 启动性能分析、内存泄漏检测、CPU 监控
+- **Android 弱网测试**: 通过 QAS Network Agent 或 Root `tc netem` 模拟指定 App 网络退化
+- **自动化测试集成**: CI/CD 流水线集成、性能回归测试
+- **开发调试辅助**: 实时性能监控、问题定位分析
+- **竞品性能分析**: 不同应用间的性能对比测试
 
-## 🌟 Supported Metrics
+## 🌟 支持的监控指标
 
-| Metric | Android | iOS | Description |
-|--------|---------|-----|-------------|
-| 🔥 CPU Usage | ✅ | ✅ | App and system CPU usage |
-| 🧠 Memory | ✅ | ✅ | Memory usage and detailed analysis |
-| 🌐 Network | ✅ | ✅ | Upload/download traffic |
-| 🎮 FPS | ✅ | ✅ | Frame rate and jank detection |
-| 🔋 Battery | ✅ | ✅ | Battery level, temperature, power |
-| 🎨 GPU | ✅ | ❌ | GPU usage (Android only) |
-| 📶 Weak Network | ✅ | External tools | Android Agent / Root tc / probe; iOS uses Network Link Conditioner or similar external tooling |
+| 监控指标 | Android | iOS | 说明 |
+|---------|---------|-----|------|
+| 🔥 CPU 使用率 | ✅ | ✅ | 应用和系统 CPU 占用 |
+| 🧠 内存使用 | ✅ | ✅ | 内存占用和详细分析 |
+| 🌐 网络流量 | ✅ | ✅ | 上行/下行流量统计 |
+| 🎮 FPS 帧率 | ✅ | ✅ | 界面渲染帧率和卡顿检测 |
+| 🔋 电池信息 | ✅ | ✅ | 电量、温度、功耗等 |
+| 🎨 GPU 使用率 | ✅ | ❌ | GPU 占用率（仅 Android） |
+| 📶 弱网模拟 | ✅ | 外部工具 | Android 支持 Agent / Root tc / 探测；iOS 使用 Network Link Conditioner 等外部方案 |
 
-## 🤝 Contributing
+## 🤝 参与贡献
 
-We welcome contributions! Please see our [Contribution Guide](./docs/05-issues/contribution-guide.md) for details.
+我们欢迎各种形式的贡献！请查看 [贡献指南](./docs/05-issues/contribution-guide.md) 了解详情。
 
-## 📄 License
+## 📄 开源许可
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+本项目基于 MIT 许可证开源 - 查看 [LICENSE](LICENSE) 文件了解详情。
 
-## 💕 Thanks
+## 💕 致谢
 
 - [taobao-iphone-device](https://github.com/alibaba/taobao-iphone-device)
 - [scrcpy](https://github.com/Genymobile/scrcpy)
 
+## 📞 联系我们
+
+关注公众号，直接发私信，作者看到就回复：
+
+<img src="https://github.com/smart-test-ti/.github/assets/24454096/fadb328d-c136-460a-b30d-a98d9036d882" alt="SmartTest" width="300">
+
 ---
 
-⭐ **Star this project if it helps you!**
+⭐ **如果这个项目对你有帮助，请给我们一个 Star！**
