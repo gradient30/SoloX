@@ -297,6 +297,38 @@ def test_android_agent_lifecycle_events_are_recorded_for_local_display():
     assert 'AgentRuntime.latestLogs()' in activity
 
 
+def test_main_activity_renders_operational_console_controls_and_logs():
+    activity = (SRC / 'io/solox/networkagent/MainActivity.java').read_text(encoding='utf-8')
+    service = (SRC / 'io/solox/networkagent/vpn/SoloXVpnService.java').read_text(encoding='utf-8')
+    notification = (SRC / 'io/solox/networkagent/notification/AgentNotification.java').read_text(encoding='utf-8')
+
+    assert 'ScrollView' in activity
+    assert 'LinearLayout' in activity
+    assert 'Button' in activity
+    assert 'renderDashboard' in activity
+    assert 'Status' in activity
+    assert 'VPN authorization' in activity
+    assert 'Target package' in activity
+    assert 'Weak network profile' in activity
+    assert 'Background service' in activity
+    assert 'Agent logs' in activity
+    assert 'ERROR' in activity
+    assert 'WARN' in activity
+    assert 'INFO' in activity
+    assert 'DEBUG' in activity
+    assert 'requestVpnAuthorization' in activity
+    assert 'stopService' in activity
+    assert 'renderLogs' in activity
+    assert 'AgentRuntime.latestLogs' in activity
+
+    assert 'startForeground' in service
+    assert 'START_STICKY' in service
+    assert 'startForegroundService' in activity
+    assert 'stopService' in activity
+    assert 'QAS Network Agent' in notification
+    assert 'Background service' in activity
+
+
 def test_vpn_service_builds_tun_and_starts_native_before_reporting_active():
     service = (SRC / 'io/solox/networkagent/vpn/SoloXVpnService.java').read_text(encoding='utf-8')
     dispatcher = (SRC / 'io/solox/networkagent/control/CommandDispatcher.java').read_text(encoding='utf-8')
