@@ -5,6 +5,10 @@ import java.util.ArrayList;
 import java.util.List;
 
 public final class AgentLogStore {
+    public static final int MAX_SOURCE_LENGTH = 96;
+    public static final int MAX_MESSAGE_LENGTH = 2048;
+    private static final String TRUNCATION_SUFFIX = "...";
+
     private final int capacity;
     private final ArrayDeque<AgentLogEntry> entries;
     private long nextSequence = 1L;
@@ -18,7 +22,12 @@ public final class AgentLogStore {
     }
 
     public synchronized AgentLogEntry record(AgentLogLevel level, String source, String message, long timestampMs) {
-        AgentLogEntry entry = new AgentLogEntry(nextSequence++, timestampMs, level, source, message);
+        AgentLogEntry entry = new AgentLogEntry(
+                nextSequence++,
+                timestampMs,
+                level,
+                truncate(source, MAX_SOURCE_LENGTH),
+                truncate(message, MAX_MESSAGE_LENGTH));
         if (entries.size() == capacity) {
             entries.removeFirst();
         }
@@ -38,5 +47,15 @@ public final class AgentLogStore {
             }
         }
         return matches;
+    }
+
+    private static String truncate(String value, int maxLength) {
+        if (value == null) {
+            return "";
+        }
+        if (value.length() <= maxLength) {
+            return value;
+        }
+        return value.substring(0, maxLength - TRUNCATION_SUFFIX.length()) + TRUNCATION_SUFFIX;
     }
 }

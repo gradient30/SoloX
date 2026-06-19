@@ -1,7 +1,5 @@
 package io.solox.networkagent.logging;
 
-import io.solox.networkagent.model.Json;
-
 public final class AgentLogEntry {
     private final long sequence;
     private final long timestampMs;
@@ -45,9 +43,52 @@ public final class AgentLogEntry {
                 + ",\"level\":\""
                 + level.name()
                 + "\",\"source\":\""
-                + Json.escape(source)
+                + escapeJsonString(source)
                 + "\",\"message\":\""
-                + Json.escape(message)
+                + escapeJsonString(message)
                 + "\"}";
+    }
+
+    private static String escapeJsonString(String value) {
+        StringBuilder builder = new StringBuilder(value.length());
+        for (int i = 0; i < value.length(); i++) {
+            char current = value.charAt(i);
+            switch (current) {
+                case '"':
+                    builder.append("\\\"");
+                    break;
+                case '\\':
+                    builder.append("\\\\");
+                    break;
+                case '\n':
+                    builder.append("\\n");
+                    break;
+                case '\r':
+                    builder.append("\\r");
+                    break;
+                case '\t':
+                    builder.append("\\t");
+                    break;
+                case '\b':
+                    builder.append("\\b");
+                    break;
+                case '\f':
+                    builder.append("\\f");
+                    break;
+                default:
+                    if (current < 0x20) {
+                        builder.append("\\u");
+                        String hex = Integer.toHexString(current);
+                        for (int pad = hex.length(); pad < 4; pad++) {
+                            builder.append('0');
+                        }
+                        builder.append(hex);
+                    } else {
+                        builder.append(current);
+                    }
+                    break;
+            }
+        }
+        return builder.toString();
     }
 }

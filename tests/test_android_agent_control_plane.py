@@ -151,12 +151,63 @@ public final class AgentLogStoreHarness {
         check(json.contains("\"level\":\"INFO\""), "json includes level");
         check(json.contains("\"source\":\"socket\""), "json includes source");
         check(json.contains("\"message\":\"request handled\""), "json includes message");
+
+        String oversizedSource = repeat('s', AgentLogStore.MAX_SOURCE_LENGTH + 50);
+        String oversizedMessage = repeat('m', AgentLogStore.MAX_MESSAGE_LENGTH + 50);
+        AgentLogEntry oversized = store.record(AgentLogLevel.WARN, oversizedSource, oversizedMessage, 500L);
+        check(oversized.source().length() <= AgentLogStore.MAX_SOURCE_LENGTH, "source length bounded");
+        check(oversized.message().length() <= AgentLogStore.MAX_MESSAGE_LENGTH, "message length bounded");
+        check(oversized.source().endsWith("..."), "source truncation indicated");
+        check(oversized.message().endsWith("..."), "message truncation indicated");
+        check(store.latest().size() == 3, "entry count still bounded after oversized payload");
+
+        AgentLogEntry escaped = store.record(
+                AgentLogLevel.ERROR,
+                "src\n\r\t\"\\\u0001",
+                "msg\n\r\t\b\f\"\\\u0002",
+                600L);
+        String escapedJson = escaped.toJson();
+        check(escapedJson.contains("\"source\":\"src\\n\\r\\t\\\"\\\\\\u0001\""), "source json escaped");
+        check(escapedJson.contains("\"message\":\"msg\\n\\r\\t\\b\\f\\\"\\\\\\u0002\""), "message json escaped");
+        check(noRawControlCharsInsideJsonStrings(escapedJson), "json string values do not contain raw control chars");
     }
 
     private static void check(boolean condition, String label) {
         if (!condition) {
             throw new AssertionError(label);
         }
+    }
+
+    private static String repeat(char value, int count) {
+        StringBuilder builder = new StringBuilder(count);
+        for (int i = 0; i < count; i++) {
+            builder.append(value);
+        }
+        return builder.toString();
+    }
+
+    private static boolean noRawControlCharsInsideJsonStrings(String json) {
+        boolean inString = false;
+        boolean escaped = false;
+        for (int i = 0; i < json.length(); i++) {
+            char current = json.charAt(i);
+            if (escaped) {
+                escaped = false;
+                continue;
+            }
+            if (current == '\\') {
+                escaped = inString;
+                continue;
+            }
+            if (current == '"') {
+                inString = !inString;
+                continue;
+            }
+            if (inString && current < 0x20) {
+                return false;
+            }
+        }
+        return true;
     }
 }
 ''',
