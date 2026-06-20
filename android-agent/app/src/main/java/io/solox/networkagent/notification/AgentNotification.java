@@ -6,9 +6,11 @@ import android.app.NotificationManager;
 import android.content.Context;
 import android.os.Build;
 
+import io.solox.networkagent.R;
+
 public final class AgentNotification {
     public static final String CHANNEL_ID = "solox_network_agent";
-    private static final int SMALL_ICON = android.R.drawable.stat_sys_upload_done;
+    private static final int SMALL_ICON = R.drawable.ic_agent_notification;
 
     private AgentNotification() {}
 

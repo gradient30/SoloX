@@ -132,6 +132,8 @@ def test_android_agent_user_visible_copy_is_chinese_with_allowed_protocol_terms(
 
     assert 'QAS Network Agent' in manifest
     assert 'QAS Network Agent' in notification
+    assert 'R.drawable.ic_agent_notification' in notification
+    assert (AGENT / 'app/src/main/res/drawable/ic_agent_notification.xml').exists()
     for text in (
         '弱网代理正在后台运行',
         '准备接收 SoloX 弱网控制',
@@ -149,6 +151,51 @@ def test_android_agent_user_visible_copy_is_chinese_with_allowed_protocol_terms(
         'No Agent logs recorded yet',
     ):
         assert forbidden not in activity
+
+
+def test_android_agent_status_feedback_help_and_vpn_icon_copy():
+    activity = read('app/src/main/java/io/solox/networkagent/MainActivity.java')
+    state = read('app/src/main/java/io/solox/networkagent/state/AgentUiState.java')
+
+    assert 'SharedPreferences' in state
+    assert 'Snapshot' in state
+    for method in (
+        'markServiceRunning',
+        'markServiceStopped',
+        'markTunnelActive',
+        'markTunnelIdle',
+        'markError',
+        'recordOperation',
+    ):
+        assert method in state
+
+    for text in ('授权状态', '服务状态', '隧道状态', '最近操作'):
+        assert text in activity
+    for text in ('▶ 启动', '■ 停止', '⟳ 刷新', '⚙ VPN', '?'):
+        assert text in activity
+
+    assert 'showHelpDialog' in activity
+    assert '目标 App → Android VPN → QAS Agent' in activity
+    assert 'VPN 图标只会在真实 VPN 隧道建立后出现' in activity
+    assert 'Settings.ACTION_VPN_SETTINGS' in activity
+    assert 'Settings.ACTION_SETTINGS' in activity
+
+
+def test_android_agent_logs_have_level_colors_and_compact_cells():
+    activity = read('app/src/main/java/io/solox/networkagent/MainActivity.java')
+
+    assert 'renderLogEntry' in activity
+    assert 'logLevelColor' in activity
+    assert 'logLevelLabel' in activity
+    for level in (
+        'AgentLogLevel.ERROR',
+        'AgentLogLevel.WARN',
+        'AgentLogLevel.INFO',
+        'AgentLogLevel.DEBUG',
+    ):
+        assert level in activity
+    for text in ('错误 ERROR', '警告 WARN', '信息 INFO', '调试 DEBUG'):
+        assert text in activity
 
 
 def test_android_agent_declares_custom_launcher_icon_resources():

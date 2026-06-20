@@ -334,6 +334,25 @@ def test_main_activity_renders_operational_console_controls_and_logs():
     assert '弱网代理正在后台运行' in notification
 
 
+def test_vpn_service_persists_ui_status_for_activity_feedback():
+    service = (SRC / 'io/solox/networkagent/vpn/SoloXVpnService.java').read_text(encoding='utf-8')
+    state = (SRC / 'io/solox/networkagent/state/AgentUiState.java').read_text(encoding='utf-8')
+
+    assert 'SharedPreferences' in state
+    assert 'markServiceRunning' in state
+    assert 'markServiceStopped' in state
+    assert 'markTunnelActive' in state
+    assert 'markTunnelIdle' in state
+    assert 'markError' in state
+    assert 'read(Context context)' in state
+
+    assert 'AgentUiState.markServiceRunning(this)' in service
+    assert 'AgentUiState.markServiceStopped(this)' in service
+    assert 'AgentUiState.markTunnelActive(this, targetPackage)' in service
+    assert 'AgentUiState.markTunnelIdle(this)' in service
+    assert 'AgentUiState.markError(this,' in service
+
+
 def test_vpn_service_builds_tun_and_starts_native_before_reporting_active():
     service = (SRC / 'io/solox/networkagent/vpn/SoloXVpnService.java').read_text(encoding='utf-8')
     dispatcher = (SRC / 'io/solox/networkagent/control/CommandDispatcher.java').read_text(encoding='utf-8')

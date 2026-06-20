@@ -16,6 +16,7 @@ import io.solox.networkagent.nativebridge.NativeTunnel;
 import io.solox.networkagent.notification.AgentNotification;
 import io.solox.networkagent.runtime.AgentRuntime;
 import io.solox.networkagent.state.AgentStateStore;
+import io.solox.networkagent.state.AgentUiState;
 
 public final class SoloXVpnService extends VpnService {
     private static final int NOTIFICATION_ID = 6201;
@@ -31,6 +32,7 @@ public final class SoloXVpnService extends VpnService {
     public void onCreate() {
         super.onCreate();
         AgentRuntime.info("service", "created");
+        AgentUiState.markServiceRunning(this);
         startForeground(NOTIFICATION_ID, AgentNotification.create(this));
         AgentStateStore stateStore = new AgentStateStore(10_000L);
         CommandDispatcher dispatcher = new CommandDispatcher(
@@ -42,6 +44,7 @@ public final class SoloXVpnService extends VpnService {
             controlSocketServer.start();
         } catch (IOException exc) {
             AgentRuntime.error("service", "cannot start control socket");
+            AgentUiState.markError(this, "控制通道启动失败");
             Log.e(TAG, "cannot start control socket", exc);
             stopSelf();
         }
@@ -70,6 +73,7 @@ public final class SoloXVpnService extends VpnService {
             controlSocketServer = null;
         }
         AgentRuntime.info("service", "destroyed");
+        AgentUiState.markServiceStopped(this);
         super.onDestroy();
     }
 
@@ -86,6 +90,7 @@ public final class SoloXVpnService extends VpnService {
         stopTunnel();
         if (getPackageName().equals(targetPackage)) {
             AgentRuntime.warn("service", "target package must not be the Agent package");
+            AgentUiState.markError(this, "目标包不能是 Agent 自身");
             return CommandDispatcher.TunnelStartResult.error("target package must not be the Agent package");
         }
         ParcelFileDescriptor descriptor = null;
@@ -108,6 +113,7 @@ public final class SoloXVpnService extends VpnService {
             descriptor = builder.establish();
             if (descriptor == null) {
                 AgentRuntime.error("service", "VPN establish returned null");
+                AgentUiState.markError(this, "VPN 建立失败：系统未返回 TUN 描述符");
                 return CommandDispatcher.TunnelStartResult.error("VPN establish returned null");
             }
             detachedFd = descriptor.detachFd();
@@ -116,11 +122,13 @@ public final class SoloXVpnService extends VpnService {
             if (handle <= 0) {
                 closeDetachedFd(detachedFd);
                 AgentRuntime.error("service", "native data plane unavailable: code " + handle);
+                AgentUiState.markError(this, "native 数据面不可用：" + handle);
                 return CommandDispatcher.TunnelStartResult.error("native data plane unavailable: code " + handle);
             }
             detachedFd = -1;
             nativeHandle = handle;
             AgentRuntime.info("service", "VPN start success");
+            AgentUiState.markTunnelActive(this, targetPackage);
             return CommandDispatcher.TunnelStartResult.ok();
         } catch (PackageManager.NameNotFoundException exc) {
             closeQuietly(descriptor);
@@ -128,6 +136,7 @@ public final class SoloXVpnService extends VpnService {
                 closeDetachedFd(detachedFd);
             }
             AgentRuntime.warn("service", "target package is not installed: " + targetPackage);
+            AgentUiState.markError(this, "目标 App 未安装：" + targetPackage);
             return CommandDispatcher.TunnelStartResult.error("target package is not installed: " + targetPackage);
         } catch (RuntimeException | Error exc) {
             closeQuietly(descriptor);
@@ -135,6 +144,7 @@ public final class SoloXVpnService extends VpnService {
                 closeDetachedFd(detachedFd);
             }
             AgentRuntime.error("service", "native data plane unavailable");
+            AgentUiState.markError(this, "native 数据面启动失败");
             Log.e(TAG, "cannot start tunnel", exc);
             return CommandDispatcher.TunnelStartResult.error("native data plane unavailable");
         }
@@ -153,6 +163,7 @@ public final class SoloXVpnService extends VpnService {
         closeQuietly(tunDescriptor);
         tunDescriptor = null;
         AgentRuntime.info("service", "VPN cleanup");
+        AgentUiState.markTunnelIdle(this);
     }
 
     private static void closeDetachedFd(int fd) {
