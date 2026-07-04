@@ -5,7 +5,10 @@
 - Source: https://github.com/tun2proxy/tun2proxy
 - License: MIT
 - Pinned revision: eed123fbbec06295bf83f9be36d5a0f64ed9a8cb
-- Local archive: `runtime/android-toolchain/downloads/tun2proxy/tun2proxy-eed123fbbec06295bf83f9be36d5a0f64ed9a8cb.zip`
+- Local archive: `<toolroot>/downloads/tun2proxy/tun2proxy-eed123fbbec06295bf83f9be36d5a0f64ed9a8cb.zip`
+- Recommended shared tool root on Windows: `%LOCALAPPDATA%\SoloX\toolchains\android-rust`
+- Opt-in environment variable: `SOLOX_SHARED_TOOLROOT`
+- Project-local compatibility fallback: `runtime/android-toolchain/`
 - Vendored source: `android-agent/native/third_party/tun2proxy`
 - Android adapter contract: the vendored runtime exposes `pub async fn run<D>`
   where the VPN device type implements `AsyncRead/AsyncWrite`, `Unpin`, `Send`,

@@ -9,6 +9,8 @@ import subprocess
 
 import pytest
 
+from tests.toolchain_helpers import resolve_test_toolchain_root
+
 
 ROOT = Path(__file__).resolve().parents[1]
 AGENT = ROOT / 'android-agent'
@@ -27,9 +29,7 @@ def find_aapt2() -> Path | None:
                 return candidate
 
     bundled = (
-        ROOT
-        / 'runtime'
-        / 'android-toolchain'
+        resolve_test_toolchain_root()
         / 'android-sdk'
         / 'build-tools'
         / '36.0.0'
@@ -292,6 +292,37 @@ def test_windows_build_scripts_use_isolated_runtime_toolchain():
     assert ".Replace('\\', '/')" in build
     assert 'SetEnvironmentVariable' not in bootstrap
     assert 'SetEnvironmentVariable' not in build
+
+def test_windows_build_scripts_support_opt_in_shared_toolchain_with_fallback():
+    helper = ROOT / 'scripts' / 'android_agent' / 'toolchain.ps1'
+    bootstrap = (ROOT / 'scripts/android_agent/bootstrap.ps1').read_text(
+        encoding='utf-8',
+    )
+    build = (ROOT / 'scripts/android_agent/build.ps1').read_text(
+        encoding='utf-8',
+    )
+    package = (ROOT / 'scripts/android_agent/package.ps1').read_text(
+        encoding='utf-8',
+    )
+
+    assert helper.is_file()
+    helper_text = helper.read_text(encoding='utf-8')
+    assert 'SOLOX_SHARED_TOOLROOT' in helper_text
+    assert 'LOCALAPPDATA' in helper_text
+    assert 'runtime\\android-toolchain' in helper_text
+    assert 'Resolve-AndroidToolchainRoot' in helper_text
+    assert 'Test-AndroidToolchainRoot' in helper_text
+    assert "Join-Path $env:LOCALAPPDATA 'SoloX\\toolchains\\android-rust'" in helper_text
+
+    assert ". \"$PSScriptRoot\\toolchain.ps1\"" in bootstrap
+    assert ". \"$PSScriptRoot\\toolchain.ps1\"" in build
+    assert 'Resolve-AndroidToolchainRoot' in bootstrap
+    assert 'Resolve-AndroidToolchainRoot' in build
+    assert 'SOLOX_SHARED_TOOLROOT' in bootstrap
+    assert 'SOLOX_SHARED_TOOLROOT' in build
+    assert 'runtime\\android-toolchain' in bootstrap
+    assert 'runtime\\android-toolchain' in build
+    assert 'build.ps1' in package
 
 
 def test_bootstrap_path_guard_allows_tool_root_itself():

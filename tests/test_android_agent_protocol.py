@@ -4,11 +4,13 @@
 import subprocess
 from pathlib import Path
 
+from tests.toolchain_helpers import java_test_environment, resolve_test_java_executable
+
 
 ROOT = Path(__file__).resolve().parents[1]
 SRC = ROOT / 'android-agent' / 'app' / 'src' / 'main' / 'java'
-JAVAC = ROOT / 'runtime' / 'android-toolchain' / 'jdk-stage' / 'jdk-17.0.19+10' / 'bin' / 'javac.exe'
-JAVA = ROOT / 'runtime' / 'android-toolchain' / 'jdk-stage' / 'jdk-17.0.19+10' / 'bin' / 'java.exe'
+JAVAC = resolve_test_java_executable('javac')
+JAVA = resolve_test_java_executable('java')
 
 
 def test_agent_protocol_and_state_machine_contracts(tmp_path):

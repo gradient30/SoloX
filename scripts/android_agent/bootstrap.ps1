@@ -1,12 +1,16 @@
 [CmdletBinding()]
-param()
+param(
+    [switch]$UseSharedToolRoot
+)
 
 $ErrorActionPreference = 'Stop'
 $ProgressPreference = 'SilentlyContinue'
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 
 $RepoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
-$ToolRoot = Join-Path $RepoRoot 'runtime\android-toolchain'
+. "$PSScriptRoot\toolchain.ps1"
+# Uses SOLOX_SHARED_TOOLROOT when configured, otherwise runtime\android-toolchain.
+$ToolRoot = Resolve-AndroidToolchainRoot -RepoRoot $RepoRoot -SkipValidation -UseDefaultSharedToolRoot:$UseSharedToolRoot
 $DownloadRoot = Join-Path $ToolRoot 'downloads'
 $JavaHome = Join-Path $ToolRoot 'jdk-stage\jdk-17.0.19+10'
 $AndroidSdkRoot = Join-Path $ToolRoot 'android-sdk'

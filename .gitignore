@@ -173,3 +173,4 @@ android-agent/.kotlin/
 android-agent/local.properties
 android-agent/**/build/
 android-agent/**/.cxx/
+runtime/android-agent-gradle-user-home/

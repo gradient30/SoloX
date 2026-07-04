@@ -4,11 +4,13 @@
 import subprocess
 from pathlib import Path
 
+from tests.toolchain_helpers import java_test_environment, resolve_test_java_executable
+
 
 ROOT = Path(__file__).resolve().parents[1]
 SRC = ROOT / 'android-agent' / 'app' / 'src' / 'main' / 'java'
-JAVAC = ROOT / 'runtime' / 'android-toolchain' / 'jdk-stage' / 'jdk-17.0.19+10' / 'bin' / 'javac.exe'
-JAVA = ROOT / 'runtime' / 'android-toolchain' / 'jdk-stage' / 'jdk-17.0.19+10' / 'bin' / 'java.exe'
+JAVAC = resolve_test_java_executable('javac')
+JAVA = resolve_test_java_executable('java')
 
 
 def test_dispatcher_refuses_to_report_active_without_native_runtime(tmp_path):
@@ -107,7 +109,7 @@ public final class CommandDispatcherHarness {
         check=True,
         cwd=ROOT,
     )
-    subprocess.run([str(JAVA), '-cp', str(out_dir), 'CommandDispatcherHarness'], check=True, cwd=ROOT)
+    subprocess.run([str(JAVA), '-cp', str(out_dir), 'CommandDispatcherHarness'], check=True, cwd=ROOT, env=java_test_environment())
 
 
 def test_agent_log_store_keeps_bounded_latest_entries_and_filters_by_exact_level(tmp_path):
@@ -227,7 +229,7 @@ public final class AgentLogStoreHarness {
         check=True,
         cwd=ROOT,
     )
-    subprocess.run([str(JAVA), '-cp', str(out_dir), 'AgentLogStoreHarness'], check=True, cwd=ROOT)
+    subprocess.run([str(JAVA), '-cp', str(out_dir), 'AgentLogStoreHarness'], check=True, cwd=ROOT, env=java_test_environment())
 
 
 def test_android_agent_has_authorization_service_and_control_socket_files():

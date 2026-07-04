@@ -155,9 +155,11 @@ curl "http://localhost:50003/apm/weaknet/clear?platform=Android&device=DEVICE_ID
 前置条件：
 
 - 已执行或具备 `scripts/android_agent/bootstrap.ps1` 准备出的工具链。
-- `runtime/android-toolchain/` 下存在 JDK、Android SDK、NDK、Gradle、Rust Android sysroot。
+- 推荐设置 `SOLOX_SHARED_TOOLROOT` 指向个人开发机共享目录，例如 `%LOCALAPPDATA%\SoloX\toolchains\android-rust`。
+- 未设置或共享目录不完整时，脚本继续回退到 `runtime/android-toolchain/`。
+- 选中的工具链根目录下需存在 JDK、Android SDK、NDK、Gradle、Rust Android sysroot。
 - `android-agent/native/third_party/tun2proxy` 已存在 vendored 源码。
-- Cargo vendor 目录可用：`runtime/android-toolchain/downloads/cargo-vendor`。
+- Cargo vendor 目录需存在于 `<toolroot>/downloads/cargo-vendor`。
 
 调试构建：
 
@@ -190,15 +192,17 @@ solox/public/android_agent/checksums.json
 校验签名：
 
 ```powershell
+$toolRoot = if ($env:SOLOX_SHARED_TOOLROOT) { $env:SOLOX_SHARED_TOOLROOT } else { 'D:\workDir\githubwork\SoloX\runtime\android-toolchain' }
 $apk = "D:\workDir\githubwork\SoloX\solox\public\android_agent\qas-network-agent-0.1.0.apk"
-$apksigner = "D:\workDir\githubwork\SoloX\runtime\android-toolchain\android-sdk\build-tools\36.0.0\apksigner.bat"
+$apksigner = Join-Path $toolRoot 'android-sdk\build-tools\36.0.0\apksigner.bat'
 & $apksigner verify --verbose $apk
 ```
 
 手动安装：
 
 ```powershell
-$adb = "D:\workDir\githubwork\SoloX\runtime\android-toolchain\android-sdk\platform-tools\adb.exe"
+$toolRoot = if ($env:SOLOX_SHARED_TOOLROOT) { $env:SOLOX_SHARED_TOOLROOT } else { 'D:\workDir\githubwork\SoloX\runtime\android-toolchain' }
+$adb = Join-Path $toolRoot 'android-sdk\platform-tools\adb.exe'
 $apk = "D:\workDir\githubwork\SoloX\solox\public\android_agent\qas-network-agent-0.1.0.apk"
 & $adb -s DEVICE_ID install -r $apk
 ```
@@ -213,7 +217,8 @@ $apk = "D:\workDir\githubwork\SoloX\solox\public\android_agent\qas-network-agent
 2. 查询前台包名：
 
 ```powershell
-$adb = "D:\workDir\githubwork\SoloX\runtime\android-toolchain\android-sdk\platform-tools\adb.exe"
+$toolRoot = if ($env:SOLOX_SHARED_TOOLROOT) { $env:SOLOX_SHARED_TOOLROOT } else { 'D:\workDir\githubwork\SoloX\runtime\android-toolchain' }
+$adb = Join-Path $toolRoot 'android-sdk\platform-tools\adb.exe'
 & $adb -s DEVICE_ID shell dumpsys activity activities | Select-String -Pattern "mResumedActivity"
 ```
 
@@ -226,10 +231,16 @@ $adb = "D:\workDir\githubwork\SoloX\runtime\android-toolchain\android-sdk\platfo
 4. 应用强弱网，例如 100% 丢包：
 
 ```python
+import os
+from pathlib import Path
+
 from solox.public.weaknet.agent import AndroidAgentController, SubprocessAgentAdbClient
 from solox.public.weaknet.models import WeakNetworkProfile
 
-adb = r"D:\workDir\githubwork\SoloX\runtime\android-toolchain\android-sdk\platform-tools\adb.exe"
+shared = os.environ.get("SOLOX_SHARED_TOOLROOT")
+project_toolroot = Path(r"D:\workDir\githubwork\SoloX\runtime\android-toolchain")
+toolroot = Path(shared) if shared else project_toolroot
+adb = str(toolroot / "android-sdk" / "platform-tools" / "adb.exe")
 ctrl = AndroidAgentController(adb_client=SubprocessAgentAdbClient(adb))
 device = "DEVICE_ID"
 package = "com.example.app"

@@ -6,7 +6,11 @@ param(
 
 $ErrorActionPreference = 'Stop'
 $RepoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
-$ToolRoot = Join-Path $RepoRoot 'runtime\android-toolchain'
+. "$PSScriptRoot\toolchain.ps1"
+# Uses SOLOX_SHARED_TOOLROOT when configured, otherwise runtime\android-toolchain.
+$ToolRoot = Resolve-AndroidToolchainRoot -RepoRoot $RepoRoot -RequireCargoVendor -RequireRust
+$ProjectToolRoot = Get-ProjectAndroidToolchainRoot -RepoRoot $RepoRoot
+$UseSharedToolRoot = $ToolRoot -ne $ProjectToolRoot
 $JavaHome = Join-Path $ToolRoot 'jdk-stage\jdk-17.0.19+10'
 $AndroidSdkRoot = Join-Path $ToolRoot 'android-sdk'
 $AgentRoot = Join-Path $RepoRoot 'android-agent'
@@ -14,7 +18,13 @@ $GradleExecutable = Join-Path $ToolRoot 'gradle-8.13\bin\gradle.bat'
 $Aapt2Executable = Join-Path $AndroidSdkRoot 'build-tools\36.0.0\aapt2.exe'
 $RustSysroot = Join-Path $ToolRoot 'rust-sysroot'
 $RustDownloads = Join-Path $ToolRoot 'downloads\rust'
+$CargoVendorRoot = Join-Path $ToolRoot 'downloads\cargo-vendor'
 $NdkBin = Join-Path $AndroidSdkRoot 'ndk\29.0.14206865\toolchains\llvm\prebuilt\windows-x86_64\bin'
+$GradleUserHome = if ($UseSharedToolRoot) {
+    Join-Path $RepoRoot 'runtime\android-agent-gradle-user-home'
+} else {
+    Join-Path $ToolRoot 'gradle-user-home'
+}
 
 foreach ($required in (
     (Join-Path $JavaHome 'bin\java.exe'),
@@ -30,15 +40,19 @@ foreach ($required in (
 $env:JAVA_HOME = $JavaHome
 $env:ANDROID_HOME = $AndroidSdkRoot
 $env:ANDROID_SDK_ROOT = $AndroidSdkRoot
-$env:GRADLE_USER_HOME = Join-Path $ToolRoot 'gradle-user-home'
+$env:GRADLE_USER_HOME = $GradleUserHome
 $env:PATH = "$(Join-Path $JavaHome 'bin');$env:PATH"
 
 $BuildNative = $false
+$BuildOffline = $false
 $FilteredGradleTasks = @()
 foreach ($task in $GradleTasks) {
     if ($task -eq 'native') {
         $BuildNative = $true
     } else {
+        if ($task -eq '--offline') {
+            $BuildOffline = $true
+        }
         $FilteredGradleTasks += $task
     }
 }
@@ -52,6 +66,7 @@ function Build-NativeLibraries {
         (Join-Path $RustSysroot 'lib\rustlib\x86_64-linux-android\lib'),
         (Join-Path $RustDownloads 'rust-std-1.93.0-aarch64-linux-android.tar.xz'),
         (Join-Path $RustDownloads 'rust-std-1.93.0-x86_64-linux-android.tar.xz'),
+        $CargoVendorRoot,
         (Join-Path $NdkBin 'aarch64-linux-android35-clang.cmd'),
         (Join-Path $NdkBin 'x86_64-linux-android35-clang.cmd')
     )) {
@@ -69,11 +84,17 @@ function Build-NativeLibraries {
         $env:CARGO_TARGET_X86_64_LINUX_ANDROID_LINKER = Join-Path $NdkBin 'x86_64-linux-android35-clang.cmd'
 
         $NativeManifest = Join-Path $AgentRoot 'native\Cargo.toml'
-        cargo build --manifest-path $NativeManifest --target aarch64-linux-android
+        $CargoVendorConfig = "source.vendored-sources.directory='$CargoVendorRoot'"
+        $CargoOptions = @('--config', $CargoVendorConfig, '--manifest-path', $NativeManifest)
+        if ($BuildOffline) {
+            $CargoOptions += '--offline'
+        }
+
+        & cargo build @CargoOptions --target aarch64-linux-android
         if ($LASTEXITCODE -ne 0) {
             throw "cargo build failed for aarch64-linux-android with exit code $LASTEXITCODE"
         }
-        cargo build --manifest-path $NativeManifest --target x86_64-linux-android
+        & cargo build @CargoOptions --target x86_64-linux-android
         if ($LASTEXITCODE -ne 0) {
             throw "cargo build failed for x86_64-linux-android with exit code $LASTEXITCODE"
         }
@@ -101,7 +122,11 @@ if ($BuildNative) {
 
 $NativeCache = Join-Path $env:GRADLE_USER_HOME 'native'
 if (Test-Path -LiteralPath $NativeCache) {
-    Remove-Item -LiteralPath $NativeCache -Recurse -Force
+    try {
+        Remove-Item -LiteralPath $NativeCache -Recurse -Force
+    } catch {
+        Write-Warning "Unable to clear Gradle native cache: $NativeCache"
+    }
 }
 
 Push-Location $AgentRoot
@@ -113,4 +138,3 @@ try {
 } finally {
     Pop-Location
 }
-
