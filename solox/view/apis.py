@@ -13,6 +13,7 @@ from solox.public.common import (Devices, File, Method, Install, Platform, Scrcp
                                  CHART_DEFAULT_MAX_POINTS)
 from solox.public.weak_network import WeakNetworkManager
 from solox.public.performance_telemetry import telemetry
+from solox.public import report_analysis
 
 d = Devices()
 f = File()
@@ -1095,6 +1096,41 @@ def removeReport():
         logger.exception(e)
         result = {'status': 0, 'msg': str(e)}
     return result
+
+@api.route('/apm/report/analysis', methods=['post', 'get'])
+def getReportAnalysis():
+    """规则引擎单报告分析：输出结构化结论（离线，不依赖云端 AI）。"""
+    scene = method._request(request, 'scene')
+    report_dir = os.path.join(os.getcwd(), 'report')
+    try:
+        if _safe_report_scene_path(report_dir, scene) is None:
+            return {'status': 0, 'msg': 'invalid scene'}
+        analysis = report_analysis.analyze_report(scene, file=f)
+        result = {'status': 1, 'analysis': analysis}
+    except Exception as e:
+        logger.exception(e)
+        result = {'status': 0, 'msg': str(e)}
+    return result
+
+
+@api.route('/apm/report/compare', methods=['post', 'get'])
+def getReportCompare():
+    """多报告回归 diff：输出指标量化差值与改善/恶化判定。"""
+    base_scene = method._request(request, 'base')
+    target_scene = method._request(request, 'target')
+    report_dir = os.path.join(os.getcwd(), 'report')
+    try:
+        if _safe_report_scene_path(report_dir, base_scene) is None:
+            return {'status': 0, 'msg': 'invalid base scene'}
+        if _safe_report_scene_path(report_dir, target_scene) is None:
+            return {'status': 0, 'msg': 'invalid target scene'}
+        compare = report_analysis.compare_reports(base_scene, target_scene, file=f)
+        result = {'status': 1, 'compare': compare}
+    except Exception as e:
+        logger.exception(e)
+        result = {'status': 0, 'msg': str(e)}
+    return result
+
 
 @api.route('/apm/report/list', methods=['get'])
 def getReportList():

@@ -79,6 +79,11 @@ test = [
     "requests-mock>=1.9",
     "pyyaml>=6.0",
 ]
+# 可选：启用 SoloX MCP 服务（AI 客户端接入报告查询/分析）。
+# 未安装时 CLI/采集/Web 均正常，仅 `python -m solox.mcp.server` 需要。
+mcp = [
+    "mcp>=1.0",
+]
 
 [project.urls]
 Homepage = "https://github.com/smart-test-ti/SoloX"

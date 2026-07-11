@@ -158,7 +158,13 @@
 - **Mac电脑**: 录制视频请检查Scrcpy是否安装成功，可以自行安装：`brew install scrcpy`
 
 ### iOS屏幕录制
-目前不支持iOS设备屏幕录制。
+SoloX **不支持 iOS 设备的视频录制**，这是 iOS 调试通道的能力边界，而非暂未实现：
+
+- 非越狱设备上，Apple 官方调试通道（Instruments / usbmuxd）只提供**截图 / MJPEG 帧流**，不提供可直接落地的 H.264 视频录制接口。开源生态中的同类工具也是如此（例如 [go-ios](https://github.com/danielpaulus/go-ios) 的 `screenshot` 为截图或 MJPEG 流、[sonic-ios-bridge](https://github.com/SonicCloudOrg/sonic-ios-bridge) 的 `screenshoot` 同理）。
+- 因此 SoloX iOS 侧仅具备**低频截图**能力（`iter_screenshot`），报告页不会出现 iOS 录屏播放按钮。
+- 如需 iOS 屏幕**视频**录制，请使用系统级方案：
+  - **Mac**: QuickTime Player → 文件 → 新建影片录制 → 选择已连接的 iOS 设备；
+  - **iOS 自带**: 控制中心「屏幕录制」，录制后从设备导出。
 
 ## 1️⃣9️⃣ Android哪些指标依赖app的进程需要存活？
 
@@ -169,7 +175,25 @@
 - 界面如果不选择进程就点击Start收集，那么默认使用的是这个包名的主进程
 - 界面选择了app的某个进程收集，如果收集过程中将app杀掉，然后再恢复后自动使用的是主进程，有可能和你界面选择的进程不一致
 
-## 2️⃣0️⃣ Android/iOS最高支持的系统版本？
+## 2️⃣0️⃣ iOS 能做弱网测试吗？
+
+SoloX 的**设备侧弱网注入目前仅支持 Android**（Root `tc netem` 或非 Root 的 QAS Network Agent VPN）。iOS 侧没有等价的设备侧注入，原因与可选路径如下：
+
+### 当前推荐（手动，即刻可用）
+1. 在被测 iPhone 安装 **Developer 描述文件**（通过 Xcode 连接一次即可开启「开发者」菜单）。
+2. 打开 **设置 → 开发者 → Network Link Conditioner**，选择内置档位（100% Loss、High Latency DNS、Very Bad Network、3G、LTE 等）或自定义。
+3. 在 SoloX 中正常连接该 iOS 设备并采集 —— 弱网由系统施加，SoloX 如实记录此期间的性能数据。
+
+### 未来可选（程序化，尚未集成）
+iOS 17+ 可通过 Instruments 的 **Condition Inducer** 服务在设备侧程序化启用网络/热状态条件（对应 [go-ios](https://github.com/danielpaulus/go-ios) 的 `ios devicestate enable`、[pymobiledevice3](https://github.com/doronz88/pymobiledevice3) 的 `developer dvt condition`）。SoloX 暂未集成，原因：
+
+- 现有 iOS 链路锁定在 `tidevice==0.9.7`，**不含** Condition Inducer 与 iOS 17+ 的 RemoteXPC 隧道能力；
+- iOS 17+ 需 `sudo` 启动隧道守护进程（Windows 还需 `wintun.dll`），部署成本高；
+- 许可证约束：SoloX 为 **MIT**，可移植 **MIT** 的 go-ios 思路/代码（需署名），但**不可**将 **GPL-3.0** 的 pymobiledevice3、**AGPL-3.0** 的 sonic-ios-bridge 源码并入本仓库。
+
+详见 [docs/plans/2026-07-11-ios-gap-and-oss-survey.md](../plans/2026-07-11-ios-gap-and-oss-survey.md)。
+
+## 2️⃣1️⃣ Android/iOS最高支持的系统版本？
 
 ### 系统版本支持
 - **Android**: 6.0+

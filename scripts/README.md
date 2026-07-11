@@ -13,6 +13,10 @@
 | 发版门禁 | `bash scripts/release_gate.sh` | `.\scripts\release_gate.ps1` |
 | 兼容矩阵 | `python scripts/validate_compatibility_matrix.py` | 同左 |
 | 打包 wheel/sdist | `bash scripts/package.sh` | 同左（需 Git Bash 或 WSL） |
+| Headless 采集/分析 CLI | `python -m solox.cli collect --device <id> --pkg <pkg> --duration 60` | 同左 |
+| 报告分析（离线规则引擎） | `python -m solox.cli analyze --scene <apm_dir>` | 同左 |
+| 报告回归对比 | `python -m solox.cli compare --base <a> --target <b>` | 同左 |
+| MCP 服务（可选，需 `pip install "mcp>=1.0"`） | `python -m solox.mcp.server` | 同左 |
 
 **Windows 说明：** 请勿在 PowerShell 中直接运行 `bash scripts/dev.sh`（可能进入 WSL 且找不到 Python），应使用 `.\scripts\dev.ps1`。
 
