@@ -46,6 +46,14 @@ pip install -i https://mirrors.ustc.edu.cn/pypi/web/simple -U solox
 
 💡 如果网络无法通过 `pip install -U solox` 下载，可以尝试使用镜像下载，但可能不是最新版本。
 
+### 可选：iOS 扩展后端（个人自用）
+
+```shell
+pip install "solox[ios]"
+```
+
+引入 [pymobiledevice3](https://github.com/doronz88/pymobiledevice3)（**GPL-3.0**，仅限个人、非商业、纯本地、不对外分发使用），补齐 iOS 17+ 隧道连接、程序化弱网（Condition Inducer）、截图/录屏、真实 Jank（CoreProfileSessionTap）等能力。未安装时核心功能（Android / 旧 iOS 链路）不受任何影响。相关能力需 iOS 真机验收，详见 [docs/plans/2026-07-11-ios-pmd3-backend.md](docs/plans/2026-07-11-ios-pmd3-backend.md)。
+
 ## 🚀 快速启动
 
 ### 默认启动

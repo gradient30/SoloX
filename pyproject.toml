@@ -84,6 +84,14 @@ test = [
 mcp = [
     "mcp>=1.0",
 ]
+# 可选：iOS 扩展后端（pymobiledevice3），补齐 iOS 17+ 隧道连接、程序化弱网
+# （Condition Inducer）、截图/录屏、真实 Jank（CoreProfileSessionTap）。
+# 未安装时核心 SoloX（Android/旧 iOS 链路）不受影响；仅 solox.public.ios_ext
+# 相关能力需要。GPL-3.0 依赖，仅限个人非商业本地使用（见 docs/plans/
+# 2026-07-11-ios-pmd3-backend.md）。
+ios = [
+    "pymobiledevice3>=9.0",
+]
 
 [project.urls]
 Homepage = "https://github.com/smart-test-ti/SoloX"
@@ -166,7 +174,9 @@ ignore_missing_imports = true
 # Pytest 配置
 [tool.pytest.ini_options]
 minversion = "6.0"
-addopts = "-ra -q --strict-markers --strict-config"
+# -p no:xonsh：iOS 可选依赖 pymobiledevice3 会间接引入 xonsh，其 pytest 插件在
+# 非交互/无控制台环境下初始化会崩溃；此处禁用之。未安装 xonsh 时该项为空操作。
+addopts = "-ra -q --strict-markers --strict-config -p no:xonsh"
 testpaths = ["tests"]
 python_files = ["test_*.py", "*_test.py"]
 python_classes = ["Test*"]

@@ -158,6 +158,23 @@ def _apply_mem_swap_support(result, swapPass):
     return result
 
 
+def _apply_gpu_support(result, monitor, value):
+    """如实标注 GPU 利用率是否可测（诚实性修复）。
+
+    Android GPU 利用率依赖高通 kgsl sysfs，非 root 设备通常被 SELinux 拒绝，
+    此前异常被吞、错误地返回 ``gpu: 0``（误导用户以为 GPU 空闲）。现改为：取到
+    数值时 ``gpu_supported=true``；不可用时 ``gpu`` 置 ``None`` 并
+    ``gpu_supported=false``，附带 ``gpu_msg`` 说明原因。iOS 正常取值不受影响。
+    """
+    supported = getattr(monitor, 'gpu_supported', True) and value is not None
+    result['gpu_supported'] = bool(supported)
+    if not supported:
+        result['gpu'] = None
+        reason = getattr(monitor, 'gpu_unsupported_reason', None)
+        result['gpu_msg'] = reason or 'GPU 利用率不可用：设备未 root 或无读取权限'
+    return result
+
+
 def _apply_gpu_detail(result, monitor):
     """暴露 iOS GPU 的 Renderer/Tiler 细分利用率。
 
@@ -674,10 +691,11 @@ def getGpu():
         gpu = GPU(pkgName=pkgname, deviceId=deviceId, platform=platform)
         value = gpu.getGPU()
         result = {'status': 1, 'gpu': value}
+        _apply_gpu_support(result, gpu, value)
         _apply_gpu_detail(result, gpu)
     except Exception as e:
         logger.exception(e)
-        result = {'status': 1, 'gpu': 0}
+        result = {'status': 1, 'gpu': None, 'gpu_supported': False}
     return result
 
 @api.route('/apm/energy', methods=['post', 'get'])
@@ -1238,6 +1256,7 @@ def apmCollect():
                 gpu = GPU(pkgName=pkgname, deviceId=deviceid, platform=platform)
                 final = gpu.getGPU(noLog=True)
                 result = {'status': 1, 'gpu': final}
+                _apply_gpu_support(result, gpu, final)
                 _apply_gpu_detail(result, gpu)
             case _:
                 result = {'status': 0, 'msg': 'no this target'}
@@ -1434,6 +1453,100 @@ def play_record():
         result = {'status': 0, 'msg': 'play video failed'}
     return result
 
+def _ios_weaknet_capabilities(device):
+    """汇总 iOS 弱网（Condition Inducer）能力与可选档位。
+
+    Args:
+        device: 设备显示名或 udid。
+
+    Returns:
+        dict: 含 ``simulation_supported`` / ``engine`` / ``profiles``。
+    """
+    from solox.public import ios_ext
+    from solox.public.ios_ext.weaknet import IOSWeakNetManager
+    if not ios_ext.is_available():
+        return {'status': 1, 'simulation_supported': False,
+                'mode': 'unsupported', 'engine': 'ios_condition_inducer',
+                'msg': 'iOS 弱网需安装 pymobiledevice3：pip install "solox[ios]"'}
+    device_id = d.getIdbyDevice(device, Platform.iOS)
+    profiles = IOSWeakNetManager.list_profiles(device_id)
+    return {'status': 1, 'simulation_supported': True, 'mode': 'simulation',
+            'engine': 'ios_condition_inducer', 'profiles': profiles}
+
+
+def _ios_weaknet_apply(device_id, profile_identifier):
+    """应用 iOS 弱网档位（Condition Inducer）。
+
+    Args:
+        device_id: 设备 udid。
+        profile_identifier: Condition 子档位标识，如 ``3G-GoodNetwork``。
+
+    Returns:
+        dict: 应用结果或错误信息。
+    """
+    from solox.public.ios_ext.weaknet import IOSWeakNetManager
+    if not profile_identifier or profile_identifier == 'off':
+        return {'status': 1, **IOSWeakNetManager.clear(device_id)}
+    return {'status': 1,
+            **IOSWeakNetManager.apply(device_id, profile_identifier)}
+
+
+@api.route('/apm/ios/backend', methods=['post', 'get'])
+def ios_backend_capabilities():
+    """返回 iOS 扩展后端（pymobiledevice3）可用性与能力。"""
+    from solox.public import ios_ext
+    return {'status': 1, **ios_ext.capabilities()}
+
+
+@api.route('/apm/weaknet/ios/profiles', methods=['post', 'get'])
+def weaknet_ios_profiles():
+    """列出 iOS 设备可用的网络类 Condition 档位。"""
+    device = method._request(request, 'device')
+    try:
+        from solox.public.ios_ext.weaknet import IOSWeakNetManager
+        device_id = d.getIdbyDevice(device, Platform.iOS)
+        return {'status': 1,
+                'profiles': IOSWeakNetManager.list_profiles(device_id)}
+    except Exception as e:
+        logger.exception(e)
+        return {'status': 0, 'msg': str(e)}
+
+
+@api.route('/apm/ios/screenshot', methods=['post', 'get'])
+def ios_screenshot():
+    """抓取一帧 iOS 屏幕截图并返回 PNG。"""
+    device = method._request(request, 'device')
+    try:
+        from solox.public.ios_ext import screen
+        device_id = d.getIdbyDevice(device, Platform.iOS)
+        data = screen.take_screenshot(device_id)
+        response = make_response(data)
+        response.headers['Content-Type'] = 'image/png'
+        return response
+    except Exception as e:
+        logger.exception(e)
+        return {'status': 0, 'msg': str(e)}
+
+
+@api.route('/apm/ios/jank', methods=['post', 'get'])
+def ios_jank():
+    """采集一段时间的 iOS 帧时序并返回真实 Jank 结果。"""
+    device = method._request(request, 'device')
+    duration = float(request.values.get('duration', 10) or 10)
+    refresh = request.values.get('refresh_period')
+    try:
+        from solox.public.ios_ext import frametime
+        device_id = d.getIdbyDevice(device, Platform.iOS)
+        refresh_period = float(refresh) if refresh else None
+        result = frametime.measure_jank(
+            device_id, duration=duration, refresh_period=refresh_period
+        )
+        return {'status': 1, **result}
+    except Exception as e:
+        logger.exception(e)
+        return {'status': 0, 'msg': str(e)}
+
+
 @api.route('/apm/weaknet/presets', methods=['post', 'get'])
 def weaknet_presets():
     lan = request.args.get('lan', 'cn')
@@ -1445,6 +1558,8 @@ def weaknet_capabilities():
     platform = method._request(request, 'platform')
     device = method._request(request, 'device')
     try:
+        if platform == Platform.iOS:
+            return _ios_weaknet_capabilities(device)
         if platform != Platform.Android:
             return {'status': 1, 'simulation_supported': False, 'mode': 'unsupported',
                     'msg': 'weak network simulation is Android-only; iOS use Network Link Conditioner on macOS host'}
@@ -1467,6 +1582,9 @@ def weaknet_status():
     device = method._request(request, 'device')
     try:
         device_id = d.getIdbyDevice(device, platform)
+        if platform == Platform.iOS:
+            from solox.public.ios_ext.weaknet import IOSWeakNetManager
+            return {'status': 1, **IOSWeakNetManager.status(device_id)}
         return {'status': 1, **WeakNetworkManager.get_status(device_id)}
     except Exception as e:
         logger.exception(e)
@@ -1481,6 +1599,9 @@ def weaknet_apply():
     engine = request.values.get('engine') or 'auto'
     target_package = request.values.get('target_package') or None
     try:
+        if platform == Platform.iOS:
+            device_id = d.getIdbyDevice(device, platform)
+            return _ios_weaknet_apply(device_id, preset)
         if platform != Platform.Android:
             return {'status': 0, 'msg': 'Android only'}
         device_id = d.getIdbyDevice(device, platform)
@@ -1546,6 +1667,9 @@ def weaknet_clear():
     device = method._request(request, 'device')
     try:
         device_id = d.getIdbyDevice(device, platform)
+        if platform == Platform.iOS:
+            from solox.public.ios_ext.weaknet import IOSWeakNetManager
+            return {'status': 1, **IOSWeakNetManager.clear(device_id)}
         engine = request.values.get('engine')
         data = (
             WeakNetworkManager.clear(device_id, engine=engine)

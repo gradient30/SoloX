@@ -66,6 +66,32 @@ class TestGpuCollectRealCodePath(unittest.TestCase):
             cmd='cat /sys/class/kgsl/kgsl-3d0/gpubusy',
             deviceId='test_device',
         )
+        self.assertTrue(data['gpu_supported'])
+
+    @patch('solox.public.apm.adb.shell')
+    def test_gpu_collect_permission_denied_honest_null(self, mock_shell):
+        """非 root/无 kgsl 权限时应返回 gpu=null + gpu_supported=false，绝不伪造 0。"""
+        mock_shell.return_value = (
+            '/system/bin/sh: cat: /sys/class/kgsl/kgsl-3d0/gpubusy: '
+            'Permission denied'
+        )
+
+        resp = self.client.get(
+            '/apm/collect',
+            query_string={
+                'platform': 'Android',
+                'deviceid': 'test_device',
+                'pkgname': 'com.test.app',
+                'target': 'gpu',
+            },
+        )
+        data = resp.get_json()
+
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(data['status'], 1)
+        self.assertIsNone(data['gpu'])
+        self.assertFalse(data['gpu_supported'])
+        self.assertIn('GPU', data['gpu_msg'])
 
 
 class TestPerfDogAcceptanceFlow(unittest.TestCase):
@@ -388,7 +414,9 @@ class TestWeakNetAcceptance(unittest.TestCase):
         self.assertEqual(resp.get_json()['status'], 1)
         mock_clear.assert_called_once_with('test_device')
 
-    def test_pm_ios_simulation_unsupported(self):
+    @patch('solox.public.ios_ext.is_available', return_value=False)
+    def test_pm_ios_weaknet_unavailable_without_pmd3(self, _mock_avail):
+        """未安装 pymobiledevice3 时，iOS 弱网应报告不支持并给出安装指引。"""
         resp = self.client.get('/apm/weaknet/capabilities', query_string={
             'platform': 'iOS',
             'device': '00008030-001',
@@ -396,7 +424,30 @@ class TestWeakNetAcceptance(unittest.TestCase):
         data = resp.get_json()
         self.assertEqual(data['status'], 1)
         self.assertFalse(data['simulation_supported'])
-        self.assertIn('Android-only', data['msg'])
+        self.assertIn('pymobiledevice3', data['msg'])
+
+    @patch('solox.view.apis.d.getIdbyDevice', return_value='UDID')
+    @patch('solox.public.ios_ext.is_available', return_value=True)
+    @patch(
+        'solox.public.ios_ext.weaknet.IOSWeakNetManager.list_profiles'
+    )
+    def test_pm_ios_weaknet_supported_with_pmd3(
+        self, mock_list, _mock_avail, _mock_id
+    ):
+        """安装 pymobiledevice3 后，iOS 弱网（Condition Inducer）应可用。"""
+        mock_list.return_value = [
+            {'identifier': 'SlowNetworkCondition', 'name': 'NLC',
+             'is_destructive': False, 'profiles': []}
+        ]
+        resp = self.client.get('/apm/weaknet/capabilities', query_string={
+            'platform': 'iOS',
+            'device': '00008030-001',
+        })
+        data = resp.get_json()
+        self.assertEqual(data['status'], 1)
+        self.assertTrue(data['simulation_supported'])
+        self.assertEqual(data['engine'], 'ios_condition_inducer')
+        self.assertEqual(len(data['profiles']), 1)
 
     @patch('solox.view.apis.WeakNetworkManager.agent_status')
     def test_agent_status_endpoint(self, mock_status):

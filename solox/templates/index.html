@@ -2553,6 +2553,15 @@ adb kill-server &amp;&amp; adb start-server</code></pre>
                     if(data['status'] == 1){
                         try {
                             var x = (new Date()).getTime();
+                            // GPU 利用率不可用（非 root/无 kgsl 权限）时后端返回 gpu=null
+                            // 且 gpu_supported=false：如实以 null 断点呈现（不画伪造的 0），
+                            // 并仅提示一次，避免误导用户以为"GPU 空闲"。
+                            if(data['gpu_supported'] === false){
+                                if(!window.gpuUnsupportedNotified){
+                                    window.gpuUnsupportedNotified = true;
+                                    SwalFire('info','GPU 利用率不可用', data['gpu_msg'] || '当前设备未 root 或无 kgsl 读取权限，无法采集 GPU 利用率', 4000);
+                                }
+                            }
                             gpu_chart.series[0].addPoint([x, data['gpu']], true, true);
                             // iOS 额外展示 Renderer/Tiler（后端 gpu_detail_supported 时提供）
                             if(platform == 'iOS' && data['gpu_detail_supported'] && gpu_chart.series.length > 2){

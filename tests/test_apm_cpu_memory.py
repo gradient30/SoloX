@@ -4,7 +4,7 @@
 import unittest
 from unittest.mock import patch, MagicMock
 
-from solox.public.apm import CPU, Memory
+from solox.public.apm import CPU, GPU, Memory
 from solox.public.common import Devices, Platform
 
 
@@ -185,6 +185,37 @@ class TestMemoryCollectionMocked(unittest.TestCase):
 
         self.assertEqual(total, 0)
         self.assertEqual(swap, 0)
+
+
+class TestGpuHonestyMocked(unittest.TestCase):
+    """GPU 诚实性：kgsl 可读时给数值，不可读时返回 None 且 gpu_supported=False。"""
+
+    @patch('solox.public.apm.adb.shell')
+    def test_gpu_rate_ok(self, mock_shell):
+        mock_shell.return_value = '5000 10000'
+        gpu = GPU(pkgName=PKG, deviceId=DEVICE, platform=Platform.Android)
+        value = gpu.getGPU(noLog=True)
+        self.assertEqual(value, 50.0)
+        self.assertTrue(gpu.gpu_supported)
+
+    @patch('solox.public.apm.adb.shell')
+    def test_gpu_rate_permission_denied_returns_none(self, mock_shell):
+        mock_shell.return_value = (
+            'cat: /sys/class/kgsl/kgsl-3d0/gpubusy: Permission denied'
+        )
+        gpu = GPU(pkgName=PKG, deviceId=DEVICE, platform=Platform.Android)
+        value = gpu.getGPU(noLog=True)
+        self.assertIsNone(value)
+        self.assertFalse(gpu.gpu_supported)
+        self.assertIsNotNone(gpu.gpu_unsupported_reason)
+
+    @patch('solox.public.apm.adb.shell')
+    def test_gpu_rate_zero_denominator_returns_none(self, mock_shell):
+        mock_shell.return_value = '0 0'
+        gpu = GPU(pkgName=PKG, deviceId=DEVICE, platform=Platform.Android)
+        value = gpu.getGPU(noLog=True)
+        self.assertIsNone(value)
+        self.assertFalse(gpu.gpu_supported)
 
 
 if __name__ == '__main__':

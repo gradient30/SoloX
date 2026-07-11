@@ -139,7 +139,13 @@ class CPU(object):
         return coreCpuRateList    
 
     def getAndroidCpuRate(self, noLog=False):
-        """get the Android cpu rate of a process"""
+        """获取 Android 进程 CPU 占用率(%)。
+
+        口径说明（重要）：本方法把进程 CPU 时间增量除以**全部核心** CPU 时间
+        增量之和，即 **100% = 全机所有核心满载**（如 8 核机上单核跑满≈12.5%）。
+        这与 ``top`` / PerfDog 的"100%=单核"口径不同——与后者对比时需 ×核数。
+        经真机核对：本方法 app% × 核数 ≈ ``dumpsys cpuinfo`` 的每核百分比。
+        """
         try:
             processCpuTime_1 = self.getprocessCpuStat()
             totalCpuTime_1 = self.getTotalCpuStat()
@@ -352,7 +358,15 @@ class Network(object):
             self.pid = d.getPid(pkgName=self.pkgName, deviceId=self.deviceId)[0].split(':')[0]
 
     def getAndroidNet(self, wifi=True):
-        """Get Android send/recv data, unit:KB wlan0/rmnet_ipa0"""
+        """获取 Android 上/下行流量增量(KB)。
+
+        数据源为 ``/proc/<pid>/net/dev`` 的 ``wlan0``(WiFi)/``rmnet_ipa0``(蜂窝)
+        计数。**范围说明（重要）**：该文件是**网络命名空间级**统计，而 Android
+        普通 App 共享默认命名空间，因此读到的是**采集窗口内本机该网卡的总流量**，
+        并非严格的"仅该 App"流量；当被测 App 为前台主要流量来源时可近似其流量。
+        严格 App 级流量需 UID 级统计（Android 10+ 的 eBPF，通常需 root），本项目
+        未采用。返回 ``(sendNum, recNum)``，单位 KB。
+        """
         try:
             if wifi is True:
                 net = 'wlan0'
@@ -522,12 +536,54 @@ class GPU(object):
         # iOS GPU 细分利用率（Android 无此口径，保持 None 表示不适用）
         self.renderer = None
         self.tiler = None
+        # GPU 利用率是否可测：Android 依赖高通 kgsl sysfs，非 root 设备通常
+        # 被 SELinux 拒绝读取。默认 True，读取失败时置 False，供上层如实标注
+        # gpu_supported=false（而非伪造 0，误导用户以为"GPU 空闲"）。
+        self.gpu_supported = True
+        self.gpu_unsupported_reason = None
 
     def getAndroidGpuRate(self):
-        cmd = 'cat /sys/class/kgsl/kgsl-3d0/gpubusy'
-        result = adb.shell(cmd=cmd, deviceId=self.deviceId)
-        gpu = round(float(int(result.split(' ')[0]) / int(result.split(' ')[1])) * 100, 2)
-        return gpu
+        """读取 Adreno(kgsl) GPU 利用率(%)。
+
+        数据源 ``/sys/class/kgsl/kgsl-3d0/gpubusy`` 仅在 **已 root 或该 sysfs
+        节点对 shell 可读** 时可用；多数非 root 设备（含本机骁龙 855）会返回
+        ``Permission denied``。此时**返回 None 表示"不可用"**，绝不伪造 0。
+
+        注意：``dumpsys gfxinfo`` 提供的是 HWUI 帧的 GPU 绘制耗时(ms) 与 HWUI
+        显存，**不是 GPU 利用率**，且对 SurfaceView 游戏不反映真实渲染，故不能
+        作为本指标的替代来源。
+
+        :return: 利用率百分比(float)；不可用时返回 ``None``。
+        """
+        try:
+            cmd = 'cat /sys/class/kgsl/kgsl-3d0/gpubusy'
+            result = adb.shell(cmd=cmd, deviceId=self.deviceId)
+            parts = (result or '').split()
+            # 权限拒绝/节点不存在/输出非数值 → 判定为不可用
+            if (len(parts) < 2
+                    or not parts[0].lstrip('-').isdigit()
+                    or not parts[1].lstrip('-').isdigit()):
+                self.gpu_supported = False
+                self.gpu_unsupported_reason = (
+                    'GPU 利用率不可用：设备未 root 或无 kgsl sysfs 读取权限'
+                )
+                logger.warning(
+                    '[GPU] %s 读取 kgsl gpubusy 失败（非 root/无权限）：%s',
+                    self.deviceId, (result or '').strip()[:120]
+                )
+                return None
+            busy, total = int(parts[0]), int(parts[1])
+            if total == 0:
+                self.gpu_supported = False
+                self.gpu_unsupported_reason = 'GPU 利用率不可用：分母为 0'
+                return None
+            self.gpu_supported = True
+            return round(busy / total * 100, 2)
+        except Exception as e:
+            self.gpu_supported = False
+            self.gpu_unsupported_reason = 'GPU 利用率读取异常：{}'.format(e)
+            logger.warning('[GPU] %s 读取异常：%s', self.deviceId, e)
+            return None
 
     def getiOSGpuRate(self):
         """获取 iOS GPU 利用率。
@@ -554,8 +610,13 @@ class GPU(object):
         return gpu
 
     def getGPU(self, noLog=False):
+        """获取 GPU 利用率(%)。
+
+        Android 不可用时返回 ``None``（见 :meth:`getAndroidGpuRate`）；仅在取到
+        数值时才落地日志，避免把"不可用"写成 0 污染报告。
+        """
         gpu = self.getAndroidGpuRate() if self.platform == Platform.Android else self.getiOSGpuRate()
-        if noLog is False:
+        if noLog is False and gpu is not None:
             apm_time = datetime.datetime.now().strftime('%H:%M:%S.%f')
             f.add_log(os.path.join(f.report_dir,'gpu.log'), apm_time, gpu)
         return gpu
