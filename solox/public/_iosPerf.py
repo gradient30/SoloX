@@ -294,6 +294,9 @@ def append_data(wg: WaitGroup, stop_event: threading.Event,
                     app_cpu /= data['count']
                     sys_cpu /= data['count']
                 return app_cpu, sys_cpu
+            elif _type.value == 'gpu':
+                # 同时返回 Device/Renderer/Tiler 三个利用率，避免丢弃后两者
+                return data['value'], data.get('renderer'), data.get('tiler')
             else:
                 return data['value']
         # print(_type, data)

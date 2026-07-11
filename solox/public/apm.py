@@ -262,10 +262,18 @@ class Memory(object):
         return memory_dict
 
     def getiOSMemory(self):
-        """Get the iOS memory"""
+        """获取 iOS 内存占用（单位 MB）。
+
+        说明：iOS 采用 Instruments 上报的 ``physFootprint`` 作为物理内存，
+        系统层面不向调试通道暴露 App 级 Swap 指标。为避免返回伪造的 0 值让
+        用户误以为"Swap=0"，这里将 swap 明确置为 ``None``（表示"该平台不适用"），
+        由上层 API 转换为 ``null`` + ``swap_supported=false``。
+
+        :return: ``(totalPass, None)``，其中 None 表示 iOS 无 Swap 概念。
+        """
         apm = iosPerformance(self.pkgName, self.deviceId)
         totalPass = round(float(apm.getPerformance(apm.memory)), 2)
-        swapPass = 0
+        swapPass = None  # iOS 无 App 级 Swap 指标，None 表示"不适用"而非 0
         return totalPass, swapPass
 
     def getProcessMemory(self, noLog=False):
@@ -477,17 +485,32 @@ class FPS(object):
         return fps, jank
     
     def getiOSFps(self, noLog=False):
-        """get iOS Fps"""
+        """获取 iOS 帧率。
+
+        说明：iOS 侧数据源（Instruments graphics.opengl 通道）只提供每采样
+        区间的聚合 FPS 标量 ``CoreAnimationFramesPerSecond``，**没有逐帧的
+        display 时间戳**，因此无法按 PerfDog 口径计算 Jank/BigJank。为避免
+        返回一个看似"已测量、零卡顿"的伪造 0 值误导用户，这里将 jank 明确
+        置为 ``None``（表示"该平台暂不支持"），由上层 API 转换为 ``null`` +
+        ``jank_supported=false``。
+
+        :param noLog: 为 True 时不落地日志。
+        :return: ``(fps, None)``，其中 None 表示 iOS 不支持 Jank 测量。
+        """
         apm = iosPerformance(self.pkgName, self.deviceId)
         fps = int(apm.getPerformance(apm.fps))
-        self.big_jank = 0
+        self.big_jank = None  # iOS 无法测量，None 表示"不支持"而非 0
         if noLog is False:
             apm_time = datetime.datetime.now().strftime('%H:%M:%S.%f')
             f.add_log(os.path.join(f.report_dir,'fps.log'), apm_time, fps)
-        return fps, 0
+        return fps, None
 
     def getFPS(self, noLog=False):
-        """get fps、jank (big_jank available via self.big_jank)"""
+        """get fps、jank (big_jank available via self.big_jank)
+
+        Android 返回真实测得的 jank（int）；iOS 的 jank 为 None，表示该平台
+        暂不支持 Jank 测量（原因见 :meth:`getiOSFps`）。
+        """
         fps, jank = self.getAndroidFps(noLog) if self.platform == Platform.Android else self.getiOSFps(noLog)
         return fps, jank
 
@@ -496,6 +519,9 @@ class GPU(object):
         self.pkgName = pkgName
         self.deviceId = deviceId
         self.platform = platform
+        # iOS GPU 细分利用率（Android 无此口径，保持 None 表示不适用）
+        self.renderer = None
+        self.tiler = None
 
     def getAndroidGpuRate(self):
         cmd = 'cat /sys/class/kgsl/kgsl-3d0/gpubusy'
@@ -504,9 +530,28 @@ class GPU(object):
         return gpu
 
     def getiOSGpuRate(self):
+        """获取 iOS GPU 利用率。
+
+        iOS Instruments 的 graphics.opengl 通道同时提供三个利用率：
+
+        - Device：整体 GPU 利用率（作为主 gpu 值，与 Android 口径大致对应）
+        - Renderer：像素/片段着色阶段利用率（对齐 PerfDog 的 Render）
+        - Tiler：顶点/几何着色阶段利用率（对齐 PerfDog 的 Tiler）
+
+        为保持 ``gpu.log`` 与既有报告不变，本方法仍返回 Device 标量作为主值，
+        Renderer/Tiler 通过 ``self.renderer`` / ``self.tiler`` 暴露给上层 API。
+
+        :return: Device 利用率标量（float）。
+        """
         apm = iosPerformance(self.pkgName, self.deviceId)
         gpu = apm.getPerformance(apm.gpu)
-        return gpu    
+        if isinstance(gpu, (tuple, list)):
+            device = gpu[0]
+            self.renderer = gpu[1] if len(gpu) > 1 else None
+            self.tiler = gpu[2] if len(gpu) > 2 else None
+            return device
+        # 兼容底层可能返回单标量的旧行为
+        return gpu
 
     def getGPU(self, noLog=False):
         gpu = self.getAndroidGpuRate() if self.platform == Platform.Android else self.getiOSGpuRate()

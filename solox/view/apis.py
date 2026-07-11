@@ -118,6 +118,63 @@ def _fps_big_jank(monitor):
     return int(val) if isinstance(val, (int, float)) else 0
 
 
+def _apply_fps_jank_support(result, monitor, jank):
+    """按平台能力如实标注 FPS 的 Jank 字段。
+
+    当底层返回的 jank 为 None（iOS：数据源无逐帧时间戳，无法按 PerfDog 口径
+    计算 Jank），输出 ``jank=null`` + ``jank_supported=false``，而不是伪造的 0，
+    避免使用者误判为"零卡顿"。Android 保持真实测量值不变。
+
+    :param result: 待补全的响应字典。
+    :param monitor: FPS 采集对象（读取 big_jank）。
+    :param jank: 底层 getFPS 返回的 jank（int 或 None）。
+    :return: 补全后的 result。
+    """
+    if jank is None:
+        result['jank'] = None
+        result['big_jank'] = None
+        result['jank_supported'] = False
+    else:
+        result['jank'] = jank
+        result['big_jank'] = _fps_big_jank(monitor)
+        result['jank_supported'] = True
+    return result
+
+
+def _apply_mem_swap_support(result, swapPass):
+    """按平台能力如实标注内存的 Swap 字段。
+
+    当底层返回的 swap 为 None（iOS：系统不暴露 App 级 Swap），输出
+    ``swapPass=null`` + ``swap_supported=false``，避免伪造的 0 值误导。
+    Android 保持真实测量值不变。
+    """
+    if swapPass is None:
+        result['swapPass'] = None
+        result['swap_supported'] = False
+    else:
+        result['swapPass'] = swapPass
+        result['swap_supported'] = True
+    return result
+
+
+def _apply_gpu_detail(result, monitor):
+    """暴露 iOS GPU 的 Renderer/Tiler 细分利用率。
+
+    iOS Instruments 同时采集 Device/Renderer/Tiler 三个利用率，此前仅 Device
+    被暴露、后两者被丢弃。这里在采集对象带有 renderer/tiler 时补充输出，并置
+    ``gpu_detail_supported=true``；Android 无此口径（保持 None），响应不变。
+    """
+    renderer = getattr(monitor, 'renderer', None)
+    tiler = getattr(monitor, 'tiler', None)
+    has_renderer = isinstance(renderer, (int, float))
+    has_tiler = isinstance(tiler, (int, float))
+    if has_renderer or has_tiler:
+        result['renderer'] = renderer if has_renderer else None
+        result['tiler'] = tiler if has_tiler else None
+        result['gpu_detail_supported'] = True
+    return result
+
+
 @api.route('/apm/cookie', methods=['post', 'get'])
 def setCookie():
     """set apm data to cookie"""
@@ -450,7 +507,8 @@ def getMemory():
                     pid = process.split(':')[0]
                 mem = Memory(pkgName=pkgname, deviceId=deviceId, platform=platform, pid=pid)
                 totalPass, swapPass = mem.getProcessMemory()
-                result = {'status': 1, 'totalPass': totalPass, 'swapPass': swapPass}
+                result = {'status': 1, 'totalPass': totalPass}
+                _apply_mem_swap_support(result, swapPass)
     except Exception as e:
         logger.error('get memory data failed')
         logger.exception(e)
@@ -571,8 +629,8 @@ def getFps():
                 deviceId = d.getIdbyDevice(device, platform)
                 fps_monitor = FPS.getObject(pkgName=pkgname, deviceId=deviceId, surfaceview=surfaceview, platform=platform)
                 fps, jank = fps_monitor.getFPS()
-                result = {'status': 1, 'fps': fps, 'jank': jank}
-                result['big_jank'] = _fps_big_jank(fps_monitor)
+                result = {'status': 1, 'fps': fps}
+                _apply_fps_jank_support(result, fps_monitor, jank)
                 if hasattr(fps_monitor, 'fps_meta') and fps_monitor.fps_meta:
                     result['fps_meta'] = fps_monitor.fps_meta
     except Exception as e:
@@ -615,6 +673,7 @@ def getGpu():
         gpu = GPU(pkgName=pkgname, deviceId=deviceId, platform=platform)
         value = gpu.getGPU()
         result = {'status': 1, 'gpu': value}
+        _apply_gpu_detail(result, gpu)
     except Exception as e:
         logger.exception(e)
         result = {'status': 1, 'gpu': 0}
@@ -1112,7 +1171,8 @@ def apmCollect():
             case Target.Memory:
                 mem = Memory(pkgName=pkgname, deviceId=deviceid, platform=platform)
                 totalPass, swapPass = mem.getProcessMemory(noLog=True)
-                result = {'status': 1, 'totalPass': totalPass, 'swapPass': swapPass}
+                result = {'status': 1, 'totalPass': totalPass}
+                _apply_mem_swap_support(result, swapPass)
             case Target.MemoryDetail:
                 if platform == Platform.Android:
                     mem = Memory(pkgName=pkgname, deviceId=deviceid, platform=platform)
@@ -1127,8 +1187,8 @@ def apmCollect():
             case Target.FPS:
                 fps_monitor = FPS(pkgName=pkgname, deviceId=deviceid, platform=platform)
                 fps, jank = fps_monitor.getFPS(noLog=True)
-                result = {'status': 1, 'fps': fps, 'jank': jank,
-                          'big_jank': _fps_big_jank(fps_monitor)}
+                result = {'status': 1, 'fps': fps}
+                _apply_fps_jank_support(result, fps_monitor, jank)
                 if hasattr(fps_monitor, 'fps_meta') and fps_monitor.fps_meta:
                     result['fps_meta'] = fps_monitor.fps_meta
             case Target.Battery:
@@ -1142,6 +1202,7 @@ def apmCollect():
                 gpu = GPU(pkgName=pkgname, deviceId=deviceid, platform=platform)
                 final = gpu.getGPU(noLog=True)
                 result = {'status': 1, 'gpu': final}
+                _apply_gpu_detail(result, gpu)
             case _:
                 result = {'status': 0, 'msg': 'no this target'}
     except Exception as e:

@@ -2552,10 +2552,13 @@ adb kill-server &amp;&amp; adb start-server</code></pre>
                     console.log(data)
                     if(data['status'] == 1){
                         try {
-                            var series= gpu_chart.series[0];
-                            var x = (new Date()).getTime(),
-                            y = data['gpu'];
-                            series.addPoint([x, y], true, true);
+                            var x = (new Date()).getTime();
+                            gpu_chart.series[0].addPoint([x, data['gpu']], true, true);
+                            // iOS 额外展示 Renderer/Tiler（后端 gpu_detail_supported 时提供）
+                            if(platform == 'iOS' && data['gpu_detail_supported'] && gpu_chart.series.length > 2){
+                                gpu_chart.series[1].addPoint([x, data['renderer']], true, true);
+                                gpu_chart.series[2].addPoint([x, data['tiler']], true, true);
+                            }
                             scheduleMetricPoll('gpu', function () { getGpu(pkgname, device); }, 1000);
                         }catch (e) {}
                     }else if(data['status'] == 2){
@@ -3456,7 +3459,25 @@ adb kill-server &amp;&amp; adb start-server</code></pre>
             return data;
         }())
     }];
-    
+
+    // iOS GPU：Device / Renderer / Tiler 三个利用率（Android 仅单值 Device 口径）
+    var seriesGpubyiOS = ['device', 'renderer', 'tiler'].map(function (metricName) {
+        return {
+            name : metricName,
+            pointInterval: 120 * 1000,
+            data : (function () {
+                var data = [], time = (new Date()).getTime(), i;
+                for (i = -999; i <= 0; i += 1) {
+                    data.push([
+                        time + i * 1000,
+                        Math.round(0)
+                    ]);
+                }
+                return data;
+            }())
+        };
+    });
+
     var seriesEnergy = [{
         name : 'gpu',
         pointInterval: 120 * 1000,
@@ -3635,7 +3656,7 @@ adb kill-server &amp;&amp; adb start-server</code></pre>
                 yAxis = yAxis_plot;
                 break;
             case 'gpu':
-                seriesFinal = series;
+                seriesFinal = platform == 'iOS' ? seriesGpubyiOS : series;
                 legend = true;
                 yAxis = yAxis_plot;
                 break;        
