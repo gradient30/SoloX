@@ -1,12 +1,11 @@
 #!/usr/bin/env bash
 # =============================================================================
-# SoloX Dev Script — start / stop / restart / status / log
-# Compatible with: Git Bash (MINGW/MSYS), WSL, Linux, macOS, PowerShell (via bash)
+# SoloX 开发服务脚本 — start / stop / restart / status / log / fg
+# 兼容: Git Bash (MINGW/MSYS)、WSL、Linux、macOS；Windows 推荐 dev.ps1
 # =============================================================================
 
 set -euo pipefail
 
-# ---- defaults ---------------------------------------------------------------
 HOST="${SOLOX_HOST:-0.0.0.0}"
 PORT="${SOLOX_PORT:-50003}"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -15,10 +14,22 @@ RUNTIME_DIR="$PROJECT_DIR/runtime"
 PID_FILE="$RUNTIME_DIR/pids/solox.pid"
 LOG_FILE="$RUNTIME_DIR/logs/solox-dev.log"
 LEGACY_PID_FILE="$PROJECT_DIR/.solox.pid"
-LEGACY_LOG_FILE="$PROJECT_DIR/.solox.log"
 PYTHON="${SOLOX_PYTHON:-python}"
 
-# ---- python / environment detection -----------------------------------------
+if [[ -t 1 ]] && command -v tput &>/dev/null; then
+    C_GREEN=$(tput setaf 2)
+    C_RED=$(tput setaf 1)
+    C_YELLOW=$(tput setaf 3)
+    C_CYAN=$(tput setaf 6)
+    C_RESET=$(tput sgr0)
+else
+    C_GREEN="" C_RED="" C_YELLOW="" C_CYAN="" C_RESET=""
+fi
+
+info()  { echo "${C_GREEN}[信息]${C_RESET}  $*"; }
+warn()  { echo "${C_YELLOW}[警告]${C_RESET}  $*"; }
+err()   { echo "${C_RED}[错误]${C_RESET} $*" >&2; }
+
 _is_wsl() {
     [[ -n "${WSL_DISTRO_NAME:-}" ]] || grep -qi microsoft /proc/version 2>/dev/null
 }
@@ -49,37 +60,21 @@ _resolve_python() {
 }
 
 if ! _resolve_python; then
-    err "Python not found (tried: python, python3, py, Windows Python under /mnt/c)."
+    err "未找到 Python（已尝试 python / python3 / py 及常见 Windows 路径）。"
     if _is_wsl; then
-        err "PowerShell 里的 bash 会进入 WSL，WSL 内通常没有 python。"
+        err "PowerShell 中直接运行 bash 可能进入 WSL，WSL 内通常没有 Windows 版 Python。"
         err "请改用:  .\\scripts\\dev.ps1 start"
-        err "或:      SOLOX_PYTHON=/mnt/c/Python312/python.exe SOLOX_PORT=50005 bash scripts/dev.sh start"
+        err "或设置:  SOLOX_PYTHON=/mnt/c/Python312/python.exe bash scripts/dev.sh start"
     else
-        err "请设置: SOLOX_PYTHON=/c/Python312/python.exe"
+        err "请设置环境变量 SOLOX_PYTHON 指向 Python 可执行文件。"
     fi
     exit 1
 fi
 
 if _is_wsl && [[ "$PROJECT_DIR" == /mnt/* ]]; then
-    warn "当前为 WSL 环境 ($PROJECT_DIR)。Windows 上推荐 .\\scripts\\dev.ps1 start"
+    warn "当前为 WSL 路径 ($PROJECT_DIR)。在 Windows 上推荐使用 .\\scripts\\dev.ps1"
 fi
 
-# ---- color helpers (degrade gracefully on dumb terminals) -------------------
-if [[ -t 1 ]] && command -v tput &>/dev/null; then
-    C_GREEN=$(tput setaf 2)
-    C_RED=$(tput setaf 1)
-    C_YELLOW=$(tput setaf 3)
-    C_CYAN=$(tput setaf 6)
-    C_RESET=$(tput sgr0)
-else
-    C_GREEN="" C_RED="" C_YELLOW="" C_CYAN="" C_RESET=""
-fi
-
-info()  { echo "${C_GREEN}[INFO]${C_RESET}  $*"; }
-warn()  { echo "${C_YELLOW}[WARN]${C_RESET}  $*"; }
-err()   { echo "${C_RED}[ERROR]${C_RESET} $*" >&2; }
-
-# ---- pid helpers ------------------------------------------------------------
 _read_pid() {
     for f in "$PID_FILE" "$LEGACY_PID_FILE"; do
         if [[ -f "$f" ]]; then
@@ -93,9 +88,7 @@ _read_pid() {
 _is_running() {
     local pid="$1"
     [[ -z "$pid" ]] && return 1
-    # Works on Git Bash (MSYS/MINGW), WSL, Linux, macOS
     if [[ "$(uname -s)" == MINGW* || "$(uname -s)" == MSYS* ]]; then
-        # Git Bash on Windows: use tasklist
         tasklist.exe //FI "PID eq $pid" 2>/dev/null | grep -q "$pid" 2>/dev/null
     else
         kill -0 "$pid" 2>/dev/null
@@ -103,8 +96,6 @@ _is_running() {
 }
 
 _find_solox_pids() {
-    # Find all processes listening on $PORT. Returns empty string if none.
-    # Note: use a subshell with pipefail disabled to prevent grep exit(1) on no-match.
     (
         set +o pipefail
         if [[ "$(uname -s)" == MINGW* || "$(uname -s)" == MSYS* ]]; then
@@ -123,7 +114,6 @@ _find_solox_pids() {
     ) 2>/dev/null || true
 }
 
-# ---- kill helper (cross-platform) -------------------------------------------
 _kill_pid() {
     local pid="$1"
     [[ -z "$pid" ]] && return 0
@@ -134,63 +124,54 @@ _kill_pid() {
         local i=0
         while (( i < 10 )) && kill -0 "$pid" 2>/dev/null; do
             sleep 0.5
-            (( i++ ))
+            (( i++ )) || true
         done
         kill -9 "$pid" 2>/dev/null || true
     fi
 }
 
 _kill_port_occupants() {
-    # Kill every process listening on $PORT
     local pids
     pids=$(_find_solox_pids)
     [[ -z "$pids" ]] && return 0
     for p in $pids; do
-        warn "Killing PID $p occupying port $PORT ..."
+        warn "正在终止占用端口 ${PORT} 的进程 PID ${p} …"
         _kill_pid "$p"
     done
     sleep 1
-    # Verify
     pids=$(_find_solox_pids)
     if [[ -n "$pids" ]]; then
-        err "Failed to free port $PORT (PID $pids still listening). Kill it manually or use a different port:"
+        err "无法释放端口 ${PORT}（仍有进程 ${pids} 在监听）。请手动结束或换端口:"
         err "  SOLOX_PORT=50005 $(basename "$0") start"
         return 1
     fi
-    info "Port $PORT freed."
+    info "端口 ${PORT} 已释放。"
 }
 
-# ---- actions ----------------------------------------------------------------
-
 do_start() {
-    # If we own a previous background process, kill it
     local old_pid
     old_pid=$(_read_pid)
     if [[ -n "$old_pid" ]] && _is_running "$old_pid"; then
-        warn "Stopping previous SoloX (PID $old_pid) ..."
+        warn "正在停止上一次 SoloX 进程 (PID ${old_pid}) …"
         _kill_pid "$old_pid"
         rm -f "$PID_FILE"
     fi
 
-    # If port is still occupied (by us or anyone), kill the occupant
     _kill_port_occupants
 
     mkdir -p "$RUNTIME_DIR/logs" "$RUNTIME_DIR/pids"
 
-    info "Starting SoloX on ${HOST}:${PORT} ..."
+    info "正在启动 SoloX：${HOST}:${PORT}"
     info "Python: $($PYTHON --version 2>&1)"
-    info "Project: $PROJECT_DIR"
-    info "Log: $LOG_FILE"
+    info "项目目录: $PROJECT_DIR"
+    info "日志文件: $LOG_FILE"
 
     cd "$PROJECT_DIR"
-
-    # Start in background, redirect stdout+stderr to log file
     nohup $PYTHON -m solox --host="$HOST" --port="$PORT" \
         >> "$LOG_FILE" 2>&1 &
-    local shell_pid=$!
+    local _shell_pid=$!
 
-    # Wait for the port to come up (up to 15 seconds)
-    info "Waiting for port $PORT ..."
+    info "等待端口 ${PORT} 就绪 …"
     local waited=0
     while [[ $waited -lt 15 ]]; do
         sleep 1
@@ -198,38 +179,35 @@ do_start() {
         local real_pid
         real_pid="$(_find_solox_pids)" || true
         if [[ -n "$real_pid" ]]; then
-            # Save the actual process PID (not the nohup wrapper)
             echo "$real_pid" > "$PID_FILE"
-            info "SoloX started successfully (PID $real_pid)"
-            info "Web UI: http://127.0.0.1:${PORT}/?platform=Android&lan=cn"
+            info "SoloX 启动成功 (PID ${real_pid})"
+            info "Web 界面: http://127.0.0.1:${PORT}/?platform=Android&lan=cn"
+            info "健康检查: http://127.0.0.1:${PORT}/health"
             return 0
         fi
     done
 
-    err "SoloX failed to start within 10s. Check log: $LOG_FILE"
-    tail -20 "$LOG_FILE" 2>/dev/null
+    err "SoloX 在 15 秒内未能启动，请查看日志: $LOG_FILE"
+    tail -20 "$LOG_FILE" 2>/dev/null || true
     rm -f "$PID_FILE"
     return 1
 }
 
 do_stop() {
     local stopped=false
-
-    # 1) Kill process from pid file
     local pid
     pid=$(_read_pid)
     if [[ -n "$pid" ]] && _is_running "$pid"; then
-        info "Stopping SoloX (PID $pid) ..."
+        info "正在停止 SoloX (PID ${pid}) …"
         _kill_pid "$pid"
         stopped=true
     fi
 
-    # 2) Kill any process still on the port
     local port_pids
     port_pids=$(_find_solox_pids)
     if [[ -n "$port_pids" ]]; then
         for p in $port_pids; do
-            info "Killing PID $p on port $PORT ..."
+            info "正在终止端口 ${PORT} 上的进程 PID ${p} …"
             _kill_pid "$p"
         done
         stopped=true
@@ -238,9 +216,9 @@ do_stop() {
     rm -f "$PID_FILE"
 
     if $stopped; then
-        info "SoloX stopped."
+        info "SoloX 已停止。"
     else
-        warn "SoloX is not running."
+        warn "SoloX 当前未在运行。"
     fi
 }
 
@@ -250,140 +228,126 @@ do_restart() {
     do_start
 }
 
+_http_health_ok() {
+    local url="http://127.0.0.1:${PORT}/health"
+    if command -v curl &>/dev/null; then
+        curl -sf --max-time 2 "$url" | grep -q '"status"' 2>/dev/null
+        return $?
+    fi
+    if command -v wget &>/dev/null; then
+        wget -q --timeout=2 -O - "$url" 2>/dev/null | grep -q '"status"'
+        return $?
+    fi
+    return 1
+}
+
 do_status() {
-    echo "${C_CYAN}=== SoloX Status ===${C_RESET}"
+    echo "${C_CYAN}=== SoloX 运行状态 ===${C_RESET}"
     echo ""
 
-    # Process
     local pid
     pid=$(_read_pid)
     if [[ -n "$pid" ]] && _is_running "$pid"; then
-        info "Process:  running (PID $pid)"
+        info "进程:     运行中 (PID ${pid})"
     elif [[ -n "$pid" ]]; then
-        warn "Process:  dead (stale PID file: $pid)"
+        warn "进程:     已退出（PID 文件过期: ${pid}）"
     else
-        warn "Process:  not running"
+        warn "进程:     未运行"
     fi
 
-    # Port
     local port_pids
     port_pids=$(_find_solox_pids)
     if [[ -n "$port_pids" ]]; then
-        info "Port $PORT: LISTEN (PID: $port_pids)"
+        info "端口 ${PORT}: 监听中 (PID: ${port_pids})"
     else
-        warn "Port $PORT: not in use"
+        warn "端口 ${PORT}: 未占用"
     fi
 
-    # HTTP health check
-    local http_ok=false
-    if command -v curl &>/dev/null; then
-        if curl -s -o /dev/null -w '' --max-time 2 "http://127.0.0.1:${PORT}/" 2>/dev/null; then
-            http_ok=true
-        fi
-    elif command -v wget &>/dev/null; then
-        if wget -q --spider --timeout=2 "http://127.0.0.1:${PORT}/" 2>/dev/null; then
-            http_ok=true
-        fi
-    fi
-    if $http_ok; then
-        info "HTTP:     http://127.0.0.1:${PORT}/ is responding"
+    if _http_health_ok; then
+        info "HTTP:     /health 正常 — http://127.0.0.1:${PORT}/health"
     else
-        warn "HTTP:     http://127.0.0.1:${PORT}/ is NOT responding"
+        warn "HTTP:     /health 无响应 — http://127.0.0.1:${PORT}/health"
     fi
 
-    # ADB devices
     echo ""
     if command -v adb &>/dev/null || command -v adb.exe &>/dev/null; then
-        info "Connected Android devices:"
+        info "已连接 Android 设备:"
         local dev_list
         dev_list="$(adb devices 2>/dev/null | tail -n +2 | grep -v '^$' || true)"
         if [[ -n "$dev_list" ]]; then
             echo "$dev_list" | sed 's/^/       /'
         else
-            warn "       (none)"
+            warn "       （无）"
         fi
     else
-        warn "ADB: not found in PATH"
+        warn "ADB: 未在 PATH 中找到"
     fi
 
-    # Python / SoloX version
     echo ""
     info "Python:   $($PYTHON --version 2>&1)"
-    info "SoloX:    $($PYTHON -c 'from solox import __version__; print(__version__)' 2>/dev/null || echo 'not installed')"
-    info "Host:     $HOST"
-    info "Port:     $PORT"
-    info "PID file: $PID_FILE"
-    info "Log file: $LOG_FILE"
+    info "SoloX:    $($PYTHON -c 'from solox import __version__; print(__version__)' 2>/dev/null || echo '未安装')"
+    info "监听地址: ${HOST}"
+    info "端口:     ${PORT}"
+    info "PID 文件: ${PID_FILE}"
+    info "日志文件: ${LOG_FILE}"
 }
 
 do_log() {
     if [[ ! -f "$LOG_FILE" ]]; then
-        warn "No log file found at $LOG_FILE"
+        warn "未找到日志文件: $LOG_FILE"
         return 1
     fi
     local lines="${1:-50}"
-    info "Last $lines lines of $LOG_FILE:"
+    info "日志末尾 ${lines} 行 ($LOG_FILE):"
     echo "---"
     tail -n "$lines" "$LOG_FILE"
 }
 
 do_foreground() {
-    # Run in foreground (interactive mode, useful for debugging)
     local old_pid
     old_pid=$(_read_pid)
     if [[ -n "$old_pid" ]] && _is_running "$old_pid"; then
-        warn "Stopping previous background SoloX (PID $old_pid) ..."
+        warn "正在停止后台 SoloX (PID ${old_pid}) …"
         _kill_pid "$old_pid"
         rm -f "$PID_FILE"
     fi
 
-    # Auto-kill port occupants
     _kill_port_occupants
 
-    info "Starting SoloX in foreground on ${HOST}:${PORT} ..."
-    info "Press Ctrl+C to stop."
+    info "前台启动 SoloX：${HOST}:${PORT}（Ctrl+C 停止）"
     cd "$PROJECT_DIR"
     $PYTHON -m solox --host="$HOST" --port="$PORT"
 }
 
-# ---- usage ------------------------------------------------------------------
-
 usage() {
     cat <<EOF
-${C_CYAN}SoloX Dev Script${C_RESET} — manage SoloX development server
+${C_CYAN}SoloX 开发服务脚本${C_RESET}
 
-${C_GREEN}Usage:${C_RESET}
-    $(basename "$0") <command> [options]
+${C_GREEN}用法:${C_RESET}
+    $(basename "$0") <命令> [选项]
 
-${C_GREEN}Commands:${C_RESET}
-    start       Start SoloX in background (daemonized)
-    stop        Stop SoloX
-    restart     Stop then start
-    status      Show process, port, HTTP health, devices, versions
-    log [N]     Show last N lines of log (default: 50)
-    fg          Start SoloX in foreground (interactive, Ctrl+C to stop)
+${C_GREEN}命令:${C_RESET}
+    start       后台启动服务
+    stop        停止服务
+    restart     重启服务
+    status      查看进程、端口、/health、设备与版本
+    log [N]     查看日志末尾 N 行（默认 50）
+    fg          前台启动（调试）
 
-${C_GREEN}Environment variables:${C_RESET}
-    SOLOX_HOST    Bind address   (default: 0.0.0.0)
-    SOLOX_PORT    Listen port    (default: 50003)
-    SOLOX_PYTHON  Python binary  (default: python)
+${C_GREEN}环境变量:${C_RESET}
+    SOLOX_HOST    监听地址（默认 0.0.0.0）
+    SOLOX_PORT    端口（默认 50003）
+    SOLOX_PYTHON  Python 可执行文件（默认 python）
 
-${C_GREEN}Examples:${C_RESET}
-    $(basename "$0") start                     # start with defaults
-    $(basename "$0") status                    # check everything
-    SOLOX_PORT=8080 $(basename "$0") start     # start on port 8080
-    $(basename "$0") log 100                   # show last 100 log lines
-    $(basename "$0") fg                        # interactive/debug mode
-    $(basename "$0") stop                      # stop server
+${C_GREEN}示例:${C_RESET}
+    $(basename "$0") start
+    $(basename "$0") status
+    SOLOX_PORT=50005 $(basename "$0") start
+    $(basename "$0") log 100
 
-${C_GREEN}PowerShell usage:${C_RESET}
-    bash scripts/dev.sh start
-    bash scripts/dev.sh status
-    bash scripts/dev.sh stop
+${C_GREEN}Windows:${C_RESET} 推荐使用 .\\scripts\\dev.ps1（自动选择 Git Bash 与 Python）
 EOF
 }
-
-# ---- main dispatcher --------------------------------------------------------
 
 case "${1:-}" in
     start)      do_start ;;
@@ -395,7 +359,7 @@ case "${1:-}" in
     -h|--help)  usage ;;
     "")         usage ;;
     *)
-        err "Unknown command: $1"
+        err "未知命令: $1"
         echo ""
         usage
         exit 1
