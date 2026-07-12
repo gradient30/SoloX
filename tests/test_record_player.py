@@ -107,6 +107,8 @@ class TestRecordPlayerApi(unittest.TestCase):
         self.mp4 = os.path.join(self.tmp, self.scene, 'record.mp4')
         with open(self.mp4, 'wb') as fh:
             fh.write(_fake_mp4_payload(b'\x00' * 128))
+        # resolve_record_video 返回 realpath；macOS 上 /var → /private/var
+        self.mp4 = os.path.realpath(self.mp4)
 
     def tearDown(self):
         self.apis.f.report_dir = self._orig_report_dir

@@ -274,7 +274,8 @@ class TestRecordPlayerAcceptance(unittest.TestCase):
             fh.write(b'\x00' * 4 + b'ftyp' + b'isom' + b'\x00' * 4 + b'\x00' * 2048 + b'moov' + b'\x00' * 64)
         resp = self.client.get('/apm/record/play', query_string={'scene': self.scene})
         self.assertEqual(resp.get_json()['status'], 1)
-        mock_play.assert_called_once_with(mp4)
+        # API 经 realpath 规范化路径；macOS CI 上 /var → /private/var
+        mock_play.assert_called_once_with(os.path.realpath(mp4))
 
 
 class TestWeakNetAcceptance(unittest.TestCase):
