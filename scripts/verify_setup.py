@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-SoloX setup.py 验证脚本
-验证 setup.py 中的依赖版本是否与测试过的兼容版本一致
+SoloX 依赖版本验证脚本
+验证 pyproject.toml 中的依赖版本是否与测试过的兼容版本一致
 """
 
 import re
@@ -25,36 +25,34 @@ def configure_utf8_stdout() -> None:
             pass
 
 
-def parse_setup_py():
-    """解析 setup.py 中的依赖"""
-    setup_path = Path(__file__).parent.parent / "setup.py"
-    
-    if not setup_path.exists():
-        print("❌ setup.py 文件不存在")
+def parse_pyproject_dependencies():
+    """解析 pyproject.toml 中 [project].dependencies。"""
+    pyproject_path = Path(__file__).parent.parent / "pyproject.toml"
+
+    if not pyproject_path.exists():
+        print("❌ pyproject.toml 文件不存在")
         return None
-    
-    with open(setup_path, 'r', encoding='utf-8') as f:
+
+    with open(pyproject_path, "r", encoding="utf-8") as f:
         content = f.read()
-    
-    # 提取 install_requires 部分
-    pattern = r'install_requires=\[(.*?)\]'
+
+    pattern = r"\[project\][\s\S]*?dependencies\s*=\s*\[(.*?)\]"
     match = re.search(pattern, content, re.DOTALL)
-    
+
     if not match:
-        print("❌ 无法找到 install_requires 部分")
+        print("❌ 无法找到 [project].dependencies 部分")
         return None
-    
-    # 解析依赖列表
+
     deps_text = match.group(1)
     deps = []
-    
-    for line in deps_text.split('\n'):
+
+    for line in deps_text.split("\n"):
         line = line.strip()
-        if line.startswith("'") and line.endswith("',"):
-            dep = line[1:-2]  # 移除引号和逗号
-            if dep and not dep.startswith('#'):
+        if line.startswith('"') and line.endswith('",'):
+            dep = line[1:-2]
+            if dep and not dep.startswith("#"):
                 deps.append(dep)
-    
+
     return deps
 
 def check_critical_versions(dependencies):
@@ -110,16 +108,15 @@ def check_critical_versions(dependencies):
 
 def main():
     configure_utf8_stdout()
-    print("🔧 SoloX setup.py 验证工具")
+    print("🔧 SoloX 依赖版本验证工具")
     print("=" * 40)
     print()
-    
-    # 解析 setup.py
-    dependencies = parse_setup_py()
+
+    dependencies = parse_pyproject_dependencies()
     if dependencies is None:
         sys.exit(1)
-    
-    print(f"📋 找到 {len(dependencies)} 个依赖")
+
+    print(f"📋 在 pyproject.toml 中找到 {len(dependencies)} 个依赖")
     print()
     
     # 检查关键版本
@@ -131,12 +128,12 @@ def main():
         for issue in issues:
             print(f"   • {issue}")
         print()
-        print("建议修复 setup.py 中的依赖版本")
+        print("建议修复 pyproject.toml 中的依赖版本")
         sys.exit(1)
     else:
         print("🎉 所有关键依赖版本正确！")
         print()
-        print("✅ setup.py 验证通过")
+        print("✅ pyproject.toml 依赖验证通过")
         print("✅ 依赖版本与测试兼容版本一致")
         print()
         print("现在可以安全使用:")

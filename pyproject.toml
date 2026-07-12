@@ -104,8 +104,11 @@ Changelog = "https://github.com/smart-test-ti/SoloX/releases"
 solox = "solox.__main__:main"
 
 [tool.setuptools]
-packages = ["solox"]
 include-package-data = true
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["solox*"]
 
 [tool.setuptools.package-data]
 solox = [
