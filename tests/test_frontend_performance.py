@@ -279,3 +279,19 @@ def test_recording_status_badge_polls_elapsed_duration_and_risk_rules():
     assert 'record-status-danger' in source
     assert 'startRecordStatusPolling();' in source
     assert 'stopRecordStatusPolling(true);' in source
+
+
+def test_ios_platform_limitations_shown_explicitly_not_silently():
+    """iOS 不支持项需显式提示（P2-T3），避免静默不画曲线误导用户。"""
+    source = _template('index.html')
+
+    # iOS 静态提示：Jank 与 Swap 不支持，且不以 0 值伪装
+    assert '暂不支持 Jank / BigJank 测量' in source
+    assert 'iOS 平台不提供 Swap 明细' in source
+    assert 'Jank / BigJank is not supported' in source
+
+    # GPU 运行时提示元素 + 显隐逻辑（gpu_supported=false 时可见，恢复时隐藏）
+    assert 'id="gpu-unsupported-note"' in source
+    assert "getElementById('gpu-unsupported-note')" in source
+    assert "gpuNote.style.display = ''" in source
+    assert "gpuNoteOk.style.display = 'none'" in source

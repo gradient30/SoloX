@@ -744,12 +744,19 @@ SoloX - Application Performance Monitoring
         <div id="battery_android" class="mb-3 battery" style="min-width:400px;height:300px"></div>
         {% else %}
         <div id="mem_ios"  class="mb-3 mem" style="min-width:400px;height:300px"></div>
+        <div class="metric-platform-note text-muted small mb-3">
+            {% if lan == 'cn' %}ℹ️ iOS 平台不提供 Swap 明细，仅展示总内存占用（Footprint/PSS）；不以 0 值伪装。{% else %}ℹ️ iOS does not expose swap detail; only total memory (Footprint/PSS) is shown. Never faked as 0.{% endif %}
+        </div>
         <div id="fps_ios" class="mb-3 fps" style="min-width:400px;height:300px"></div>
+        <div class="metric-platform-note text-muted small mb-3">
+            {% if lan == 'cn' %}ℹ️ iOS 数据源仅提供聚合帧率，<strong>暂不支持 Jank / BigJank 测量</strong>（不以 0 值伪装）。实验后端见 FAQ。{% else %}ℹ️ iOS provides aggregate FPS only; <strong>Jank / BigJank is not supported</strong> (never faked as 0). See FAQ for the experimental backend.{% endif %}
+        </div>
         <div id="battery_ios" class="mb-3 battery" style="min-width:400px;height:300px"></div>
         <div id="energy" class="energy mb-3" style="min-width:400px;height:300px; display: none"></div>
         {% endif %}
         <div id="network" class="network mb-3" style="min-width:400px;height:300px"></div>
         <div id="gpu" class="mb-3 gpu" style="min-width:400px;height:300px"></div>
+        <div id="gpu-unsupported-note" class="metric-platform-note text-muted small mb-3" style="display:none;"></div>
         <div id="disk" class="disk mb-3" style="min-width:400px;height:300px;display: none;"></div>
     </div>
 </div>
@@ -2557,10 +2564,18 @@ adb kill-server &amp;&amp; adb start-server</code></pre>
                             // 且 gpu_supported=false：如实以 null 断点呈现（不画伪造的 0），
                             // 并仅提示一次，避免误导用户以为"GPU 空闲"。
                             if(data['gpu_supported'] === false){
+                                var gpuNote = document.getElementById('gpu-unsupported-note');
+                                if(gpuNote){
+                                    gpuNote.textContent = 'ℹ️ ' + (data['gpu_msg'] || '当前设备未 root 或无 kgsl 读取权限，无法采集 GPU 利用率');
+                                    gpuNote.style.display = '';
+                                }
                                 if(!window.gpuUnsupportedNotified){
                                     window.gpuUnsupportedNotified = true;
                                     SwalFire('info','GPU 利用率不可用', data['gpu_msg'] || '当前设备未 root 或无 kgsl 读取权限，无法采集 GPU 利用率', 4000);
                                 }
+                            }else{
+                                var gpuNoteOk = document.getElementById('gpu-unsupported-note');
+                                if(gpuNoteOk){ gpuNoteOk.style.display = 'none'; }
                             }
                             gpu_chart.series[0].addPoint([x, data['gpu']], true, true);
                             // iOS 额外展示 Renderer/Tiler（后端 gpu_detail_supported 时提供）

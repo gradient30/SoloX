@@ -101,13 +101,14 @@
 3. **内存 Swap**：iOS 不展示 Swap 系列时，在 mem 区域 footnote「Swap 仅 Android」。
 4. 文案与 [`faq.md`](../05-issues/faq.md) §22 一致。
 
-**验收**：
+**验收**（2026-07-12 完成）：
 
-- [ ] iOS 选中设备后 Jank 区域可见「暂不支持」而非空白或 0
-- [ ] Android 行为无回归
-- [ ] 可选：Playwright/手动截图记入验收记录
+- [x] iOS 选中设备后 FPS 区域可见「暂不支持 Jank / BigJank」静态提示；内存区可见「Swap 仅 iOS 不提供」
+- [x] GPU 运行时 `gpu_supported=false` 显示持久内联提示（含真实原因），恢复时自动隐藏
+- [x] Android 行为无回归（`test_frontend_performance.py` + 全量 pytest 绿）
+- [x] Flask 实渲染 Android/iOS × cn/en 通过；真机 `/apm/gpu` 返回 `gpu_supported=false` 验证提示为真实原因
 
-**涉及文件**：`solox/templates/index.html`（必要时 `static/css`）
+**涉及文件**：`solox/templates/index.html`、`tests/test_frontend_performance.py`
 
 ---
 
@@ -171,7 +172,7 @@
 
 - [x] P2-T1 验收记录入库
 - [x] P2-T2 release gate 可选录屏步 + 文档
-- [ ] P2-T3 iOS/Android UI 提示无伪 0 回归
+- [x] P2-T3 iOS/Android UI 提示无伪 0 回归
 - [ ] P2-T4 iOS probe API + UI + 单测
 - [ ] P2-T5 GPU 芯片级指标（或显式 defer 并记录原因）
 
