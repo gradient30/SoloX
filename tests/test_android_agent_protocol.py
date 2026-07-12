@@ -4,8 +4,20 @@
 import subprocess
 from pathlib import Path
 
-from tests.toolchain_helpers import java_test_environment, resolve_test_java_executable
+import pytest
 
+from tests.toolchain_helpers import (
+    java_test_environment,
+    java_toolchain_available,
+    resolve_test_java_executable,
+)
+
+# 这些用例需实际调用 javac/java 编译并运行 Java 契约桩；缺少本地 JDK 工具链
+# （如 CI runner）时整体跳过，避免 FileNotFoundError 误判为失败。
+pytestmark = pytest.mark.skipif(
+    not java_toolchain_available(),
+    reason='Java 工具链不可用（未初始化本地 JDK），跳过 Android Agent Java 契约测试',
+)
 
 ROOT = Path(__file__).resolve().parents[1]
 SRC = ROOT / 'android-agent' / 'app' / 'src' / 'main' / 'java'

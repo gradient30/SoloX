@@ -15,8 +15,15 @@ from unittest import mock
 
 import pytest
 
-from solox.public import ios_ext
-from solox.public.ios_ext import device, frametime, screen, weaknet
+# 本套测试通过 mock.patch 直接替换 pymobiledevice3.* 子模块，需要该可选依赖
+# 可导入；CI/未安装 solox[ios] 的环境无此包，整体跳过（核心功能不受影响）。
+pytest.importorskip(
+    "pymobiledevice3",
+    reason="未安装可选依赖 pymobiledevice3（solox[ios]），跳过 iOS 扩展后端测试",
+)
+
+from solox.public import ios_ext  # noqa: E402
+from solox.public.ios_ext import device, frametime, screen, weaknet  # noqa: E402
 
 
 @contextlib.asynccontextmanager

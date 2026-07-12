@@ -59,3 +59,20 @@ def java_test_environment() -> dict[str, str]:
     env = os.environ.copy()
     env.setdefault('JAVA_TOOL_OPTIONS', '-Xms32m -Xmx128m')
     return env
+
+
+def java_toolchain_available() -> bool:
+    """判断本机是否具备可执行 Java 工具链（javac/java）。
+
+    这些 Android Agent 契约测试依赖 SoloX 本地打包的 JDK，而 CI runner 或
+    未初始化工具链的开发机上并不存在该路径。此时应**跳过**相关用例，而不是
+    让测试因 ``FileNotFoundError`` 失败。
+
+    :return: javac 与 java 均存在时返回 True，否则 False。
+    """
+    try:
+        javac = resolve_test_java_executable('javac')
+        java = resolve_test_java_executable('java')
+    except Exception:
+        return False
+    return javac.exists() and java.exists()
