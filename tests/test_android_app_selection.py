@@ -4,6 +4,7 @@
 import json
 import os
 import subprocess
+import sys
 import time
 from unittest.mock import patch
 
@@ -320,6 +321,11 @@ def test_android_label_resolver_does_not_pull_apk_by_default_when_dumpsys_missin
     ]
 
 
+@pytest.mark.skipif(
+    sys.platform != 'win32',
+    reason='该用例强制 platform=Windows 并断言 Windows 独有的控制台隐藏参数'
+           '（STARTUPINFO/CREATE_NO_WINDOW），仅适用于 Windows',
+)
 def test_android_label_resolver_uses_aapt_badging_when_explicitly_enabled():
     devices = Devices()
     calls = []

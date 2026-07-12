@@ -173,6 +173,15 @@ class _FakeProcess:
     def poll(self):
         return None
 
+    # 真实 subprocess.Popen 支持 with 上下文管理协议；补齐以便无论生产代码
+    # 以何种方式（直接调用或 with 包裹）使用返回对象，测试替身都不会因缺少
+    # __enter__/__exit__ 而在非 Windows 平台上抛 TypeError。
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *_exc):
+        return False
+
 
 class _ExitedProcess:
 
@@ -180,6 +189,12 @@ class _ExitedProcess:
 
     def poll(self):
         return 1
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *_exc):
+        return False
 
 
 class TestScrcpyRecordPipeline(unittest.TestCase):

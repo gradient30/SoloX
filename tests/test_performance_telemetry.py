@@ -2,7 +2,18 @@
 """Runtime performance telemetry acceptance tests."""
 
 import subprocess
+import sys
 from unittest.mock import MagicMock, patch
+
+import pytest
+
+# subprocess.STARTUPINFO / CREATE_NO_WINDOW / STARTF_USESHOWWINDOW 均为 Windows
+# 独有属性；这些用例专门验证 Windows 下隐藏控制台窗口的行为，在非 Windows
+# 平台（如 CI 的 Linux runner）上无法运行，按平台跳过。
+windows_only = pytest.mark.skipif(
+    sys.platform != 'win32',
+    reason='Windows 控制台隐藏行为仅在 Windows 上适用',
+)
 
 
 def test_apm_request_records_latency_and_concurrency():
@@ -88,6 +99,7 @@ def test_adb_shell_records_command_duration():
     assert snapshot['adb']['max_ms'] >= 0
 
 
+@windows_only
 def test_adb_shell_hides_windows_console():
     from solox.public.adb import ADB
 
@@ -126,6 +138,7 @@ def test_adb_device_discovery_records_command_duration():
     assert snapshot['adb']['active'] == 0
 
 
+@windows_only
 def test_adb_popen_readlines_hides_windows_console_and_avoids_os_popen():
     from solox.public.adb import ADB
 
