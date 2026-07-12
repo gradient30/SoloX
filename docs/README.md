@@ -8,7 +8,7 @@
 |------|------------|
 | 新用户 | [快速启动](./02-development/quick-start.md) → [API](./04-user-guides/api-documentation.md) |
 | 开发者 | [CLAUDE.md](../CLAUDE.md) → [开发指南](./02-development/development-guide.md) → [脚本索引](../scripts/README.md) |
-| 发版/测试 | [兼容矩阵](./compatibility-matrix.md) → [弱网用户指南](./04-user-guides/weak-network-testing.md) → [预发布审核](./06-engineering/pre-publish-checklist.md) |
+| 发版/测试 | [兼容矩阵](./compatibility-matrix.md) → [CI 门禁排查手册](./06-engineering/ci-gate-playbook.md) → [预发布审核](./06-engineering/pre-publish-checklist.md) |
 | 运维 | [部署指南](./03-deployment/deployment-guide.md) → [故障排除](./05-issues/troubleshooting.md) |
 
 ## 目录
@@ -38,6 +38,7 @@
 - [项目目录与日志](./06-engineering/project-layout.md)
 - [弱网工具技术说明](./06-engineering/weak-network-tooling.md)
 - [本地开发 vs 线上发布](./06-engineering/release-and-dev-standards.md)
+- [CI 门禁排查手册](./06-engineering/ci-gate-playbook.md)
 - [预发布审核清单](./06-engineering/pre-publish-checklist.md)
 - [兼容矩阵与发版门禁](./compatibility-matrix.md)
 - [联合验收报告 v2.3](./acceptance/joint-review-2026-compatibility.md)

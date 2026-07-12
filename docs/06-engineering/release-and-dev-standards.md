@@ -12,7 +12,7 @@
 | **日志** | `runtime/logs/solox-dev.log` | 容器 stdout / 系统 journal |
 | **报告数据** | `./report/`（gitignore） | 挂载卷或外部存储，**勿提交 Git** |
 | **端口** | 默认 `50003`，可 `SOLOX_PORT` | 同左；生产前加反向代理与防火墙 |
-| **依赖** | 可装 pytest/flake8 | **仅** `requirements.txt` / `setup.py` 锁定版本 |
+| **依赖** | 可装 pytest/flake8 | **仅** `requirements.txt` / `pyproject.toml` 锁定版本 |
 | **门禁** | `bash scripts/release_gate.sh` | GitHub Actions `.github/workflows/ci.yml` |
 
 ## 本地开发标准流程
@@ -29,6 +29,7 @@ pip install -e ".[dev,test]"
 python scripts/verify_setup.py
 python scripts/validate_compatibility_matrix.py
 python -m pytest tests/ -q --disable-warnings
+pip install build && python -m build   # 与 CI build job 对齐
 
 # 4. 启动（二选一）
 python -m solox
@@ -53,6 +54,7 @@ Windows：`.\scripts\dev.ps1 start`（需 Git for Windows）。
 - `report/`、`adblog/`、`solox/logs/`
 - `.env`、`.venv/`、`.claude/`、`err.txt`
 - `build/`、`dist/`、`*.egg-info/`、`.pytest_cache/`
+- `solox/_version.py`（setuptools_scm 构建时生成，勿提交）
 
 ## 公开发布前检查清单
 
@@ -64,8 +66,9 @@ Windows：`.\scripts\dev.ps1 start`（需 Git for Windows）。
 | 4 | 文档入口统一 | 从 `docs/README.md` 可到达 API、验收、工程化 |
 | 5 | Docker 健康检查 | `GET /health` 返回 `status: 1` |
 | 6 | Shell 脚本 LF 行尾 | `.gitattributes` → `*.sh eol=lf` |
-| 7 | 依赖版本锁定 | Flask 2.0.3 等与 `verify_setup.py` 一致 |
-| 8 | L3 真机（发版） | [L3 清单](../acceptance/l3-device-lab-checklist.md) P0 签字 |
+| 7 | 依赖版本锁定 | Flask 2.0.3 等与 `verify_setup.py` / `pyproject.toml` 一致 |
+| 8 | 打包可构建 | `python -m build`（见 [CI 门禁排查手册](./ci-gate-playbook.md)） |
+| 9 | L3 真机（发版） | [L3 清单](../acceptance/l3-device-lab-checklist.md) P0 签字 |
 
 ## CI 与本地对齐
 
@@ -74,9 +77,12 @@ GitHub Actions `ci.yml` 与本地门禁一致：
 1. `python scripts/verify_setup.py`
 2. `flake8`（E9/F63/F7/F82）
 3. `python scripts/validate_compatibility_matrix.py`
-4. `pytest tests/ -v --cov=solox`
+4. `pytest tests/ -v --cov=solox --timeout=180`
+5. `python -m build`（build job）
 
-本地快速等价：`bash scripts/release_gate.sh`（不含 flake8/coverage 时可单独跑 `make lint`）。
+本地快速等价：`bash scripts/release_gate.sh`（不含 flake8/coverage/build 时可单独跑）。
+
+CI 问题排查与历史修复方案见 [CI 门禁排查手册](./ci-gate-playbook.md)。
 
 ## 线上部署注意
 
@@ -92,6 +98,6 @@ GitHub Actions `ci.yml` 与本地门禁一致：
 
 ---
 
-*关联: [项目目录](./project-layout.md) · [联合验收](../acceptance/joint-review-2026-compatibility.md) · [预发布审核](./pre-publish-checklist.md)*
+*关联: [项目目录](./project-layout.md) · [CI 门禁排查手册](./ci-gate-playbook.md) · [联合验收](../acceptance/joint-review-2026-compatibility.md) · [预发布审核](./pre-publish-checklist.md)*
 
-*最后更新: 2026-06-13*
+*最后更新: 2026-07-12*

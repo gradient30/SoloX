@@ -115,7 +115,7 @@ API request → `FPS.getObject()` (singleton) → `FPSMonitor.start()` → `Surf
 - `runtime/` — dev log/PID/cache (`runtime/logs`, `runtime/pids`, `runtime/cache`); gitignored except `.gitkeep`
 - `solox/public/ffmpeg/bin/` — optional ffmpeg for recording remux; not in git (see `ffmpeg/README.md`)
 - `report/` — APM session logs and recordings; gitignored
-- `docs/06-engineering/` — directory, dev vs release, pre-publish checklist
+- `docs/06-engineering/` — directory, dev vs release, CI gate playbook, pre-publish checklist
 
 ### Device Communication
 All Android commands go through `adb.shell()`. The `Devices` class provides:

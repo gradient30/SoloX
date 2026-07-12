@@ -31,6 +31,8 @@ share/python-wheels/
 .installed.cfg
 *.egg
 MANIFEST
+# setuptools_scm 在 build 时生成，勿提交（见 pyproject.toml write_to）
+solox/_version.py
 
 # PyInstaller
 #  Usually these files are written by a python script from a template

@@ -12,7 +12,8 @@
 |------|------|------|
 | 兼容矩阵 + L1 模块 | ✅ | `python scripts/validate_compatibility_matrix.py` |
 | 全量单元/集成测试 | ✅ | 123 tests passed |
-| setup.py 依赖锁定 | ✅ | `python scripts/verify_setup.py` |
+| setup.py 依赖锁定 | ✅ | `python scripts/verify_setup.py`（读 `pyproject.toml`） |
+| CI build 打包 | ✅ | `python -m build`（见 [CI 门禁排查手册](./06-engineering/ci-gate-playbook.md)） |
 | `/health` 探活 | ✅ | `GET /health` → `{status:1, version}` |
 
 ```bash
@@ -39,6 +40,7 @@ bash scripts/release_gate.sh
 |------|------|
 | `docs/README.md` | 唯一入口 |
 | `docs/06-engineering/release-and-dev-standards.md` | 本地开发 vs 线上发布 |
+| `docs/06-engineering/ci-gate-playbook.md` | CI 门禁排查与修复方案 |
 | `docs/06-engineering/project-layout.md` | 目录与日志 |
 | `docs/compatibility-matrix.md` | 发版门禁 |
 | `docs/acceptance/joint-review-2026-compatibility.md` | 三方验收 v2.3 |

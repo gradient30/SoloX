@@ -187,6 +187,7 @@ jobs:
           "docs/compatibility-matrix.md"
           "docs/06-engineering/project-layout.md"
           "docs/06-engineering/release-and-dev-standards.md"
+          "docs/06-engineering/ci-gate-playbook.md"
           "docs/06-engineering/pre-publish-checklist.md"
           "docs/acceptance/joint-review-2026-compatibility.md"
           "docs/acceptance/l3-device-lab-checklist.md"
