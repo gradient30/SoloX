@@ -14,6 +14,7 @@
 | **端口** | 默认 `50003`，可 `SOLOX_PORT` | 同左；生产前加反向代理与防火墙 |
 | **依赖** | 可装 pytest/flake8 | **仅** `requirements.txt` / `pyproject.toml` 锁定版本 |
 | **门禁** | `bash scripts/release_gate.sh` | GitHub Actions `.github/workflows/ci.yml` |
+| **录屏真机验收** | `SOLOX_RECORD_ACCEPT=1 bash scripts/release_gate.sh` | 默认 CI 不跑；改录屏链路后本地必跑 |
 
 ## 本地开发标准流程
 
@@ -79,8 +80,9 @@ GitHub Actions `ci.yml` 与本地门禁一致：
 3. `python scripts/validate_compatibility_matrix.py`
 4. `pytest tests/ -v --cov=solox --timeout=180`
 5. `python -m build`（build job）
+6. （可选）`SOLOX_RECORD_ACCEPT=1 bash scripts/release_gate.sh` — 录屏链路变更后的真机验收
 
-本地快速等价：`bash scripts/release_gate.sh`（不含 flake8/coverage/build 时可单独跑）。
+本地快速等价：`bash scripts/release_gate.sh`（不含 flake8/coverage/build/录屏时可单独跑）。
 
 CI 问题排查与历史修复方案见 [CI 门禁排查手册](./ci-gate-playbook.md)。
 

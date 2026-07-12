@@ -219,6 +219,8 @@ jobs:
           "scripts/validate_compatibility_matrix.py"
           "scripts/release_gate.sh"
           "scripts/release_gate.ps1"
+          "scripts/accept_record.sh"
+          "scripts/accept_record.ps1"
           "scripts/dev.sh"
         )
         

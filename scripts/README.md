@@ -11,6 +11,8 @@
 | 安装依赖（含 dev/test） | `python scripts/install_dependencies.py --dev` | `.\scripts\install_dependencies.ps1 -Dev` |
 | 验证 setup.py 版本 | `python scripts/verify_setup.py` | 同左 |
 | 发版门禁 | `bash scripts/release_gate.sh` | `.\scripts\release_gate.ps1` |
+| 录屏真机验收 | `bash scripts/accept_record.sh` | `.\scripts\accept_record.ps1` |
+| 录屏文件校验 | `python scripts/accept_record_gate.py --validate-only <path>` | 同左 |
 | 兼容矩阵 | `python scripts/validate_compatibility_matrix.py` | 同左 |
 | 打包 wheel/sdist | `bash scripts/package.sh` | 同左（需 Git Bash 或 WSL） |
 | Headless 采集/分析 CLI | `python -m solox.cli collect --device <id> --pkg <pkg> --duration 60` | 同左 |
@@ -28,7 +30,10 @@
 | `dev.ps1` | Windows 薄包装：Git Bash + Python 路径 + 默认 127.0.0.1:50003 |
 | `install_dependencies.py` | **依赖安装核心**（`requirements.txt`，可选 `-Dev`） |
 | `install_dependencies.sh` / `.ps1` | 调用 `install_dependencies.py` 的入口 |
-| `release_gate.sh` / `.ps1` | 发版门禁：verify_setup → 兼容矩阵 → pytest |
+| `release_gate.sh` / `.ps1` | 发版门禁；`SOLOX_RECORD_ACCEPT=1` 加录屏真机步 |
+| `accept_record_gate.py` | 录屏验收核心（E2E 或 `--validate-only`） |
+| `accept_record.sh` / `.ps1` | 录屏验收入口（检查 adb 后调用 gate） |
+| `accept_record_e2e.py` | 与 gate 等价的 E2E 别名入口 |
 | `verify_setup.py` | 校验 setup.py 关键依赖版本 |
 | `validate_compatibility_matrix.py` | 校验 `tests/compatibility_matrix.yaml` |
 | `package.sh` | `python -m build` 构建 dist |

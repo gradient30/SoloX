@@ -57,7 +57,7 @@ python scripts/accept_record_e2e.py --duration 65 --quality 720p `
 
 1. **第一次运行**：stop/remux 阶段 Flask 进程异常退出（WinError 10054），但 `report/record.mkv`（≈33MB）已落盘且 `valid_mkv=True`；手动 remux 后 `record.mp4` 亦 `valid_mp4=True`。
 2. **第二次运行**（加长 `/apm/create/report` 超时至 185s）：全流程通过，报告已归档至 `apm_*` 目录。
-3. **后续**：P2-T2 将本脚本逻辑收口为 `accept_record.ps1` 并可选纳入 `release_gate`（`SOLOX_RECORD_ACCEPT=1`）。
+3. **后续**：P2-T2 已落地 — `accept_record_gate.py` + `release_gate` 可选 `SOLOX_RECORD_ACCEPT=1` 第 4 步。
 
 4. **R4**（2026-07-12 补验）：报告页播放 `apm_2026-07-12-18-21-46`，视频区域铺满弹窗，seek 正常。
 

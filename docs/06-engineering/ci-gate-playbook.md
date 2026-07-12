@@ -145,6 +145,10 @@ python -m build
 
 # 5. 仓库卫生
 git status   # 不应有 solox/_version.py、dist/、build/ 等待提交项
+
+# 6. （改录屏链路时）真机录屏验收
+# SOLOX_RECORD_ACCEPT=1 bash scripts/release_gate.sh
+# 或: python scripts/accept_record_gate.py --validate-only report/apm_*/record.mp4
 ```
 
 **新增单测/code review 必问**：
@@ -177,7 +181,8 @@ git status   # 不应有 solox/_version.py、dist/、build/ 等待提交项
 | `pyproject.toml` | 依赖锁定、打包、setuptools_scm |
 | `setup.py` | PEP 517 兼容 stub（`setuptools.setup()`） |
 | `scripts/verify_setup.py` | 关键依赖版本门禁 |
-| `scripts/release_gate.sh` | 本地发版门禁 |
+| `scripts/release_gate.sh` | 本地发版门禁（可选 `SOLOX_RECORD_ACCEPT=1` 录屏步） |
+| `scripts/accept_record_gate.py` | 录屏真机验收 / `--validate-only` |
 | `tests/conftest.py` | macOS fork 安全、Flask fixtures |
 | `tests/test_weak_network.py` | 弱网单测 mock 范例 |
 | `tests/test_verify_setup_script.py` | 脚本 UTF-8 回归 |
@@ -189,6 +194,7 @@ git status   # 不应有 solox/_version.py、dist/、build/ 等待提交项
 | 日期 | 说明 |
 |------|------|
 | 2026-07-12 | 初版：汇总 2026-07 CI 全绿攻坚（test/build/platform 共 12 类问题） |
+| 2026-07-12 | 补充 P2-T2：`SOLOX_RECORD_ACCEPT` 录屏真机门禁 |
 
 ---
 

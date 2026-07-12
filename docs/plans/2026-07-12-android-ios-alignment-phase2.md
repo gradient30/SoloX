@@ -82,11 +82,11 @@
 
 **验收**：
 
-- [ ] 无设备时默认 release gate 仍通过
-- [ ] `SOLOX_RECORD_ACCEPT=1` + 真机 + 坏文件 → 非零退出
-- [ ] 文档已更新
+- [x] 无设备时默认 release gate 仍通过（`SOLOX_RECORD_ACCEPT` 未设）
+- [x] `validate_record_file` 对坏文件非零退出（单测覆盖）
+- [x] 文档已更新
 
-**涉及文件**：`scripts/accept_record.sh`、`scripts/accept_record.ps1`、`scripts/release_gate.sh`、`scripts/release_gate.ps1`
+**涉及文件**：`scripts/accept_record.sh`、`scripts/accept_record.ps1`、`scripts/accept_record_gate.py`、`scripts/release_gate.sh`、`scripts/release_gate.ps1`
 
 ---
 
@@ -170,7 +170,7 @@
 满足以下全部项可关闭 Phase 2，并回写 Cursor plan 对应 todo 为 `completed`：
 
 - [x] P2-T1 验收记录入库
-- [ ] P2-T2 release gate 可选录屏步 + 文档
+- [x] P2-T2 release gate 可选录屏步 + 文档
 - [ ] P2-T3 iOS/Android UI 提示无伪 0 回归
 - [ ] P2-T4 iOS probe API + UI + 单测
 - [ ] P2-T5 GPU 芯片级指标（或显式 defer 并记录原因）
