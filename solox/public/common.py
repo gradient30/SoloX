@@ -2868,6 +2868,13 @@ class Scrcpy:
                     except (OSError, psutil.TimeoutExpired, psutil.NoSuchProcess):
                         pass
                 proc.terminate()
+                try:
+                    proc.wait(timeout=3)
+                except (psutil.TimeoutExpired, psutil.NoSuchProcess):
+                    try:
+                        proc.kill()
+                    except (psutil.NoSuchProcess, psutil.AccessDenied):
+                        pass
                 logger.info('stopped remaining scrcpy pid: {}'.format(proc.pid))
             except (psutil.NoSuchProcess, psutil.AccessDenied):
                 pass

@@ -10,12 +10,18 @@ on:
 
 jobs:
   test:
-    name: Test on Python ${{ matrix.python-version }}
+    name: Test on ${{ matrix.os }} Python ${{ matrix.python-version }}
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 25
     strategy:
+      fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
+        # macOS runner  scarce：仅保留 3.11 冒烟；Linux/Windows 仍跑全版本矩阵。
+        os: [ubuntu-latest, windows-latest]
         python-version: ['3.10', '3.11', '3.12']
+        include:
+          - os: macos-latest
+            python-version: '3.11'
     
     steps:
     - uses: actions/checkout@v4
@@ -37,7 +43,7 @@ jobs:
       run: |
         python -m pip install --upgrade pip
         pip install -r requirements.txt
-        pip install pytest pytest-cov pytest-mock pyyaml
+        pip install pytest pytest-cov pytest-mock pytest-timeout pyyaml
     
     - name: Verify setup.py dependencies
       run: python scripts/verify_setup.py
@@ -54,8 +60,10 @@ jobs:
       run: python scripts/validate_compatibility_matrix.py
 
     - name: Test with pytest
+      env:
+        OBJC_DISABLE_INITIALIZE_FORK_SAFETY: YES
       run: |
-        pytest tests/ -v --cov=solox --cov-report=xml --cov-report=term
+        pytest tests/ -v --cov=solox --cov-report=xml --cov-report=term --timeout=180
     
     - name: Upload coverage to Codecov
       uses: codecov/codecov-action@v3

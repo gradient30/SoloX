@@ -305,6 +305,7 @@ class TestScrcpyRecordPipeline(unittest.TestCase):
             patch.object(Scrcpy, 'scrcpy_path', return_value='scrcpy'),
             patch('solox.public.common.subprocess.Popen', side_effect=fake_popen),
             patch('solox.public.common.time.sleep', return_value=None),
+            patch('time.sleep', return_value=None),
         ):
             result = Scrcpy.start_record('device-1', quality='720p')
 
