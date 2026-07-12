@@ -40,6 +40,13 @@
 
 **背景**：[`docs/视频问题.md`](../视频问题.md) §9 P0；当前 pytest 用 fake moov，**不能**替代 scrcpy 真机路径。
 
+**2026-07-12 验收进展**（vivo V1936A / Android 11 / Cocos `com.lyjz.chqsy.vivo`）：
+
+- [x] R1：MP4 合法、ffprobe 66.5s — 见 [recording-web-flow-2026-07-12.md](../acceptance/recording-web-flow-2026-07-12.md)
+- [x] R5：`/apm/record/stream` HTTP Range 206
+- [ ] R4：报告页播放器铺满弹窗（需浏览器目视）
+- [x] 自动化脚本：`python scripts/accept_record_e2e.py`
+
 **步骤**（按 `docs/视频问题.md` §6）：
 
 1. 启动 SoloX Web，连接 Android 真机，选择 **Cocos 游戏**（或已知 SurfaceView 游戏）。
