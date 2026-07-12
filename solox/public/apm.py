@@ -315,8 +315,8 @@ class Battery(object):
             # Get phone battery info
             cmd = 'dumpsys battery'
             output = adb.shell(cmd=cmd, deviceId=self.deviceId)
-            level = int(re.findall(u'level:\s?(\d+)', output)[0])
-            temperature = int(re.findall(u'temperature:\s?(\d+)', output)[0]) / 10
+            level = int(re.findall(r'level:\s?(\d+)', output)[0])
+            temperature = int(re.findall(r'temperature:\s?(\d+)', output)[0]) / 10
             if noLog is False:
                  apm_time = datetime.datetime.now().strftime('%H:%M:%S.%f')
                  f.add_log(os.path.join(f.report_dir,'battery_level.log'), apm_time, level)

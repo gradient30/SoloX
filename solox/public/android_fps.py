@@ -1129,8 +1129,8 @@ class FPSMonitor(Monitor):
         self.fpscollector.start(self.start_time)
 
     def stop(self):
-        global collect_fps
-        global collect_jank
+        # collect_fps / collect_jank 为模块级全局，此处仅读取返回、不赋值，
+        # 无需 global 声明（保留会触发 flake8 F824）。
         self.fpscollector.stop()
         return collect_fps, collect_jank
 
