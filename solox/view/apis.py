@@ -193,6 +193,30 @@ def _apply_gpu_detail(result, monitor):
     return result
 
 
+def _apply_gpu_frequency(result, monitor):
+    """暴露 Android 芯片级 GPU 频率（运行时 + 静态最大，P2-T5）。
+
+    运行时"当前频率"在多数非 root 设备被 SELinux 拒绝：此时
+    ``gpu_frequency_supported=false`` 且不写入伪造数值（与 gpu_supported 语义
+    一致）。静态最大频率(规格)多数机型可读，作为参考另行标注，明确非运行时遥测。
+
+    注：Mali Non-fragment/Fragment 占比无法经普通 sysfs 获取（需 ARM Streamline
+    /gatord 等厂商性能计数器），本项目不伪造，故不输出该字段。
+    """
+    freq = getattr(monitor, 'gpu_freq_mhz', None)
+    supported = getattr(monitor, 'gpu_freq_supported', False) and freq is not None
+    result['gpu_frequency_supported'] = bool(supported)
+    if supported:
+        result['gpu_frequency_mhz'] = freq
+        source = getattr(monitor, 'gpu_freq_source', None)
+        if source:
+            result['gpu_frequency_source'] = source
+    max_freq = getattr(monitor, 'gpu_max_freq_mhz', None)
+    if isinstance(max_freq, (int, float)):
+        result['gpu_max_frequency_mhz'] = max_freq
+    return result
+
+
 @api.route('/apm/cookie', methods=['post', 'get'])
 def setCookie():
     """set apm data to cookie"""
@@ -693,6 +717,10 @@ def getGpu():
         result = {'status': 1, 'gpu': value}
         _apply_gpu_support(result, gpu, value)
         _apply_gpu_detail(result, gpu)
+        if platform == Platform.Android:
+            gpu.getAndroidGpuFrequency()
+            gpu.getAndroidGpuMaxFrequency()
+            _apply_gpu_frequency(result, gpu)
     except Exception as e:
         logger.exception(e)
         result = {'status': 1, 'gpu': None, 'gpu_supported': False}

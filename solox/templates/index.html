@@ -757,6 +757,7 @@ SoloX - Application Performance Monitoring
         <div id="network" class="network mb-3" style="min-width:400px;height:300px"></div>
         <div id="gpu" class="mb-3 gpu" style="min-width:400px;height:300px"></div>
         <div id="gpu-unsupported-note" class="metric-platform-note text-muted small mb-3" style="display:none;"></div>
+        <div id="gpu-frequency-note" class="metric-platform-note text-muted small mb-3" style="display:none;"></div>
         <div id="disk" class="disk mb-3" style="min-width:400px;height:300px;display: none;"></div>
     </div>
 </div>
@@ -2576,6 +2577,19 @@ adb kill-server &amp;&amp; adb start-server</code></pre>
                             }else{
                                 var gpuNoteOk = document.getElementById('gpu-unsupported-note');
                                 if(gpuNoteOk){ gpuNoteOk.style.display = 'none'; }
+                            }
+                            // 芯片级 GPU 频率（运行时多为 root-only；最大频率为规格值）。
+                            // 如实展示，不支持时不画假值。
+                            var freqNote = document.getElementById('gpu-frequency-note');
+                            if(freqNote){
+                                var freqTxt = '';
+                                if(data['gpu_frequency_supported'] === true && data['gpu_frequency_mhz'] != null){
+                                    freqTxt = 'ℹ️ GPU 运行时频率: ' + data['gpu_frequency_mhz'] + ' MHz';
+                                }else if(data['gpu_max_frequency_mhz'] != null){
+                                    freqTxt = 'ℹ️ GPU 最大频率(规格): ' + data['gpu_max_frequency_mhz'] + ' MHz；运行时频率需 root 权限';
+                                }
+                                if(freqTxt){ freqNote.textContent = freqTxt; freqNote.style.display = ''; }
+                                else { freqNote.style.display = 'none'; }
                             }
                             gpu_chart.series[0].addPoint([x, data['gpu']], true, true);
                             // iOS 额外展示 Renderer/Tiler（后端 gpu_detail_supported 时提供）

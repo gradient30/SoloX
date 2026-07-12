@@ -302,3 +302,12 @@ def test_weaknet_probe_renders_honest_unsupported_for_non_android():
     source = _template('index.html')
     assert 'data.probe_supported === false' in source
     assert 'data.guide' in source
+
+
+def test_gpu_frequency_note_renders_runtime_and_max_honestly():
+    """GPU 芯片级频率：运行时(root-only) 与最大(规格) 如实展示，不画假值。"""
+    source = _template('index.html')
+    assert 'id="gpu-frequency-note"' in source
+    assert "data['gpu_frequency_supported'] === true" in source
+    assert "data['gpu_max_frequency_mhz']" in source
+    assert '运行时频率需 root 权限' in source

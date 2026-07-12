@@ -157,13 +157,19 @@
 3. 前端 GPU 图表：有次级指标时增加 series；不支持时不画假 0。
 4. 单测：mock `adb.shell` 返回样本 sysfs 文本；无节点时 `*_supported=false`。
 
-**验收**：
+**2026-07-12 落地（诚实修正）**：真机核实（SD855/Adreno，非 root）——运行时 GPU 频率/负载被 SELinux 拒绝（同 Phase 1 利用率），仅**静态最大频率**可读（585MHz）。**Mali Non-fragment/Fragment 占比无法经普通 sysfs 获取**（需 ARM Streamline/gatord），已 honest 排除、不伪造。
 
-- [ ] 至少 1 台 Adreno 或 Mali 真机有非空读数（写入验收记录）
-- [ ] 无节点机型返回 supported=false
-- [ ] 与 Phase 1 `gpu_supported=false` 语义不冲突
+- 运行时频率：候选节点尝试 + 缓存；非 root → `gpu_frequency_supported=false`，不伪造。
+- 最大频率：`gpu_max_frequency_mhz`（规格值，多数机型可读）。
+- 前端 `gpu-frequency-note` 如实展示；顺带修复 `adb.shell` 在 Windows 宿主下 `2>/dev/null` 吞值的可靠性 bug。
 
-**涉及文件**：`solox/public/apm.py`、`solox/view/apis.py`、`solox/templates/index.html`、`tests/test_apm_collect_api.py`
+**验收**（见 [gpu-chip-level-2026-07-12.md](../acceptance/gpu-chip-level-2026-07-12.md)）：
+
+- [x] 至少 1 台真机有非空读数（V1936A/SD855 max 585 MHz）
+- [x] 无节点/无权限机型返回 supported=false（不伪造）
+- [x] 与 Phase 1 `gpu_supported=false` 语义一致
+
+**涉及文件**：`solox/public/apm.py`、`solox/view/apis.py`、`solox/templates/index.html`、`tests/test_apm_collect_api.py`、`tests/test_frontend_performance.py`
 
 ---
 
@@ -183,8 +189,7 @@
 - [x] P2-T2 release gate 可选录屏步 + 文档
 - [x] P2-T3 iOS/Android UI 提示无伪 0 回归
 - [x] P2-T4 iOS probe 诚实实现 + 被动 RTT（借鉴 pmd3）；iOS 专属 UI 面板延后（需真机）
-- [ ] P2-T4 iOS probe API + UI + 单测
-- [ ] P2-T5 GPU 芯片级指标（或显式 defer 并记录原因）
+- [x] P2-T5 GPU 芯片级频率（运行时 root-only + 最大规格）；Mali fragment 占比 honest 排除（需 Streamline）
 
 ---
 

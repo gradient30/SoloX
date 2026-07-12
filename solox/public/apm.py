@@ -529,6 +529,26 @@ class FPS(object):
         return fps, jank
 
 class GPU(object):
+    # 运行时 GPU 频率候选只读节点及其单位（按机型顺序尝试，首个可读者生效）。
+    # 现代 Android 上这些"当前频率"节点通常被 SELinux 限制为 root 可读，非 root
+    # 设备会 Permission denied → 如实置 gpu_frequency_supported=false，绝不伪造。
+    _FREQ_RUNTIME_NODES = (
+        ('/sys/class/kgsl/kgsl-3d0/gpuclk', 'hz'),
+        ('/sys/class/kgsl/kgsl-3d0/devfreq/cur_freq', 'hz'),
+        ('/sys/class/kgsl/kgsl-3d0/clock_mhz', 'mhz'),
+        ('/sys/kernel/gpu/gpu_clock', 'mhz'),          # Mali/Exynos
+        ('/sys/class/misc/mali0/device/cur_freq', 'hz'),  # Mali(部分内核)
+    )
+    # 静态最大频率（规格值，多数机型非 root 也可读；仅作参考，非运行时遥测）。
+    _FREQ_MAX_NODES = (
+        ('/sys/class/kgsl/kgsl-3d0/max_gpuclk', 'hz'),
+        ('/sys/kernel/gpu/gpu_max_clock', 'mhz'),
+    )
+    # 按 deviceId 缓存首个可读运行时节点；None 表示已探测且全部不可读，避免每次
+    # 轮询都重复多次 adb cat。
+    _freq_node_cache: dict = {}
+    _maxfreq_cache: dict = {}
+
     def __init__(self, pkgName, deviceId, platform=Platform.Android):
         self.pkgName = pkgName
         self.deviceId = deviceId
@@ -541,6 +561,92 @@ class GPU(object):
         # gpu_supported=false（而非伪造 0，误导用户以为"GPU 空闲"）。
         self.gpu_supported = True
         self.gpu_unsupported_reason = None
+        # 芯片级 GPU 频率（运行时/最大）；默认不支持，读到才置 True。
+        self.gpu_freq_supported = False
+        self.gpu_freq_mhz = None
+        self.gpu_freq_source = None
+        self.gpu_max_freq_mhz = None
+
+    def _read_freq_node(self, path: str, unit: str) -> Optional[float]:
+        """读取单个频率 sysfs 节点并换算为 MHz。
+
+        :param path: sysfs 绝对路径。
+        :param unit: 节点原始单位，``'hz'`` / ``'khz'`` / ``'mhz'``。
+        :return: MHz(float)；不可读/权限拒绝/非数值/非正数时返回 ``None``。
+        """
+        # 不加 ``2>/dev/null``：Windows 宿主 shell 会吞掉重定向导致读不到值；
+        # adb.shell 本就只取 stdout，权限拒绝/不存在的 stderr 不会混入，非数值
+        # 输出会被下方数字校验拒绝。
+        out = adb.shell(cmd='cat {}'.format(path), deviceId=self.deviceId)
+        token = (out or '').strip().split()[0] if (out or '').strip() else ''
+        if not token.lstrip('-').isdigit():
+            return None
+        value = int(token)
+        if value <= 0:
+            return None
+        if unit == 'hz':
+            return round(value / 1_000_000, 1)
+        if unit == 'khz':
+            return round(value / 1000, 1)
+        return float(value)
+
+    def getAndroidGpuFrequency(self) -> Optional[float]:
+        """读取运行时 GPU 频率(MHz)。
+
+        非 root 设备的"当前频率"节点通常被 SELinux 拒绝（Permission denied），
+        此时返回 ``None`` 且 ``gpu_frequency_supported=false``，**绝不伪造**。
+        已 root 或节点可读时返回真实 MHz。首个可读节点按 deviceId 缓存。
+
+        :return: 当前 GPU 频率(MHz)；不可用时 ``None``。
+        """
+        self.gpu_freq_supported = False
+        self.gpu_freq_mhz = None
+        self.gpu_freq_source = None
+        try:
+            cached = GPU._freq_node_cache.get(self.deviceId, '__unset__')
+            if cached is None:
+                return None  # 已探测：无可读节点（非 root），零额外 adb 调用
+            candidates = ([cached] if isinstance(cached, tuple)
+                          else list(self._FREQ_RUNTIME_NODES))
+            for path, unit in candidates:
+                mhz = self._read_freq_node(path, unit)
+                if mhz is not None:
+                    GPU._freq_node_cache[self.deviceId] = (path, unit)
+                    self.gpu_freq_supported = True
+                    self.gpu_freq_mhz = mhz
+                    self.gpu_freq_source = path
+                    return mhz
+            if cached == '__unset__':
+                GPU._freq_node_cache[self.deviceId] = None
+            return None
+        except Exception as e:
+            logger.warning('[GPU] %s 读取运行时频率异常：%s', self.deviceId, e)
+            return None
+
+    def getAndroidGpuMaxFrequency(self) -> Optional[float]:
+        """读取静态最大 GPU 频率(MHz，规格值)。
+
+        多数机型此节点非 root 亦可读；仅作参考上下文，**不是**运行时遥测。
+        结果按 deviceId 缓存（静态值）。
+
+        :return: 最大 GPU 频率(MHz)；不可读时 ``None``。
+        """
+        if self.deviceId in GPU._maxfreq_cache:
+            self.gpu_max_freq_mhz = GPU._maxfreq_cache[self.deviceId]
+            return self.gpu_max_freq_mhz
+        value = None
+        try:
+            for path, unit in self._FREQ_MAX_NODES:
+                mhz = self._read_freq_node(path, unit)
+                if mhz is not None:
+                    value = mhz
+                    break
+        except Exception as e:
+            logger.warning('[GPU] %s 读取最大频率异常：%s', self.deviceId, e)
+            value = None
+        GPU._maxfreq_cache[self.deviceId] = value
+        self.gpu_max_freq_mhz = value
+        return value
 
     def getAndroidGpuRate(self):
         """读取 Adreno(kgsl) GPU 利用率(%)。

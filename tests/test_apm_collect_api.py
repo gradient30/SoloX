@@ -341,6 +341,97 @@ class TestMetricSupportHelpers(unittest.TestCase):
         self.assertNotIn('renderer', result)
         self.assertNotIn('gpu_detail_supported', result)
 
+    def test_gpu_frequency_supported_exposed(self):
+        from solox.view import apis
+        monitor = MagicMock()
+        monitor.gpu_freq_mhz = 585.0
+        monitor.gpu_freq_supported = True
+        monitor.gpu_freq_source = '/sys/class/kgsl/kgsl-3d0/gpuclk'
+        monitor.gpu_max_freq_mhz = 700.0
+        result = apis._apply_gpu_frequency({'status': 1, 'gpu': 50.0}, monitor)
+        self.assertTrue(result['gpu_frequency_supported'])
+        self.assertEqual(result['gpu_frequency_mhz'], 585.0)
+        self.assertEqual(result['gpu_max_frequency_mhz'], 700.0)
+
+    def test_gpu_frequency_unsupported_no_fake_value(self):
+        from solox.view import apis
+        monitor = MagicMock()
+        monitor.gpu_freq_mhz = None
+        monitor.gpu_freq_supported = False
+        monitor.gpu_max_freq_mhz = 585.0  # 规格值可读，运行时不可读
+        result = apis._apply_gpu_frequency({'status': 1, 'gpu': None}, monitor)
+        self.assertFalse(result['gpu_frequency_supported'])
+        self.assertNotIn('gpu_frequency_mhz', result)
+        self.assertEqual(result['gpu_max_frequency_mhz'], 585.0)
+
+
+class TestGpuFrequencyReading(unittest.TestCase):
+    """GPU 芯片级频率 sysfs 读取（mock adb，不触真机）。"""
+
+    def setUp(self):
+        from solox.public.apm import GPU
+        GPU._freq_node_cache.clear()
+        GPU._maxfreq_cache.clear()
+
+    def tearDown(self):
+        from solox.public.apm import GPU
+        GPU._freq_node_cache.clear()
+        GPU._maxfreq_cache.clear()
+
+    @patch('solox.public.apm.adb')
+    def test_runtime_freq_readable_hz_to_mhz(self, mock_adb):
+        from solox.public.apm import GPU
+        # 首个运行时节点 gpuclk 返回 Hz
+        mock_adb.shell.return_value = '585000000'
+        gpu = GPU(pkgName='p', deviceId='dev1')
+        mhz = gpu.getAndroidGpuFrequency()
+        self.assertEqual(mhz, 585.0)
+        self.assertTrue(gpu.gpu_freq_supported)
+        self.assertEqual(gpu.gpu_freq_source,
+                         '/sys/class/kgsl/kgsl-3d0/gpuclk')
+
+    @patch('solox.public.apm.adb')
+    def test_runtime_freq_permission_denied_is_unsupported(self, mock_adb):
+        from solox.public.apm import GPU
+        # 所有候选节点均权限拒绝 → cat 2>/dev/null 得空串
+        mock_adb.shell.return_value = ''
+        gpu = GPU(pkgName='p', deviceId='dev2')
+        mhz = gpu.getAndroidGpuFrequency()
+        self.assertIsNone(mhz)
+        self.assertFalse(gpu.gpu_freq_supported)
+        # 探测后缓存为 None，二次调用不再发起 adb
+        calls_after_first = mock_adb.shell.call_count
+        gpu2 = GPU(pkgName='p', deviceId='dev2')
+        gpu2.getAndroidGpuFrequency()
+        self.assertEqual(mock_adb.shell.call_count, calls_after_first)
+
+    @patch('solox.public.apm.adb')
+    def test_max_freq_cached_static(self, mock_adb):
+        from solox.public.apm import GPU
+        mock_adb.shell.return_value = '585000000'
+        gpu = GPU(pkgName='p', deviceId='dev3')
+        self.assertEqual(gpu.getAndroidGpuMaxFrequency(), 585.0)
+        first = mock_adb.shell.call_count
+        # 二次读取走缓存，不再发起 adb
+        gpu2 = GPU(pkgName='p', deviceId='dev3')
+        self.assertEqual(gpu2.getAndroidGpuMaxFrequency(), 585.0)
+        self.assertEqual(mock_adb.shell.call_count, first)
+
+    @patch('solox.public.apm.adb')
+    def test_mhz_node_not_rescaled(self, mock_adb):
+        from solox.public.apm import GPU
+
+        def fake_shell(cmd, deviceId):
+            # 仅 clock_mhz(MHz 单位) 可读，其余为空
+            if 'clock_mhz' in cmd:
+                return '442'
+            return ''
+        mock_adb.shell.side_effect = fake_shell
+        gpu = GPU(pkgName='p', deviceId='dev4')
+        self.assertEqual(gpu.getAndroidGpuFrequency(), 442.0)
+        self.assertEqual(gpu.gpu_freq_source,
+                         '/sys/class/kgsl/kgsl-3d0/clock_mhz')
+
 
 class TestApmCollectApiMethods(unittest.TestCase):
     """Endpoint accepts GET and POST."""
