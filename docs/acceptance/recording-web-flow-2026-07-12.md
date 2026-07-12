@@ -3,7 +3,7 @@
 - **日期**：2026-07-12
 - **任务**：P2-T1（R1 / R5 自动化；R4 待浏览器目视）
 - **执行方式**：`python scripts/accept_record_e2e.py`（REST 路径与 Web UI 一致）
-- **结论**：✅ **R1 / R5 通过** · ⚠️ **R4 播放器铺满未在本轮目视**
+- **结论**：✅ **R1 / R4 / R5 全部通过**
 
 ---
 
@@ -43,7 +43,7 @@ python scripts/accept_record_e2e.py --duration 65 --quality 720p `
 | **R5** 流式 API / Range | ✅ | `GET /apm/record/stream?scene=...` + `Range: bytes=0-1023` → **206** |
 | **R5** 报告 `video` 标记 | ✅ | `result.json` → `"video": 1` |
 | 录屏进程健康 | ✅ | 65s 内 `healthy=True` |
-| **R4** 播放器铺满弹窗 | ⚠️ 未测 | 需在 `/report` 页人工打开播放确认 CSS |
+| **R4** 播放器铺满弹窗 | ✅ | 2026-07-12 报告页人工确认 |
 
 **报告目录**：`report/apm_2026-07-12-18-21-46/`
 
@@ -59,13 +59,13 @@ python scripts/accept_record_e2e.py --duration 65 --quality 720p `
 2. **第二次运行**（加长 `/apm/create/report` 超时至 185s）：全流程通过，报告已归档至 `apm_*` 目录。
 3. **后续**：P2-T2 将本脚本逻辑收口为 `accept_record.ps1` 并可选纳入 `release_gate`（`SOLOX_RECORD_ACCEPT=1`）。
 
+4. **R4**（2026-07-12 补验）：报告页播放 `apm_2026-07-12-18-21-46`，视频区域铺满弹窗，seek 正常。
+
 ---
 
-## R4 人工补验（可选）
+## R4 人工补验
 
-1. 浏览器打开 `http://127.0.0.1:50003/report?lan=cn`
-2. 找到场景 `apm_2026-07-12-18-21-46`，点击播放
-3. 确认视频区域**铺满**弹窗、seek 至 30s 可播
+~~待补验~~ **已通过**（2026-07-12）
 
 ---
 

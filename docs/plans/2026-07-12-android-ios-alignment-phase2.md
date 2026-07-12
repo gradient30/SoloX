@@ -44,7 +44,7 @@
 
 - [x] R1：MP4 合法、ffprobe 66.5s — 见 [recording-web-flow-2026-07-12.md](../acceptance/recording-web-flow-2026-07-12.md)
 - [x] R5：`/apm/record/stream` HTTP Range 206
-- [ ] R4：报告页播放器铺满弹窗（需浏览器目视）
+- [x] R4：报告页播放器铺满弹窗 — 2026-07-12 人工确认
 - [x] 自动化脚本：`python scripts/accept_record_e2e.py`
 
 **步骤**（按 `docs/视频问题.md` §6）：
@@ -169,7 +169,7 @@
 
 满足以下全部项可关闭 Phase 2，并回写 Cursor plan 对应 todo 为 `completed`：
 
-- [ ] P2-T1 验收记录入库
+- [x] P2-T1 验收记录入库
 - [ ] P2-T2 release gate 可选录屏步 + 文档
 - [ ] P2-T3 iOS/Android UI 提示无伪 0 回归
 - [ ] P2-T4 iOS probe API + UI + 单测
