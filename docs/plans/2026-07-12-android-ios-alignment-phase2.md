@@ -201,6 +201,14 @@
 |------|------|------|
 | [2026-07-11-ios-pmd3-backend.md](./2026-07-11-ios-pmd3-backend.md) | pymobiledevice3：隧道、Condition Inducer、截图录屏、CoreProfileSessionTap Jank | 代码骨架已 land（`a7fd988`），**真机标定待定** |
 | [2026-07-11-ios-gap-and-oss-survey.md](./2026-07-11-ios-gap-and-oss-survey.md) | 默认 tidevice 链路不做真 Jank 的结论依据 | ✅ 已关闭 |
+| [../acceptance/ios-real-device-2026-07-12.md](../acceptance/ios-real-device-2026-07-12.md) | iOS 真机验收尝试：Windows 缺 Apple Mobile Device Service（usbmux 183）阻塞，转 macOS 续验 | ⛔ 环境阻塞，待 macOS |
+
+### iOS 真机验收状态（2026-07-12）
+
+Windows 本机缺少 "Apple Mobile Device Service"，pmd3 配对报 `MuxException 183`，
+**全部 iOS `ios_ext` 真机能力（含 P2-T4 被动 RTT 单位标定、iOS 弱网 UI 面板）暂
+无法验收**，已如实记录并转 macOS 真机续验（清单见验收记录文档）。代码与 mock 单测
+不受影响。
 
 **原则**：默认安装路径（`pip install solox`）的行为以 Phase 2 为准；`pip install "solox[ios]"` 能力单独验收、单独文档，不算「双端默认对齐完成」。
 

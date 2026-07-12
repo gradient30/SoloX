@@ -65,6 +65,15 @@
   - D 的 kdebug CoreAnimation 帧事件码与 Jank 阈值标定。
 - 不以任何模拟/假数据冒充真机验证结果。
 
+### Windows 前置条件（2026-07-12 实测记录）
+
+- Windows 上 pmd3/tidevice 均依赖 **"Apple Mobile Device Service"**（随 iTunes /
+  "Apple 设备" App 安装）。缺失时 `usbmux list` 仍能枚举设备，但**保存配对记录**
+  会报 `MuxException Number: 183`，阻塞全部 lockdown/DVT 能力。
+- 2026-07-12 曾接入 iPhone17,5 / iOS 26.5 真机，因本机该服务安装失败而无法验收，
+  已转 macOS 续验。详见 [ios-real-device-2026-07-12.md](../acceptance/ios-real-device-2026-07-12.md)。
+- macOS 原生支持 usbmux 且对 iOS 17.4+ 全支持，无需该服务，为推荐验收环境。
+
 ## 任务
 
 1. `ios_ext` 能力探测骨架（可选依赖、惰性）
