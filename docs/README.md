@@ -35,6 +35,7 @@
 ### 工程化与验收
 
 - [实施与验收计划](./plans/README.md) — 性能验收等过程文档
+- [双端对齐 Phase 2 任务](./plans/2026-07-12-android-ios-alignment-phase2.md) — 录屏/弱网/UI/GPU 芯片级
 - [项目目录与日志](./06-engineering/project-layout.md)
 - [弱网工具技术说明](./06-engineering/weak-network-tooling.md)
 - [本地开发 vs 线上发布](./06-engineering/release-and-dev-standards.md)
