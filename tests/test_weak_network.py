@@ -147,7 +147,18 @@ class TestWeakNetworkProfile:
 class TestWeakNetApplyClear(unittest.TestCase):
 
     def setUp(self):
-        WeakNetworkManager.clear('dev1')
+        import solox.public.weak_network as wn
+
+        # 仅重置进程内状态；勿调用 WeakNetworkManager.clear()——在无真机的 CI
+        # 上会走 adb shell（ip route / su），subprocess 永久阻塞直至 pytest 超时。
+        wn._active.clear()
+        wn._active_engines.clear()
+
+    def tearDown(self):
+        import solox.public.weak_network as wn
+
+        wn._active.clear()
+        wn._active_engines.clear()
 
     @patch.object(WeakNetworkManager, '_has_root', return_value=True)
     @patch.object(WeakNetworkManager, '_tc_available', return_value=True)
@@ -174,10 +185,18 @@ class TestWeakNetApplyClear(unittest.TestCase):
     @patch.object(WeakNetworkManager, '_run_root', return_value='cleared')
     def test_clear(self, mock_run, *_mocks):
         import solox.public.weak_network as wn
-        wn._active['dev1'] = {'preset': '3g', 'interface': 'wlan0', 'params': {}}
+
+        root_eng = WeakNetworkManager._root_engine()
+        root_eng._active['dev1'] = {
+            'preset': '3g',
+            'interface': 'wlan0',
+            'params': {},
+        }
+        wn._active_engines['dev1'] = 'root_tc'
         out = WeakNetworkManager.clear('dev1')
         self.assertEqual(out['status'], 1)
-        self.assertNotIn('dev1', wn._active)
+        self.assertNotIn('dev1', root_eng._active)
+        self.assertNotIn('dev1', wn._active_engines)
         mock_run.assert_called()
 
     @patch('solox.public.weak_network.adb.shell')
