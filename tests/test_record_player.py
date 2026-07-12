@@ -167,15 +167,34 @@ class TestRecordPlayerApi(unittest.TestCase):
 
 
 class _FakeProcess:
+    """subprocess.Popen 的完整测试替身。
+
+    补齐 poll/wait/terminate/kill/send_signal/communicate 与上下文管理协议，
+    使其在任意平台的启动/清理路径下（如非 Windows 走 send_signal(SIGINT) →
+    terminate → kill 的优雅停止链）都不会因缺少属性抛 AttributeError/TypeError。
+    """
 
     pid = 12345
+    returncode = None
 
     def poll(self):
         return None
 
-    # 真实 subprocess.Popen 支持 with 上下文管理协议；补齐以便无论生产代码
-    # 以何种方式（直接调用或 with 包裹）使用返回对象，测试替身都不会因缺少
-    # __enter__/__exit__ 而在非 Windows 平台上抛 TypeError。
+    def wait(self, timeout=None):
+        return 0
+
+    def send_signal(self, _sig):
+        return None
+
+    def terminate(self):
+        return None
+
+    def kill(self):
+        return None
+
+    def communicate(self, input=None, timeout=None):
+        return (b'', b'')
+
     def __enter__(self):
         return self
 
@@ -186,9 +205,25 @@ class _FakeProcess:
 class _ExitedProcess:
 
     pid = 12345
+    returncode = 1
 
     def poll(self):
         return 1
+
+    def wait(self, timeout=None):
+        return 1
+
+    def send_signal(self, _sig):
+        return None
+
+    def terminate(self):
+        return None
+
+    def kill(self):
+        return None
+
+    def communicate(self, input=None, timeout=None):
+        return (b'', b'')
 
     def __enter__(self):
         return self
