@@ -4891,7 +4891,18 @@ adb kill-server &amp;&amp; adb start-server</code></pre>
         var host = $('#weaknet-probe-host').val() || '8.8.8.8';
         $('#weaknet-probe-result').text(lan === 'cn' ? '探测中…' : 'Probing…');
         $.get('/apm/weaknet/probe', { platform: platform, device: device, host: host, count: 10 }, function (data) {
-            if (data.status !== 1 || !data.probe) {
+            if (data.status !== 1) {
+                $('#weaknet-probe-result').text(data.msg || 'probe failed');
+                return;
+            }
+            // iOS 等无设备侧主动 ping 的平台：如实展示不支持 + 指引，而非空 RTT
+            if (data.probe_supported === false && !data.probe) {
+                var honest = [(data.msg || 'active probe not supported on this platform')];
+                if (data.guide) { honest.push('', data.guide); }
+                $('#weaknet-probe-result').html(honest.join('<br>'));
+                return;
+            }
+            if (!data.probe) {
                 $('#weaknet-probe-result').text(data.msg || 'probe failed');
                 return;
             }

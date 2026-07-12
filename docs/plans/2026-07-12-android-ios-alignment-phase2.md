@@ -123,15 +123,24 @@
 3. 前端弱网面板：iOS 设备时隐藏「应用预设/Agent」注入控件，展示 **探测结果** + 「在设置中启用 NLC」外链/折叠说明。
 4. 单测：mock ping 输出，覆盖 iOS/Android 分支（**setUp 禁止真实 adb**，见 [`ci-gate-playbook.md`](../06-engineering/ci-gate-playbook.md)）。
 
+**2026-07-12 落地（诚实修正）**：核实发现——**非越狱 iOS 无 shell，不存在设备侧主动 ping**。原计划"设备 shell ping"技术上不成立，已改为诚实实现：
+
+- **核心（已验证）**：`/apm/weaknet/probe` 改为平台感知——Android 走真实 adb ping（真机联调 RTT 38–52ms/0% loss）；iOS 返回 `probe_supported=false` + NLC 指引 + `guide_doc`，**绝不调用 adb**（CI 无真机不阻塞）。
+- **可选（借鉴 pymobiledevice3 `NetworkMonitor`，真机单位待标定）**：`solox/public/ios_ext/netprobe.py` 被动 RTT（读取现有连接内核 `min_rtt/avg_rtt`）；装了 `solox[ios]` 时 iOS probe 返回被动 RTT，失败则诚实降级不伪造。
+- **前端**：探测结果渲染新增 `probe_supported=false` 分支（展示指引而非空 RTT）。iOS 专属弱网面板（当前 offcanvas 为 Android-gated）**延后**至有 iOS 真机可验证时再做。
+
 **验收**：
 
-- [ ] iOS 选中时可点「探测」并看到 RTT/丢包
-- [ ] 无 root 注入按钮误展示
-- [ ] pytest 新增 ≥3 用例且 CI 无 adb 阻塞
+- [x] iOS 探测返回诚实不支持 + NLC 指引（不触 adb）；装 solox[ios] 时走被动 RTT
+- [x] Android 真机 probe 联调通过（真实 ping）
+- [x] pytest 新增 9 用例（netprobe 纯函数 3 + probe 端点 5 + 前端 1），CI 无 adb 阻塞
+- [ ] iOS 专属弱网 UI 面板（延后，需 iOS 真机验证）
 
-**涉及文件**：`solox/view/apis.py`、`solox/public/weak_network.py`、`solox/templates/index.html`、`tests/test_weak_network.py`
+**涉及文件**：`solox/view/apis.py`、`solox/public/ios_ext/netprobe.py`、`solox/templates/index.html`、`tests/test_ios_netprobe.py`、`tests/test_weaknet_probe_api.py`、`tests/test_frontend_performance.py`
 
-**备注**：程序化 Condition Inducer 属 [`2026-07-11-ios-pmd3-backend.md`](./2026-07-11-ios-pmd3-backend.md) 可选轨道，**不**与本任务合并。
+**借鉴调研**：见 [2026-07-12-ios-oss-borrow-survey.md](./2026-07-12-ios-oss-borrow-survey.md)（pymobiledevice3 / go-ios / sonic-ios-bridge 的可借鉴技术与许可证边界）。
+
+**备注**：程序化 Condition Inducer 与被动 RTT 均属 [`2026-07-11-ios-pmd3-backend.md`](./2026-07-11-ios-pmd3-backend.md) 可选轨道。
 
 ---
 
@@ -173,6 +182,7 @@
 - [x] P2-T1 验收记录入库
 - [x] P2-T2 release gate 可选录屏步 + 文档
 - [x] P2-T3 iOS/Android UI 提示无伪 0 回归
+- [x] P2-T4 iOS probe 诚实实现 + 被动 RTT（借鉴 pmd3）；iOS 专属 UI 面板延后（需真机）
 - [ ] P2-T4 iOS probe API + UI + 单测
 - [ ] P2-T5 GPU 芯片级指标（或显式 defer 并记录原因）
 

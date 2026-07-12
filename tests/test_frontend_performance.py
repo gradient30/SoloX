@@ -295,3 +295,10 @@ def test_ios_platform_limitations_shown_explicitly_not_silently():
     assert "getElementById('gpu-unsupported-note')" in source
     assert "gpuNote.style.display = ''" in source
     assert "gpuNoteOk.style.display = 'none'" in source
+
+
+def test_weaknet_probe_renders_honest_unsupported_for_non_android():
+    """探测结果渲染须处理 probe_supported=false（iOS 无主动 ping）而非空 RTT。"""
+    source = _template('index.html')
+    assert 'data.probe_supported === false' in source
+    assert 'data.guide' in source

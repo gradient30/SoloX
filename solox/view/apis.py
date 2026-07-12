@@ -1474,6 +1474,71 @@ def _ios_weaknet_capabilities(device):
             'engine': 'ios_condition_inducer', 'profiles': profiles}
 
 
+IOS_WEAKNET_GUIDE = (
+    'iOS 设备侧主动 ping 不可用（非越狱设备无 shell）。请在被测 iPhone：'
+    '设置 → 开发者 → Network Link Conditioner 选择档位施加弱网，'
+    'SoloX 会如实记录该期间性能数据；程序化档位见 solox[ios] 的 '
+    'Condition Inducer（/apm/weaknet/ios/profiles）。'
+)
+
+IOS_WEAKNET_GUIDE_DOC = 'docs/05-issues/faq.md (§20)'
+
+
+def _ios_weaknet_probe(device, duration=5.0):
+    """iOS 网络探测（诚实版）。
+
+    非越狱 iOS **没有 shell**，无法像 Android 那样跑设备侧 ``ping`` 主动探测
+    RTT/丢包。默认返回 ``probe_supported=false`` + Network Link Conditioner
+    指引，绝不伪造数据。若安装了 ``solox[ios]``，则额外尝试基于 Instruments
+    ``NetworkMonitor`` 的**被动** RTT 采样（借鉴 pymobiledevice3，读取现有连接
+    的内核 RTT，非主动 ping）。
+
+    Args:
+        device: 设备显示名或 udid。
+        duration: 被动采样窗口秒数（仅 solox[ios] 路径使用）。
+
+    Returns:
+        dict: 含 ``probe_supported`` / ``passive_rtt_supported`` / ``guide``。
+    """
+    from solox.public import ios_ext
+
+    resp = {
+        'status': 1,
+        'platform': Platform.iOS,
+        'probe_supported': False,
+        'passive_rtt_supported': False,
+        'guide': IOS_WEAKNET_GUIDE,
+        'guide_doc': IOS_WEAKNET_GUIDE_DOC,
+        'msg': (
+            'iOS 无设备侧主动 ping；请用 Network Link Conditioner，'
+            '或安装 solox[ios] 采集被动 RTT'
+        ),
+    }
+    if not ios_ext.is_available():
+        return resp
+
+    try:
+        from solox.public.ios_ext import netprobe
+        device_id = d.getIdbyDevice(device, Platform.iOS)
+        probe = netprobe.sample_rtt(device_id, duration=duration)
+        resp['passive_rtt_supported'] = True
+        resp['mode'] = 'passive_networkmonitor'
+        resp['probe'] = probe
+        resp['msg'] = (
+            'iOS 被动 RTT（Instruments NetworkMonitor，读取现有连接内核 RTT，'
+            '非主动 ping）'
+        )
+    except Exception as e:  # noqa: BLE001 - 采样失败降级为诚实不支持
+        logger.exception(e)
+        resp['passive_rtt_supported'] = True
+        resp['passive_error'] = str(e) or e.__class__.__name__
+        resp['msg'] = (
+            'iOS 被动 RTT 采样失败（多为未连真机/未启 tunneld）；'
+            '已降级为诚实不支持，未伪造数据'
+        )
+    return resp
+
+
 def _ios_weaknet_apply(device_id, profile_identifier):
     """应用 iOS 弱网档位（Condition Inducer）。
 
@@ -1689,9 +1754,24 @@ def weaknet_probe():
     host = request.args.get('host') or WeakNetworkManager.DEFAULT_PROBE_HOST
     count = request.args.get('count', 10)
     try:
+        if platform == Platform.iOS:
+            duration = float(request.values.get('duration', 5) or 5)
+            return _ios_weaknet_probe(device, duration=duration)
+        if platform != Platform.Android:
+            return {
+                'status': 1,
+                'platform': platform,
+                'probe_supported': False,
+                'msg': 'active probe is available on Android (adb ping) only',
+            }
         device_id = d.getIdbyDevice(device, platform)
         probe = WeakNetworkManager.probe(device_id, host=host, count=count)
-        return {'status': 1, 'probe': probe.to_dict()}
+        return {
+            'status': 1,
+            'platform': Platform.Android,
+            'probe_supported': True,
+            'probe': probe.to_dict(),
+        }
     except Exception as e:
         logger.exception(e)
         return {'status': 0, 'msg': str(e)}
