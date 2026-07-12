@@ -297,6 +297,10 @@ class TestScrcpyRecordPipeline(unittest.TestCase):
         with (
             patch.object(File, 'get_repordir', return_value=self.tmp),
             patch.object(Scrcpy, '_find_ffmpeg_binary', return_value='ffmpeg'),
+            # Linux 的 platform.architecture() 会通过 subprocess.run() 执行
+            # ``file`` 命令；本测试需替换 subprocess.Popen 来观察 scrcpy 的
+            # 启动参数，故固定 scrcpy 路径，隔离无关的平台探测。
+            patch.object(Scrcpy, 'scrcpy_path', return_value='scrcpy'),
             patch('solox.public.common.subprocess.Popen', side_effect=fake_popen),
             patch('solox.public.common.time.sleep', return_value=None),
         ):
