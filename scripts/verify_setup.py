@@ -8,6 +8,23 @@ import re
 import sys
 from pathlib import Path
 
+
+def configure_utf8_stdout() -> None:
+    """将可重配置的标准输出切换为 UTF-8，避免旧 Windows 代码页编码失败。
+
+    GitHub Actions 的 Windows Python 3.10 runner 可能使用 CP1252 标准输出；
+    本脚本包含中文和状态图标，直接 ``print`` 会抛出
+    :class:`UnicodeEncodeError`。UTF-8 是 GitHub Actions 日志与本仓库脚本
+    输出的统一编码。无法重配置的自定义输出流保持原状。
+    """
+    reconfigure = getattr(sys.stdout, "reconfigure", None)
+    if callable(reconfigure):
+        try:
+            reconfigure(encoding="utf-8", errors="backslashreplace")
+        except (OSError, ValueError):
+            pass
+
+
 def parse_setup_py():
     """解析 setup.py 中的依赖"""
     setup_path = Path(__file__).parent.parent / "setup.py"
@@ -92,6 +109,7 @@ def check_critical_versions(dependencies):
     return issues
 
 def main():
+    configure_utf8_stdout()
     print("🔧 SoloX setup.py 验证工具")
     print("=" * 40)
     print()
